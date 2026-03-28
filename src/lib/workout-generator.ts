@@ -51,8 +51,6 @@ function determineSplitDays(
   workoutDays: number,
   goal: string
 ): SplitDay[] {
-  const wantsCardio = goal === "lose_weight" || goal === "improve_endurance"
-
   if (workoutDays <= 3) {
     const days: SplitDay[] = []
     for (let i = 0; i < workoutDays; i++) {
@@ -65,7 +63,7 @@ function determineSplitDays(
           ["quads", "hamstrings", "glutes"],
           ["core"],
         ],
-        addCardio: wantsCardio,
+        addCardio: true,
       })
     }
     return days
@@ -83,7 +81,7 @@ function determineSplitDays(
           ["biceps"],
           ["triceps"],
         ],
-        addCardio: false,
+        addCardio: true,
       },
       {
         name: "Lower Body A",
@@ -92,8 +90,9 @@ function determineSplitDays(
           ["quads"],
           ["hamstrings", "glutes"],
           ["calves"],
+          ["core"],
         ],
-        addCardio: wantsCardio,
+        addCardio: true,
       },
       {
         name: "Upper Body B",
@@ -105,7 +104,7 @@ function determineSplitDays(
           ["biceps"],
           ["triceps"],
         ],
-        addCardio: false,
+        addCardio: true,
       },
       {
         name: "Lower Body B",
@@ -114,8 +113,9 @@ function determineSplitDays(
           ["quads"],
           ["hamstrings", "glutes"],
           ["calves"],
+          ["core"],
         ],
-        addCardio: wantsCardio,
+        addCardio: true,
       },
     ]
   }
@@ -126,13 +126,13 @@ function determineSplitDays(
       name: "Push",
       splitType: "push",
       muscleGroups: [["chest"], ["shoulders"], ["triceps"]],
-      addCardio: false,
+      addCardio: true,
     },
     {
       name: "Pull",
       splitType: "pull",
       muscleGroups: [["back"], ["biceps"]],
-      addCardio: false,
+      addCardio: true,
     },
     {
       name: "Legs",
@@ -141,13 +141,13 @@ function determineSplitDays(
         ["quads"],
         ["hamstrings", "glutes"],
         ["calves"],
+        ["core"],
       ],
-      addCardio: wantsCardio,
+      addCardio: true,
     },
   ]
 
   if (workoutDays <= 5) {
-    // PPL + upper + lower
     return [
       ...pplBase,
       {
@@ -160,7 +160,7 @@ function determineSplitDays(
           ["biceps"],
           ["triceps"],
         ],
-        addCardio: false,
+        addCardio: true,
       },
       {
         name: "Lower Body",
@@ -169,8 +169,9 @@ function determineSplitDays(
           ["quads"],
           ["hamstrings", "glutes"],
           ["calves"],
+          ["core"],
         ],
-        addCardio: wantsCardio,
+        addCardio: true,
       },
     ]
   }
@@ -194,6 +195,10 @@ function filterByDifficulty(
   return pool.filter((e) => (DIFFICULTY_RANK[e.difficulty] ?? 1) <= maxRank)
 }
 
+function shuffle<T>(arr: T[]): T[] {
+  return [...arr].sort(() => Math.random() - 0.5)
+}
+
 function pickExercises(
   muscleTargets: string[],
   fitnessLevel: string,
@@ -210,9 +215,7 @@ function pickExercises(
     fitnessLevel
   )
 
-  // Shuffle deterministically by spreading and sorting with pseudo-random
-  const shuffled = [...pool].sort(() => Math.random() - 0.5)
-  return shuffled.slice(0, count)
+  return shuffle(pool).slice(0, count)
 }
 
 function pickCardio(
@@ -229,6 +232,32 @@ function pickCardio(
   return pool[Math.floor(Math.random() * pool.length)]
 }
 
+function pickCalisthenics(
+  muscleTargets: string[],
+  fitnessLevel: string,
+  count: number,
+  alreadyPicked: Set<string>
+): ExerciseDefinition[] {
+  const bodyweightIds = [
+    "push-ups",
+    "plank",
+    "mountain-climbers",
+    "bicycle-crunches",
+    "dead-bug",
+  ]
+  const pool = filterByDifficulty(
+    exercises.filter(
+      (e) =>
+        bodyweightIds.includes(e.id) &&
+        !alreadyPicked.has(e.id) &&
+        e.muscleGroups.some((mg) => muscleTargets.includes(mg))
+    ),
+    fitnessLevel
+  )
+
+  return shuffle(pool).slice(0, count)
+}
+
 export function generateWorkout(
   input: GenerateWorkoutInput
 ): GeneratedWorkout[] {
@@ -241,7 +270,7 @@ export function generateWorkout(
     const generatedExercises: GeneratedExercise[] = []
 
     // For each muscle group target, pick 1-2 exercises
-    const targetExerciseCount = day.splitType === "full_body" ? 6 : 7
+    const targetExerciseCount = day.splitType === "full_body" ? 5 : 6
     const perGroup = Math.max(
       1,
       Math.floor(targetExerciseCount / day.muscleGroups.length)
@@ -262,55 +291,58 @@ export function generateWorkout(
       }
     }
 
-    // Cap at 8 strength exercises
-    while (generatedExercises.length > 8) {
+    // Cap at 7 machine/weight exercises to leave room for calisthenics + cardio
+    while (generatedExercises.length > 7) {
       generatedExercises.pop()
     }
 
-    // Add cardio at the end for applicable goals
-    if (day.addCardio) {
-      const cardio = pickCardio(fitnessLevel, picked)
-      if (cardio) {
-        generatedExercises.push({
-          exerciseId: cardio.id,
-          name: cardio.name,
-          sets: cardio.defaultSets,
-          reps: cardio.defaultReps,
-          restSeconds: 0,
-          muscleGroups: cardio.muscleGroups,
-        })
-      }
+    // Add 1-2 calisthenics exercises
+    const calisthenicsMuscles = day.muscleGroups.flat()
+    // Always try to include a core bodyweight exercise
+    calisthenicsMuscles.push("core", "chest")
+    const calisthenicsCount = goal === "improve_endurance" || goal === "lose_weight" ? 2 : 1
+    const calisthenics = pickCalisthenics(
+      calisthenicsMuscles,
+      fitnessLevel,
+      calisthenicsCount,
+      picked
+    )
+    for (const ex of calisthenics) {
+      picked.add(ex.id)
+      generatedExercises.push({
+        exerciseId: ex.id,
+        name: ex.name,
+        sets: scheme.sets,
+        reps: ex.defaultReps,
+        restSeconds: scheme.restSeconds,
+        muscleGroups: ex.muscleGroups,
+      })
     }
 
-    // Ensure minimum of 6
-    if (generatedExercises.length < 6) {
-      const extraTargets = day.muscleGroups.flat()
-      const extras = pickExercises(
-        extraTargets,
-        fitnessLevel,
-        6 - generatedExercises.length,
-        picked
-      )
-      for (const ex of extras) {
-        picked.add(ex.id)
-        generatedExercises.push({
-          exerciseId: ex.id,
-          name: ex.name,
-          sets: scheme.sets,
-          reps: scheme.reps,
-          restSeconds: scheme.restSeconds,
-          muscleGroups: ex.muscleGroups,
-        })
-      }
+    // Always add cardio (running/treadmill preferred)
+    const cardio = pickCardio(fitnessLevel, picked)
+    if (cardio) {
+      picked.add(cardio.id)
+      const cardioDuration =
+        goal === "lose_weight" || goal === "improve_endurance"
+          ? "25-30 min"
+          : "15-20 min"
+      generatedExercises.push({
+        exerciseId: cardio.id,
+        name: cardio.name,
+        sets: 1,
+        reps: cardioDuration,
+        restSeconds: 0,
+        muscleGroups: cardio.muscleGroups,
+      })
     }
 
-    // Estimate duration: ~3 min per set for strength, plus cardio time
+    // Estimate duration
     const strengthSets = generatedExercises
       .filter((e) => e.restSeconds > 0)
       .reduce((sum, e) => sum + e.sets, 0)
-    const cardioMins = generatedExercises.some((e) => e.restSeconds === 0)
-      ? 20
-      : 0
+    const hasCardio = generatedExercises.some((e) => e.restSeconds === 0)
+    const cardioMins = hasCardio ? 20 : 0
     const estimatedMins = Math.round(strengthSets * 2.5 + cardioMins)
 
     return {
