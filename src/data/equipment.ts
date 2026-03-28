@@ -1,0 +1,218 @@
+export interface EquipmentItem {
+  id: string
+  name: string
+  category: "cardio" | "strength_machine" | "free_weight" | "cable" | "other"
+  muscleGroups: string[]
+  maxWeight: number | null
+  notes: string | null
+}
+
+export const equipment: EquipmentItem[] = [
+  // ── Cardio ──────────────────────────────────────────────
+  {
+    id: "treadmill",
+    name: "Treadmill",
+    category: "cardio",
+    muscleGroups: ["quads", "hamstrings", "glutes", "calves", "full_body"],
+    maxWeight: null,
+    notes: "Available in both standard and 30-minute express circuit areas",
+  },
+  {
+    id: "elliptical",
+    name: "Elliptical",
+    category: "cardio",
+    muscleGroups: ["quads", "hamstrings", "glutes", "full_body"],
+    maxWeight: null,
+    notes: "Low-impact full body cardio",
+  },
+  {
+    id: "stairmaster",
+    name: "StairMaster",
+    category: "cardio",
+    muscleGroups: ["quads", "hamstrings", "glutes", "calves"],
+    maxWeight: null,
+    notes: "Rotating staircase style",
+  },
+  {
+    id: "stationary-bike",
+    name: "Stationary Bike",
+    category: "cardio",
+    muscleGroups: ["quads", "hamstrings", "calves"],
+    maxWeight: null,
+    notes: "Upright and recumbent models available",
+  },
+  {
+    id: "arc-trainer",
+    name: "Arc Trainer",
+    category: "cardio",
+    muscleGroups: ["quads", "hamstrings", "glutes", "full_body"],
+    maxWeight: null,
+    notes: "Lower impact alternative to the elliptical",
+  },
+  {
+    id: "rowing-machine",
+    name: "Rowing Machine",
+    category: "cardio",
+    muscleGroups: ["back", "shoulders", "biceps", "core", "quads", "hamstrings"],
+    maxWeight: null,
+    notes: "Full body cardio and strength conditioning",
+  },
+
+  // ── Strength Machines ───────────────────────────────────
+  {
+    id: "chest-press-machine",
+    name: "Chest Press Machine",
+    category: "strength_machine",
+    muscleGroups: ["chest", "triceps", "shoulders"],
+    maxWeight: 300,
+    notes: "Seated plate-loaded or selectorized",
+  },
+  {
+    id: "shoulder-press-machine",
+    name: "Shoulder Press Machine",
+    category: "strength_machine",
+    muscleGroups: ["shoulders", "triceps"],
+    maxWeight: 250,
+    notes: "Seated overhead press",
+  },
+  {
+    id: "lat-pulldown",
+    name: "Lat Pulldown Machine",
+    category: "strength_machine",
+    muscleGroups: ["back", "biceps"],
+    maxWeight: 250,
+    notes: "Wide and close grip attachments available",
+  },
+  {
+    id: "seated-row-machine",
+    name: "Seated Row Machine",
+    category: "strength_machine",
+    muscleGroups: ["back", "biceps"],
+    maxWeight: 250,
+    notes: "Plate-loaded or selectorized",
+  },
+  {
+    id: "leg-press",
+    name: "Leg Press Machine",
+    category: "strength_machine",
+    muscleGroups: ["quads", "hamstrings", "glutes"],
+    maxWeight: 500,
+    notes: "45-degree or horizontal sled",
+  },
+  {
+    id: "leg-curl-machine",
+    name: "Leg Curl Machine",
+    category: "strength_machine",
+    muscleGroups: ["hamstrings"],
+    maxWeight: 200,
+    notes: "Seated or lying variant",
+  },
+  {
+    id: "leg-extension-machine",
+    name: "Leg Extension Machine",
+    category: "strength_machine",
+    muscleGroups: ["quads"],
+    maxWeight: 200,
+    notes: "Seated quad isolation",
+  },
+  {
+    id: "pec-fly-machine",
+    name: "Pec Fly Machine",
+    category: "strength_machine",
+    muscleGroups: ["chest"],
+    maxWeight: 200,
+    notes: "Also usable as reverse fly for rear delts",
+  },
+  {
+    id: "hip-abductor-machine",
+    name: "Hip Abductor Machine",
+    category: "strength_machine",
+    muscleGroups: ["glutes"],
+    maxWeight: 200,
+    notes: "Outer thigh and glute medius focus",
+  },
+  {
+    id: "hip-adductor-machine",
+    name: "Hip Adductor Machine",
+    category: "strength_machine",
+    muscleGroups: ["quads"],
+    maxWeight: 200,
+    notes: "Inner thigh focus",
+  },
+  {
+    id: "cable-crossover",
+    name: "Cable Crossover Machine",
+    category: "strength_machine",
+    muscleGroups: ["chest", "shoulders", "back", "biceps", "triceps", "core"],
+    maxWeight: 200,
+    notes: "Dual adjustable pulleys, extremely versatile",
+  },
+  {
+    id: "smith-machine",
+    name: "Smith Machine",
+    category: "strength_machine",
+    muscleGroups: ["chest", "shoulders", "back", "quads", "hamstrings", "glutes"],
+    maxWeight: 400,
+    notes: "Guided barbell on rails, available at most PF locations",
+  },
+  {
+    id: "assisted-pull-up-dip",
+    name: "Assisted Pull-Up / Dip Machine",
+    category: "strength_machine",
+    muscleGroups: ["back", "biceps", "triceps", "chest"],
+    maxWeight: null,
+    notes: "Counterweight assisted; heavier setting = more assistance",
+  },
+  {
+    id: "ab-crunch-machine",
+    name: "Ab Crunch Machine",
+    category: "strength_machine",
+    muscleGroups: ["core"],
+    maxWeight: 150,
+    notes: "Seated crunch with adjustable resistance",
+  },
+
+  // ── Free Weights ────────────────────────────────────────
+  {
+    id: "dumbbells",
+    name: "Dumbbells",
+    category: "free_weight",
+    muscleGroups: ["chest", "back", "shoulders", "biceps", "triceps", "core"],
+    maxWeight: 75,
+    notes: "Planet Fitness caps dumbbells at 75 lbs per hand",
+  },
+  {
+    id: "ez-curl-bar",
+    name: "EZ Curl Bar",
+    category: "free_weight",
+    muscleGroups: ["biceps", "triceps"],
+    maxWeight: 60,
+    notes: "Fixed weight EZ bars available in multiple weights",
+  },
+  {
+    id: "fixed-barbells",
+    name: "Fixed Barbells",
+    category: "free_weight",
+    muscleGroups: ["chest", "back", "shoulders", "biceps", "triceps"],
+    maxWeight: 60,
+    notes: "Pre-loaded straight bars, typically 20-60 lbs",
+  },
+
+  // ── Cable ───────────────────────────────────────────────
+  {
+    id: "cable-machine",
+    name: "Cable Machine",
+    category: "cable",
+    muscleGroups: ["chest", "back", "shoulders", "biceps", "triceps", "core"],
+    maxWeight: 200,
+    notes: "Single adjustable pulley with various attachments",
+  },
+  {
+    id: "functional-trainer",
+    name: "Functional Trainer",
+    category: "cable",
+    muscleGroups: ["chest", "back", "shoulders", "biceps", "triceps", "core", "glutes"],
+    maxWeight: 180,
+    notes: "Dual independent cable columns with full range of motion",
+  },
+]
