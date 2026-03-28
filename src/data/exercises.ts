@@ -13,7 +13,7 @@ export const exercises: ExerciseDefinition[] = [
   // ── Chest ──────────────────────────────────────────────
   {
     id: "chest-press-machine-flat",
-    name: "Machine Chest Press",
+    name: "Chest Press Machine",
     equipmentId: "chest-press-machine",
     muscleGroups: ["chest", "triceps", "shoulders"],
     exerciseType: "strength",
@@ -33,7 +33,7 @@ export const exercises: ExerciseDefinition[] = [
   },
   {
     id: "dumbbell-flyes",
-    name: "Dumbbell Flyes",
+    name: "Dumbbell Fly",
     equipmentId: "dumbbells",
     muscleGroups: ["chest"],
     exerciseType: "strength",
@@ -43,7 +43,7 @@ export const exercises: ExerciseDefinition[] = [
   },
   {
     id: "pec-fly-machine-exercise",
-    name: "Machine Pec Fly",
+    name: "Pec Fly Machine",
     equipmentId: "pec-fly-machine",
     muscleGroups: ["chest"],
     exerciseType: "strength",
@@ -85,7 +85,7 @@ export const exercises: ExerciseDefinition[] = [
   },
   {
     id: "seated-row-exercise",
-    name: "Seated Cable Row",
+    name: "Seated Row Machine",
     equipmentId: "seated-row-machine",
     muscleGroups: ["back", "biceps"],
     exerciseType: "strength",
@@ -125,7 +125,7 @@ export const exercises: ExerciseDefinition[] = [
   },
   {
     id: "reverse-pec-fly",
-    name: "Reverse Machine Fly",
+    name: "Dumbbell Rear Delt Fly",
     equipmentId: "pec-fly-machine",
     muscleGroups: ["back", "shoulders"],
     exerciseType: "strength",
@@ -137,7 +137,7 @@ export const exercises: ExerciseDefinition[] = [
   // ── Shoulders ──────────────────────────────────────────
   {
     id: "shoulder-press-machine-exercise",
-    name: "Machine Shoulder Press",
+    name: "Shoulder Press Machine",
     equipmentId: "shoulder-press-machine",
     muscleGroups: ["shoulders", "triceps"],
     exerciseType: "strength",
@@ -199,7 +199,7 @@ export const exercises: ExerciseDefinition[] = [
   },
   {
     id: "ez-bar-curl",
-    name: "EZ Bar Curl",
+    name: "Preacher Curl Machine",
     equipmentId: "ez-curl-bar",
     muscleGroups: ["biceps"],
     exerciseType: "strength",
@@ -209,7 +209,7 @@ export const exercises: ExerciseDefinition[] = [
   },
   {
     id: "hammer-curl",
-    name: "Hammer Curl",
+    name: "Dumbbell Hammer Curl",
     equipmentId: "dumbbells",
     muscleGroups: ["biceps"],
     exerciseType: "strength",
@@ -249,7 +249,7 @@ export const exercises: ExerciseDefinition[] = [
   },
   {
     id: "assisted-dip",
-    name: "Assisted Dip",
+    name: "Dumbbell Kickback",
     equipmentId: "assisted-pull-up-dip",
     muscleGroups: ["triceps", "chest"],
     exerciseType: "strength",
@@ -311,7 +311,7 @@ export const exercises: ExerciseDefinition[] = [
   },
   {
     id: "dumbbell-goblet-squat",
-    name: "Goblet Squat",
+    name: "Dumbbell Goblet Squat",
     equipmentId: "dumbbells",
     muscleGroups: ["quads", "glutes"],
     exerciseType: "strength",
@@ -321,7 +321,7 @@ export const exercises: ExerciseDefinition[] = [
   },
   {
     id: "dumbbell-lunge",
-    name: "Dumbbell Lunge",
+    name: "Dumbbell Lunges",
     equipmentId: "dumbbells",
     muscleGroups: ["quads", "glutes", "hamstrings"],
     exerciseType: "strength",
@@ -331,7 +331,7 @@ export const exercises: ExerciseDefinition[] = [
   },
   {
     id: "hip-abductor-exercise",
-    name: "Hip Abductor",
+    name: "Hip Abduction",
     equipmentId: "hip-abductor-machine",
     muscleGroups: ["glutes"],
     exerciseType: "strength",
@@ -341,7 +341,7 @@ export const exercises: ExerciseDefinition[] = [
   },
   {
     id: "hip-adductor-exercise",
-    name: "Hip Adductor",
+    name: "Hip Adduction",
     equipmentId: "hip-adductor-machine",
     muscleGroups: ["quads"],
     exerciseType: "strength",
@@ -351,18 +351,8 @@ export const exercises: ExerciseDefinition[] = [
   },
   {
     id: "dumbbell-calf-raise",
-    name: "Dumbbell Calf Raise",
+    name: "Calf Raise",
     equipmentId: "dumbbells",
-    muscleGroups: ["calves"],
-    exerciseType: "strength",
-    difficulty: "beginner",
-    defaultSets: 3,
-    defaultReps: "15-20",
-  },
-  {
-    id: "smith-machine-calf-raise",
-    name: "Smith Machine Calf Raise",
-    equipmentId: "smith-machine",
     muscleGroups: ["calves"],
     exerciseType: "strength",
     difficulty: "beginner",
@@ -373,7 +363,7 @@ export const exercises: ExerciseDefinition[] = [
   // ── Core ───────────────────────────────────────────────
   {
     id: "ab-crunch-machine-exercise",
-    name: "Machine Ab Crunch",
+    name: "Ab Crunch Machine",
     equipmentId: "ab-crunch-machine",
     muscleGroups: ["core"],
     exerciseType: "strength",
@@ -435,7 +425,7 @@ export const exercises: ExerciseDefinition[] = [
   },
   {
     id: "stairmaster-exercise",
-    name: "StairMaster",
+    name: "Stair Climber",
     equipmentId: "stairmaster",
     muscleGroups: ["quads", "hamstrings", "glutes", "calves"],
     exerciseType: "cardio",
