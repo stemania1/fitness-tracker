@@ -168,7 +168,7 @@ export default function WorkoutDetailPage() {
 
   if (!workout) {
     return (
-      <div className="mx-auto max-w-lg py-20 text-center">
+      <div className="mx-auto max-w-lg py-12 text-center">
         <p className="text-gray-500">Workout not found.</p>
         <Button
           variant="link"
@@ -208,7 +208,7 @@ export default function WorkoutDetailPage() {
       </div>
 
       {/* Summary stats */}
-      <div className="mb-6 grid grid-cols-3 gap-3">
+      <div className="mb-6 grid grid-cols-3 gap-2">
         <Card>
           <CardContent className="flex flex-col items-center p-3">
             <Dumbbell className="mb-1 h-5 w-5 text-purple-500" />

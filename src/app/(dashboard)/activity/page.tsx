@@ -188,7 +188,7 @@ export default function ActivityPage() {
       ) : tab === "history" ? (
         /* History tab */
         logs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="flex flex-col items-center justify-center py-12 text-center">
             <Dumbbell className="mb-3 h-12 w-12 text-gray-300" />
             <p className="text-lg font-medium text-gray-500">
               No workouts logged yet

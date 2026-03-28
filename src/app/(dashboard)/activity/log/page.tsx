@@ -346,7 +346,7 @@ export default function LogWorkoutPage() {
   // ── Render ──────────────────────────────────────────────────
   if (!workout) {
     return (
-      <div className="flex items-center justify-center py-20">
+      <div className="flex items-center justify-center py-12">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-purple-200 border-t-purple-600" />
       </div>
     )
@@ -379,7 +379,7 @@ export default function LogWorkoutPage() {
 
       {/* Empty state */}
       {workout.exercises.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="flex flex-col items-center justify-center py-10 text-center">
           <Plus className="mb-3 h-12 w-12 text-gray-300" />
           <p className="text-lg font-medium text-gray-500">
             No exercises yet
