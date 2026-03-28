@@ -21,11 +21,16 @@ import {
   X,
   MessageSquare,
   Gauge,
+  Flame,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { exercises as exerciseCatalog, type ExerciseDefinition } from "@/data/exercises"
 import { ExercisePicker } from "@/components/activity/exercise-picker"
 import { RestTimer } from "@/components/activity/rest-timer"
+import {
+  estimateStrengthCalories,
+  estimateCardioCalories,
+} from "@/lib/calories"
 
 // ── Types ─────────────────────────────────────────────────────
 interface ActiveSet {
@@ -33,6 +38,7 @@ interface ActiveSet {
   weight: number | null
   durationMins: number | null
   distanceMiles: number | null
+  speedMph: number | null
   rpe: number | null
   completed: boolean
 }
@@ -61,6 +67,7 @@ function makeSet(): ActiveSet {
     weight: null,
     durationMins: null,
     distanceMiles: null,
+    speedMph: null,
     rpe: null,
     completed: false,
   }
@@ -105,6 +112,7 @@ export default function LogWorkoutPage() {
   const [showNotes, setShowNotes] = useState(false)
   const [restTimer, setRestTimer] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
+  const [userWeightLbs, setUserWeightLbs] = useState<number>(170)
   const startRef = useRef<Date | null>(null)
 
   // Load template or start freestyle
@@ -162,6 +170,22 @@ export default function LogWorkoutPage() {
     }
     init()
   }, [templateId])
+
+  // Fetch user weight for calorie calculations
+  useEffect(() => {
+    async function fetchWeight() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data: profile } = await supabase
+        .from("user_profiles")
+        .select("current_weight")
+        .eq("id", user.id)
+        .single()
+      if (profile?.current_weight) setUserWeightLbs(profile.current_weight)
+    }
+    fetchWeight()
+  }, [])
 
   // Elapsed timer
   useEffect(() => {
@@ -273,6 +297,37 @@ export default function LogWorkoutPage() {
     [workout?.exercises.length]
   )
 
+  // ── Calorie estimates ────────────────────────────────────────
+  function getExerciseCalories(ex: ActiveExercise): number {
+    const completedSets = ex.sets.filter((s) => s.completed)
+    if (ex.exerciseType === "cardio") {
+      const totalMins = completedSets.reduce(
+        (sum, s) => sum + (s.durationMins ?? 0),
+        0
+      )
+      const avgSpeed =
+        completedSets.length > 0
+          ? completedSets.reduce((sum, s) => sum + (s.speedMph ?? 0), 0) /
+            completedSets.length
+          : null
+      return estimateCardioCalories(
+        ex.exerciseId,
+        totalMins,
+        userWeightLbs,
+        avgSpeed && avgSpeed > 0 ? avgSpeed : null
+      )
+    }
+    return estimateStrengthCalories(
+      ex.exerciseId,
+      completedSets.length,
+      userWeightLbs
+    )
+  }
+
+  const totalCalories = workout
+    ? workout.exercises.reduce((sum, ex) => sum + getExerciseCalories(ex), 0)
+    : 0
+
   // ── Save workout ────────────────────────────────────────────
   const finishWorkout = async () => {
     if (!workout || workout.exercises.length === 0) return
@@ -363,9 +418,18 @@ export default function LogWorkoutPage() {
           <h1 className="truncate text-lg font-bold text-gray-900">
             {workout.name}
           </h1>
-          <div className="flex items-center gap-1.5 text-sm text-gray-500">
-            <Clock className="h-3.5 w-3.5" />
-            <span className="tabular-nums">{formatTimer(elapsed)}</span>
+          <div className="flex items-center gap-3 text-sm text-gray-500">
+            <span className="flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5" />
+              <span className="tabular-nums">{formatTimer(elapsed)}</span>
+            </span>
+            {totalCalories > 0 && (
+              <span className="flex items-center gap-1 text-orange-500">
+                <Flame className="h-3.5 w-3.5" />
+                <span className="tabular-nums font-medium">{totalCalories}</span>
+                <span className="text-xs">cal</span>
+              </span>
+            )}
           </div>
         </div>
         <Button
@@ -435,7 +499,7 @@ export default function LogWorkoutPage() {
                     <h2 className="text-lg font-bold text-gray-900">
                       {currentExercise.name}
                     </h2>
-                    <div className="mt-1 flex flex-wrap gap-1">
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
                       {currentExercise.muscleGroups.map((mg) => (
                         <Badge
                           key={mg}
@@ -445,6 +509,12 @@ export default function LogWorkoutPage() {
                           {mg.replace("_", " ")}
                         </Badge>
                       ))}
+                      {getExerciseCalories(currentExercise) > 0 && (
+                        <span className="ml-1 flex items-center gap-0.5 text-xs text-orange-500">
+                          <Flame className="h-3 w-3" />
+                          {getExerciseCalories(currentExercise)} cal
+                        </span>
+                      )}
                     </div>
                   </div>
                   <Button
@@ -462,15 +532,16 @@ export default function LogWorkoutPage() {
                   className={cn(
                     "mb-2 grid items-center gap-2 text-xs font-medium uppercase text-gray-400",
                     isCardio
-                      ? "grid-cols-[2.5rem_1fr_1fr_3rem]"
+                      ? "grid-cols-[2.5rem_1fr_1fr_1fr_3rem]"
                       : "grid-cols-[2.5rem_1fr_1fr_3rem]"
                   )}
                 >
                   <span className="text-center">Set</span>
                   {isCardio ? (
                     <>
-                      <span>Duration</span>
-                      <span>Distance</span>
+                      <span>Time</span>
+                      <span>Dist</span>
+                      <span>Speed</span>
                     </>
                   ) : (
                     <>
@@ -490,7 +561,7 @@ export default function LogWorkoutPage() {
                     className={cn(
                       "mb-1.5 grid items-center gap-2 rounded-lg px-1 py-1.5 transition-colors",
                       isCardio
-                        ? "grid-cols-[2.5rem_1fr_1fr_3rem]"
+                        ? "grid-cols-[2.5rem_1fr_1fr_1fr_3rem]"
                         : "grid-cols-[2.5rem_1fr_1fr_3rem]",
                       set.completed && "bg-purple-50"
                     )}
@@ -514,7 +585,7 @@ export default function LogWorkoutPage() {
                                 : null,
                             })
                           }
-                          className="h-10 text-center text-base"
+                          className="h-10 text-center text-sm"
                         />
                         <Input
                           type="number"
@@ -528,7 +599,21 @@ export default function LogWorkoutPage() {
                                 : null,
                             })
                           }
-                          className="h-10 text-center text-base"
+                          className="h-10 text-center text-sm"
+                        />
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          placeholder="mph"
+                          value={set.speedMph ?? ""}
+                          onChange={(e) =>
+                            updateSet(currentIdx, si, {
+                              speedMph: e.target.value
+                                ? Number(e.target.value)
+                                : null,
+                            })
+                          }
+                          className="h-10 text-center text-sm"
                         />
                       </>
                     ) : (
@@ -746,9 +831,15 @@ export default function LogWorkoutPage() {
                         <p className="truncate text-sm font-medium text-gray-900">
                           {ex.name}
                         </p>
-                        <p className="text-xs text-gray-400">
-                          {completedSets}/{totalSets} sets
-                        </p>
+                        <div className="flex items-center gap-2 text-xs text-gray-400">
+                          <span>{completedSets}/{totalSets} sets</span>
+                          {getExerciseCalories(ex) > 0 && (
+                            <span className="flex items-center gap-0.5 text-orange-400">
+                              <Flame className="h-3 w-3" />
+                              {getExerciseCalories(ex)}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </button>
                   </li>
