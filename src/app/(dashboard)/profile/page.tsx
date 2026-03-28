@@ -1,0 +1,657 @@
+"use client"
+
+import { useState, useEffect, useCallback } from "react"
+import { useRouter } from "next/navigation"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { createClient } from "@/lib/supabase/client"
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import {
+  User,
+  LogOut,
+  Trash2,
+  Save,
+  Dumbbell,
+  Target,
+  Calendar,
+} from "lucide-react"
+import type { UserProfileUpdate } from "@/types/database"
+
+const supabase = createClient()
+
+type FeedbackMessage = {
+  type: "success" | "error"
+  text: string
+} | null
+
+export default function ProfilePage() {
+  const router = useRouter()
+  const queryClient = useQueryClient()
+
+  const [feedback, setFeedback] = useState<FeedbackMessage>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+
+  // Form state
+  const [displayName, setDisplayName] = useState("")
+  const [age, setAge] = useState("")
+  const [sex, setSex] = useState("")
+  const [heightFeet, setHeightFeet] = useState("")
+  const [heightInches, setHeightInches] = useState("")
+  const [currentWeight, setCurrentWeight] = useState("")
+  const [fitnessLevel, setFitnessLevel] = useState("")
+  const [primaryGoal, setPrimaryGoal] = useState("")
+  const [targetWeight, setTargetWeight] = useState("")
+  const [workoutDays, setWorkoutDays] = useState("")
+  const [limitations, setLimitations] = useState("")
+
+  // Fetch auth user
+  const { data: authUser } = useQuery({
+    queryKey: ["auth-user"],
+    queryFn: async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
+      return user
+    },
+  })
+
+  // Fetch profile
+  const { data: profile, isLoading: profileLoading } = useQuery({
+    queryKey: ["profile"],
+    queryFn: async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
+      const { data, error } = await supabase
+        .from("user_profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single()
+      if (error) throw error
+      return data
+    },
+  })
+
+  // Fetch stats
+  const { data: stats } = useQuery({
+    queryKey: ["profile-stats"],
+    queryFn: async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
+
+      // Total workouts
+      const { count: totalWorkouts } = await supabase
+        .from("workout_logs")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+
+      // Total weight lifted
+      const { data: setData } = await supabase
+        .from("set_logs")
+        .select(
+          "weight, reps, exercise_log:exercise_logs!inner(workout_log:workout_logs!inner(user_id))"
+        )
+        .eq("exercise_log.workout_log.user_id", user.id)
+        .not("weight", "is", null)
+
+      let totalWeight = 0
+      if (setData) {
+        for (const s of setData as any[]) {
+          totalWeight += (s.weight ?? 0) * (s.reps ?? 1)
+        }
+      }
+
+      // Current streak (consecutive weeks with at least one workout)
+      const { data: workoutDates } = await supabase
+        .from("workout_logs")
+        .select("started_at")
+        .eq("user_id", user.id)
+        .order("started_at", { ascending: false })
+
+      let streakWeeks = 0
+      if (workoutDates && workoutDates.length > 0) {
+        const now = new Date()
+        const getWeekStart = (d: Date) => {
+          const date = new Date(d)
+          const day = date.getDay()
+          const diff = date.getDate() - day + (day === 0 ? -6 : 1)
+          date.setDate(diff)
+          date.setHours(0, 0, 0, 0)
+          return date.getTime()
+        }
+
+        const workoutWeeks = new Set(
+          workoutDates.map((w) => getWeekStart(new Date(w.started_at)))
+        )
+
+        let currentWeekStart = getWeekStart(now)
+        // Check if current week has a workout; if not, start from last week
+        if (!workoutWeeks.has(currentWeekStart)) {
+          currentWeekStart -= 7 * 24 * 60 * 60 * 1000
+        }
+
+        while (workoutWeeks.has(currentWeekStart)) {
+          streakWeeks++
+          currentWeekStart -= 7 * 24 * 60 * 60 * 1000
+        }
+      }
+
+      return {
+        totalWorkouts: totalWorkouts ?? 0,
+        streakWeeks,
+        totalWeight,
+      }
+    },
+  })
+
+  // Populate form when profile loads
+  const populateForm = useCallback(() => {
+    if (!profile) return
+    setDisplayName(profile.display_name ?? "")
+    setAge(profile.age?.toString() ?? "")
+    setSex(profile.sex ?? "")
+    setHeightFeet(
+      profile.height_inches
+        ? Math.floor(profile.height_inches / 12).toString()
+        : ""
+    )
+    setHeightInches(
+      profile.height_inches ? (profile.height_inches % 12).toString() : ""
+    )
+    setCurrentWeight(profile.current_weight?.toString() ?? "")
+    setFitnessLevel(profile.fitness_level ?? "")
+    setPrimaryGoal(profile.primary_goal ?? "")
+    setTargetWeight(profile.target_weight?.toString() ?? "")
+    setWorkoutDays(profile.workout_days?.toString() ?? "")
+    setLimitations(profile.limitations ?? "")
+  }, [profile])
+
+  useEffect(() => {
+    populateForm()
+  }, [populateForm])
+
+  // Clear feedback after 4 seconds
+  useEffect(() => {
+    if (feedback) {
+      const timer = setTimeout(() => setFeedback(null), 4000)
+      return () => clearTimeout(timer)
+    }
+  }, [feedback])
+
+  // Update profile mutation
+  const updateMutation = useMutation({
+    mutationFn: async (updates: UserProfileUpdate) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
+      const { error } = await supabase
+        .from("user_profiles")
+        .update(updates)
+        .eq("id", user.id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["profile"] })
+      setFeedback({ type: "success", text: "Profile updated successfully." })
+    },
+    onError: (err: Error) => {
+      setFeedback({
+        type: "error",
+        text: err.message || "Failed to update profile.",
+      })
+    },
+  })
+
+  // Delete account mutation
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
+      // Delete profile (cascade should handle related data)
+      const { error } = await supabase
+        .from("user_profiles")
+        .delete()
+        .eq("id", user.id)
+      if (error) throw error
+      await supabase.auth.signOut()
+    },
+    onSuccess: () => {
+      router.push("/")
+    },
+    onError: (err: Error) => {
+      setFeedback({
+        type: "error",
+        text: err.message || "Failed to delete account.",
+      })
+      setDeleteDialogOpen(false)
+    },
+  })
+
+  function handleSave(e: React.FormEvent) {
+    e.preventDefault()
+    if (!profile) return
+
+    const updates: UserProfileUpdate = {}
+
+    const newName = displayName.trim() || null
+    if (newName !== profile.display_name) updates.display_name = newName
+
+    const newAge = age ? parseInt(age, 10) : null
+    if (newAge !== profile.age) updates.age = newAge
+
+    const newSex = (sex || null) as typeof profile.sex
+    if (newSex !== profile.sex) updates.sex = newSex
+
+    const newHeightInches =
+      heightFeet || heightInches
+        ? (parseInt(heightFeet || "0", 10) * 12 +
+            parseInt(heightInches || "0", 10)) ||
+          null
+        : null
+    if (newHeightInches !== profile.height_inches)
+      updates.height_inches = newHeightInches
+
+    const newCurrentWeight = currentWeight ? parseFloat(currentWeight) : null
+    if (newCurrentWeight !== profile.current_weight)
+      updates.current_weight = newCurrentWeight
+
+    const newFitnessLevel = (fitnessLevel || null) as typeof profile.fitness_level
+    if (newFitnessLevel !== profile.fitness_level)
+      updates.fitness_level = newFitnessLevel
+
+    const newPrimaryGoal = (primaryGoal || null) as typeof profile.primary_goal
+    if (newPrimaryGoal !== profile.primary_goal)
+      updates.primary_goal = newPrimaryGoal
+
+    const newTargetWeight = targetWeight ? parseFloat(targetWeight) : null
+    if (newTargetWeight !== profile.target_weight)
+      updates.target_weight = newTargetWeight
+
+    const newWorkoutDays = workoutDays ? parseInt(workoutDays, 10) : null
+    if (newWorkoutDays !== profile.workout_days)
+      updates.workout_days = newWorkoutDays
+
+    const newLimitations = limitations.trim() || null
+    if (newLimitations !== profile.limitations)
+      updates.limitations = newLimitations
+
+    if (Object.keys(updates).length === 0) {
+      setFeedback({ type: "success", text: "No changes to save." })
+      return
+    }
+
+    updateMutation.mutate(updates)
+  }
+
+  async function handleSignOut() {
+    await supabase.auth.signOut()
+    router.push("/")
+  }
+
+  const initial = profile?.display_name?.charAt(0)?.toUpperCase() ?? "U"
+  const memberSince = profile?.created_at
+    ? new Date(profile.created_at).toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+      })
+    : ""
+
+  const fitnessLevelLabel: Record<string, string> = {
+    beginner: "Beginner",
+    intermediate: "Intermediate",
+    advanced: "Advanced",
+  }
+
+  const goalLabel: Record<string, string> = {
+    lose_weight: "Lose Weight",
+    build_muscle: "Build Muscle",
+    improve_endurance: "Improve Endurance",
+    general_fitness: "General Fitness",
+  }
+
+  function formatWeight(value: number): string {
+    return value.toLocaleString("en-US")
+  }
+
+  if (profileLoading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-purple-200 border-t-purple-600" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="mx-auto max-w-2xl space-y-6 pb-12">
+      {/* Feedback Banner */}
+      {feedback && (
+        <div
+          className={`rounded-lg px-4 py-3 text-sm font-medium ${
+            feedback.type === "success"
+              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+              : "bg-red-50 text-red-700 border border-red-200"
+          }`}
+        >
+          {feedback.text}
+        </div>
+      )}
+
+      {/* Profile Header */}
+      <div className="flex flex-col items-center space-y-3 pt-2">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-purple-100 text-3xl font-bold text-purple-600">
+          {initial}
+        </div>
+        <div className="text-center">
+          <h1 className="text-xl font-bold text-gray-900">
+            {profile?.display_name || "User"}
+          </h1>
+          {memberSince && (
+            <p className="mt-1 flex items-center justify-center gap-1 text-sm text-gray-500">
+              <Calendar className="h-3.5 w-3.5" />
+              Member since {memberSince}
+            </p>
+          )}
+          {profile?.fitness_level && (
+            <Badge className="mt-2">
+              {fitnessLevelLabel[profile.fitness_level] ?? profile.fitness_level}
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      {/* Stats Summary */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="rounded-xl border border-gray-200 bg-white p-4 text-center shadow-sm">
+          <Dumbbell className="mx-auto mb-1 h-5 w-5 text-purple-500" />
+          <p className="text-xl font-bold text-gray-900">
+            {stats?.totalWorkouts ?? 0}
+          </p>
+          <p className="text-xs text-gray-500">Workouts</p>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-4 text-center shadow-sm">
+          <Target className="mx-auto mb-1 h-5 w-5 text-purple-500" />
+          <p className="text-xl font-bold text-gray-900">
+            {stats?.streakWeeks ?? 0}
+          </p>
+          <p className="text-xs text-gray-500">Week Streak</p>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-4 text-center shadow-sm">
+          <Dumbbell className="mx-auto mb-1 h-5 w-5 text-purple-500" />
+          <p className="text-xl font-bold text-gray-900">
+            {stats ? formatWeight(stats.totalWeight) : "0"}
+          </p>
+          <p className="text-xs text-gray-500">Lbs Lifted</p>
+        </div>
+      </div>
+
+      {/* Profile Settings Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <User className="h-5 w-5 text-purple-500" />
+            Profile Settings
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSave} className="space-y-5">
+            {/* Display Name */}
+            <div className="space-y-1.5">
+              <Label htmlFor="displayName">Display Name</Label>
+              <Input
+                id="displayName"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Your name"
+              />
+            </div>
+
+            {/* Age & Sex */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="age">Age</Label>
+                <Input
+                  id="age"
+                  type="number"
+                  min={13}
+                  max={120}
+                  value={age}
+                  onChange={(e) => setAge(e.target.value)}
+                  placeholder="Age"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="sex">Sex</Label>
+                <Select
+                  id="sex"
+                  value={sex}
+                  onChange={(e) => setSex(e.target.value)}
+                >
+                  <option value="">Select...</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </Select>
+              </div>
+            </div>
+
+            {/* Height */}
+            <div className="space-y-1.5">
+              <Label>Height</Label>
+              <div className="grid grid-cols-2 gap-4">
+                <Select
+                  value={heightFeet}
+                  onChange={(e) => setHeightFeet(e.target.value)}
+                >
+                  <option value="">Feet</option>
+                  {[3, 4, 5, 6, 7].map((ft) => (
+                    <option key={ft} value={ft.toString()}>
+                      {ft} ft
+                    </option>
+                  ))}
+                </Select>
+                <Select
+                  value={heightInches}
+                  onChange={(e) => setHeightInches(e.target.value)}
+                >
+                  <option value="">Inches</option>
+                  {Array.from({ length: 12 }, (_, i) => (
+                    <option key={i} value={i.toString()}>
+                      {i} in
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            </div>
+
+            {/* Current Weight */}
+            <div className="space-y-1.5">
+              <Label htmlFor="currentWeight">Current Weight (lbs)</Label>
+              <Input
+                id="currentWeight"
+                type="number"
+                min={50}
+                max={800}
+                step="0.1"
+                value={currentWeight}
+                onChange={(e) => setCurrentWeight(e.target.value)}
+                placeholder="Current weight"
+              />
+            </div>
+
+            {/* Fitness Level */}
+            <div className="space-y-1.5">
+              <Label htmlFor="fitnessLevel">Fitness Level</Label>
+              <Select
+                id="fitnessLevel"
+                value={fitnessLevel}
+                onChange={(e) => setFitnessLevel(e.target.value)}
+              >
+                <option value="">Select...</option>
+                <option value="beginner">Beginner</option>
+                <option value="intermediate">Intermediate</option>
+                <option value="advanced">Advanced</option>
+              </Select>
+            </div>
+
+            {/* Primary Goal */}
+            <div className="space-y-1.5">
+              <Label htmlFor="primaryGoal">Primary Goal</Label>
+              <Select
+                id="primaryGoal"
+                value={primaryGoal}
+                onChange={(e) => setPrimaryGoal(e.target.value)}
+              >
+                <option value="">Select...</option>
+                <option value="lose_weight">Lose Weight</option>
+                <option value="build_muscle">Build Muscle</option>
+                <option value="improve_endurance">Improve Endurance</option>
+                <option value="general_fitness">General Fitness</option>
+              </Select>
+            </div>
+
+            {/* Target Weight */}
+            <div className="space-y-1.5">
+              <Label htmlFor="targetWeight">Target Weight (lbs, optional)</Label>
+              <Input
+                id="targetWeight"
+                type="number"
+                min={50}
+                max={800}
+                step="0.1"
+                value={targetWeight}
+                onChange={(e) => setTargetWeight(e.target.value)}
+                placeholder="Target weight"
+              />
+            </div>
+
+            {/* Workout Days */}
+            <div className="space-y-1.5">
+              <Label htmlFor="workoutDays">Workout Days per Week</Label>
+              <Select
+                id="workoutDays"
+                value={workoutDays}
+                onChange={(e) => setWorkoutDays(e.target.value)}
+              >
+                <option value="">Select...</option>
+                {[2, 3, 4, 5, 6].map((d) => (
+                  <option key={d} value={d.toString()}>
+                    {d} days
+                  </option>
+                ))}
+              </Select>
+            </div>
+
+            {/* Limitations */}
+            <div className="space-y-1.5">
+              <Label htmlFor="limitations">Limitations / Injuries</Label>
+              <Textarea
+                id="limitations"
+                value={limitations}
+                onChange={(e) => setLimitations(e.target.value)}
+                placeholder="E.g., bad knees, lower back pain..."
+                rows={3}
+              />
+            </div>
+
+            {/* Save Button */}
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={updateMutation.isPending}
+            >
+              <Save className="mr-2 h-4 w-4" />
+              {updateMutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Account Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <User className="h-5 w-5 text-purple-500" />
+            Account
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {/* Email */}
+          <div className="space-y-1.5">
+            <Label>Email</Label>
+            <p className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
+              {authUser?.email ?? "..."}
+            </p>
+          </div>
+
+          {/* Sign Out */}
+          <Button
+            variant="secondary"
+            className="w-full"
+            onClick={handleSignOut}
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Sign Out
+          </Button>
+
+          {/* Delete Account */}
+          <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+            <Button
+              variant="destructive"
+              className="w-full"
+              onClick={() => setDeleteDialogOpen(true)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete Account
+            </Button>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Delete Account</DialogTitle>
+              </DialogHeader>
+              <p className="py-4 text-sm text-gray-600">
+                Are you sure you want to delete your account? This action cannot
+                be undone. All your workout data, progress, and settings will be
+                permanently removed.
+              </p>
+              <DialogFooter>
+                <Button
+                  variant="secondary"
+                  onClick={() => setDeleteDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => deleteMutation.mutate()}
+                  disabled={deleteMutation.isPending}
+                >
+                  {deleteMutation.isPending
+                    ? "Deleting..."
+                    : "Yes, Delete My Account"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
