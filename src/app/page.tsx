@@ -84,6 +84,15 @@ export default function LandingPage() {
       </main>
 
       <footer className="border-t border-gray-200 bg-white py-6 text-center text-sm text-gray-400">
+        <div className="flex items-center justify-center gap-4 mb-2">
+          <Link href="/privacy" className="hover:text-gray-600 transition-colors">
+            Privacy Policy
+          </Link>
+          <span>&middot;</span>
+          <Link href="/terms" className="hover:text-gray-600 transition-colors">
+            Terms of Service
+          </Link>
+        </div>
         &copy; {new Date().getFullYear()} PF Fitness Tracker. All rights reserved.
       </footer>
     </div>
