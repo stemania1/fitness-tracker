@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
@@ -26,6 +26,8 @@ import {
   Dumbbell,
   Target,
   Calendar,
+  Link2,
+  Unlink,
 } from "lucide-react"
 import type { UserProfileUpdate } from "@/types/database"
 
@@ -38,10 +40,12 @@ type FeedbackMessage = {
 
 export default function ProfilePage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const queryClient = useQueryClient()
 
   const [feedback, setFeedback] = useState<FeedbackMessage>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [disconnectingOura, setDisconnectingOura] = useState(false)
 
   // Form state
   const [displayName, setDisplayName] = useState("")
@@ -159,6 +163,64 @@ export default function ProfilePage() {
       }
     },
   })
+
+  // Check if Oura is connected
+  const { data: ouraConnected, isLoading: ouraLoading } = useQuery({
+    queryKey: ["oura-connected"],
+    queryFn: async () => {
+      const res = await fetch("/api/oura")
+      if (res.status === 404) return false
+      if (res.ok) return true
+      return false
+    },
+  })
+
+  // Handle ?oura= query param feedback
+  useEffect(() => {
+    const ouraParam = searchParams.get("oura")
+    if (ouraParam === "connected") {
+      setFeedback({ type: "success", text: "Oura Ring connected successfully!" })
+      queryClient.invalidateQueries({ queryKey: ["oura-connected"] })
+      router.replace("/profile")
+    } else if (ouraParam === "error") {
+      setFeedback({ type: "error", text: "Failed to connect Oura Ring. Please try again." })
+      router.replace("/profile")
+    }
+  }, [searchParams, queryClient, router])
+
+  function connectOura() {
+    const clientId = process.env.NEXT_PUBLIC_OURA_CLIENT_ID
+    const redirectUri = `${window.location.origin}/api/auth/oura/callback`
+    const scope = "daily heartrate personal"
+    const url = `https://cloud.ouraring.com/oauth/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}`
+    window.location.href = url
+  }
+
+  async function disconnectOura() {
+    setDisconnectingOura(true)
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) return
+      // Delete the oura token row
+      await (supabase as unknown as {
+        from: (table: string) => {
+          delete: () => { eq: (col: string, val: string) => Promise<unknown> }
+        }
+      })
+        .from("oura_tokens")
+        .delete()
+        .eq("user_id", user.id)
+      queryClient.invalidateQueries({ queryKey: ["oura-connected"] })
+      queryClient.invalidateQueries({ queryKey: ["oura-summary"] })
+      setFeedback({ type: "success", text: "Oura Ring disconnected." })
+    } catch {
+      setFeedback({ type: "error", text: "Failed to disconnect Oura Ring." })
+    } finally {
+      setDisconnectingOura(false)
+    }
+  }
 
   // Populate form when profile loads
   const populateForm = useCallback(() => {
@@ -582,6 +644,64 @@ export default function ProfilePage() {
               {updateMutation.isPending ? "Saving..." : "Save Changes"}
             </Button>
           </form>
+        </CardContent>
+      </Card>
+
+      {/* Oura Ring Integration */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Link2 className="h-5 w-5 text-purple-500" />
+            Connected Devices
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between rounded-lg border border-gray-200 p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100">
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-5 w-5 text-gray-600"
+                  fill="currentColor"
+                >
+                  <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />
+                  <circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                  <circle cx="12" cy="12" r="2" fill="currentColor" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">Oura Ring</p>
+                <p className="text-xs text-gray-500">
+                  {ouraLoading
+                    ? "Checking..."
+                    : ouraConnected
+                      ? "Connected — syncing sleep, activity & readiness"
+                      : "Connect to sync sleep, activity & heart rate data"}
+                </p>
+              </div>
+            </div>
+            {ouraConnected ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={disconnectOura}
+                disabled={disconnectingOura}
+                className="shrink-0 gap-1.5"
+              >
+                <Unlink className="h-3.5 w-3.5" />
+                {disconnectingOura ? "..." : "Disconnect"}
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                onClick={connectOura}
+                className="shrink-0 gap-1.5"
+              >
+                <Link2 className="h-3.5 w-3.5" />
+                Connect
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
 
