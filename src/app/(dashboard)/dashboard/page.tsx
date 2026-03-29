@@ -21,6 +21,8 @@ import {
   Plus,
   ChevronRight,
 } from "lucide-react"
+import { exercises as exerciseCatalog } from "@/data/exercises"
+import { estimateStrengthCalories, estimateCardioCalories } from "@/lib/calories"
 
 const supabase = createClient()
 
@@ -95,6 +97,76 @@ export default function DashboardPage() {
         .limit(1)
       if (error) throw error
       return data?.[0] ?? null
+    },
+  })
+
+  const exerciseMap = useMemo(
+    () => new Map(exerciseCatalog.map((e) => [e.id, e])),
+    []
+  )
+
+  const { data: weeklyCalories, isLoading: caloriesLoading } = useQuery({
+    queryKey: ["weekly-calories", weekStart],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
+
+      // Get user weight
+      const { data: prof } = await supabase
+        .from("user_profiles")
+        .select("current_weight")
+        .eq("id", user.id)
+        .single()
+      const weightLbs = prof?.current_weight ?? 170
+
+      // Get this week's workout IDs
+      const { data: logs } = await supabase
+        .from("workout_logs")
+        .select("id")
+        .eq("user_id", user.id)
+        .gte("started_at", weekStart)
+
+      if (!logs || logs.length === 0) return 0
+
+      const logIds = logs.map((l) => l.id)
+
+      // Get exercise logs
+      const { data: exLogs } = await supabase
+        .from("exercise_logs")
+        .select("id, exercise_id")
+        .in("workout_log_id", logIds)
+
+      if (!exLogs || exLogs.length === 0) return 0
+
+      const exIds = exLogs.map((e) => e.id)
+
+      // Get set logs
+      const { data: setLogs } = await supabase
+        .from("set_logs")
+        .select("exercise_log_id, reps, weight, duration_mins")
+        .in("exercise_log_id", exIds)
+
+      // Group sets by exercise log
+      const setsByEx = new Map<string, typeof setLogs>()
+      setLogs?.forEach((s) => {
+        const list = setsByEx.get(s.exercise_log_id) ?? []
+        list.push(s)
+        setsByEx.set(s.exercise_log_id, list)
+      })
+
+      let totalCal = 0
+      exLogs.forEach((ex) => {
+        const def = exerciseMap.get(ex.exercise_id)
+        const sets = setsByEx.get(ex.id) ?? []
+        if (def?.exerciseType === "cardio") {
+          const totalMins = sets.reduce((s, set) => s + (set.duration_mins ?? 0), 0)
+          totalCal += estimateCardioCalories(ex.exercise_id, totalMins, weightLbs)
+        } else {
+          totalCal += estimateStrengthCalories(ex.exercise_id, sets.length, weightLbs)
+        }
+      })
+
+      return totalCal
     },
   })
 
@@ -176,19 +248,32 @@ export default function DashboardPage() {
               <Skeleton className="h-3 w-full" />
             </div>
           ) : (
-            <div className="space-y-2">
-              <div className="flex items-baseline justify-between">
-                <span className="text-sm text-gray-600">
-                  <span className="text-lg font-semibold text-gray-900">
-                    {completedWorkouts}
-                  </span>{" "}
-                  of {workoutTarget} workouts
-                </span>
-                <span className="text-sm font-medium text-purple-600">
-                  {weeklyProgress}%
-                </span>
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-sm text-gray-600">
+                    <span className="text-lg font-semibold text-gray-900">
+                      {completedWorkouts}
+                    </span>{" "}
+                    of {workoutTarget} workouts
+                  </span>
+                  <span className="text-sm font-medium text-purple-600">
+                    {weeklyProgress}%
+                  </span>
+                </div>
+                <Progress value={weeklyProgress} />
               </div>
-              <Progress value={weeklyProgress} />
+              {!caloriesLoading && weeklyCalories != null && weeklyCalories > 0 && (
+                <div className="flex items-center gap-2 rounded-lg bg-orange-50 px-3 py-2">
+                  <Flame className="h-4 w-4 text-orange-500" />
+                  <span className="text-sm text-gray-700">
+                    <span className="font-semibold text-gray-900">
+                      {weeklyCalories.toLocaleString()}
+                    </span>{" "}
+                    calories burned
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </CardContent>

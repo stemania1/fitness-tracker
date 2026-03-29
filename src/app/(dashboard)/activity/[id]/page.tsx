@@ -14,9 +14,14 @@ import {
   Trash2,
   TrendingUp,
   MessageSquare,
+  Flame,
 } from "lucide-react"
 import { formatDuration } from "@/lib/utils"
 import { exercises as exerciseCatalog } from "@/data/exercises"
+import {
+  estimateStrengthCalories,
+  estimateCardioCalories,
+} from "@/lib/calories"
 
 interface SetLogRow {
   id: string
@@ -74,6 +79,7 @@ export default function WorkoutDetailPage() {
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [userWeightLbs, setUserWeightLbs] = useState<number>(170)
 
   const exerciseMap = useMemo(
     () => new Map(exerciseCatalog.map((e) => [e.id, e])),
@@ -123,6 +129,18 @@ export default function WorkoutDetailPage() {
       }))
 
       setWorkout({ ...log, exercises })
+
+      // Fetch user weight for calorie estimates
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from("user_profiles")
+          .select("current_weight")
+          .eq("id", user.id)
+          .single()
+        if (profile?.current_weight) setUserWeightLbs(profile.current_weight)
+      }
+
       setLoading(false)
     }
     fetch()
@@ -138,6 +156,22 @@ export default function WorkoutDetailPage() {
     })
     return vol
   }, [workout])
+
+  const totalCalories = useMemo(() => {
+    if (!workout) return 0
+    return workout.exercises.reduce((sum, ex) => {
+      const def = exerciseMap.get(ex.exercise_id)
+      const isCardio = def?.exerciseType === "cardio"
+      if (isCardio) {
+        const totalMins = ex.sets.reduce(
+          (s, set) => s + (set.duration_mins ?? 0),
+          0
+        )
+        return sum + estimateCardioCalories(ex.exercise_id, totalMins, userWeightLbs)
+      }
+      return sum + estimateStrengthCalories(ex.exercise_id, ex.sets.length, userWeightLbs)
+    }, 0)
+  }, [workout, userWeightLbs, exerciseMap])
 
   const handleDelete = async () => {
     setDeleting(true)
@@ -168,7 +202,7 @@ export default function WorkoutDetailPage() {
 
   if (!workout) {
     return (
-      <div className="mx-auto max-w-lg py-20 text-center">
+      <div className="mx-auto max-w-lg py-12 text-center">
         <p className="text-gray-500">Workout not found.</p>
         <Button
           variant="link"
@@ -208,7 +242,7 @@ export default function WorkoutDetailPage() {
       </div>
 
       {/* Summary stats */}
-      <div className="mb-6 grid grid-cols-3 gap-3">
+      <div className="mb-6 grid grid-cols-2 gap-2">
         <Card>
           <CardContent className="flex flex-col items-center p-3">
             <Dumbbell className="mb-1 h-5 w-5 text-purple-500" />
@@ -238,6 +272,15 @@ export default function WorkoutDetailPage() {
                 : "--"}
             </span>
             <span className="text-xs text-gray-500">Volume (lbs)</span>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex flex-col items-center p-3">
+            <Flame className="mb-1 h-5 w-5 text-orange-500" />
+            <span className="text-lg font-bold text-gray-900">
+              {totalCalories > 0 ? totalCalories : "--"}
+            </span>
+            <span className="text-xs text-gray-500">Calories</span>
           </CardContent>
         </Card>
       </div>

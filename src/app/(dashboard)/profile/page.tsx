@@ -379,7 +379,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Stats Summary */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2 text-center">
         <div className="rounded-xl border border-gray-200 bg-white p-4 text-center shadow-sm">
           <Dumbbell className="mx-auto mb-1 h-5 w-5 text-purple-500" />
           <p className="text-xl font-bold text-gray-900">

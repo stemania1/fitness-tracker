@@ -404,7 +404,7 @@ export default function WorkoutDetailPage() {
                           </Badge>
                         ))}
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         <div className="w-16">
                           <label className="text-xs text-gray-500">
                             Sets
@@ -424,7 +424,7 @@ export default function WorkoutDetailPage() {
                             className="h-8 text-sm"
                           />
                         </div>
-                        <div className="w-24">
+                        <div className="w-16">
                           <label className="text-xs text-gray-500">
                             Reps
                           </label>
@@ -440,7 +440,7 @@ export default function WorkoutDetailPage() {
                             className="h-8 text-sm"
                           />
                         </div>
-                        <div className="w-20">
+                        <div className="w-16">
                           <label className="text-xs text-gray-500">
                             Rest (s)
                           </label>

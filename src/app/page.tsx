@@ -22,7 +22,7 @@ const features = [
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col overflow-x-hidden">
       <header className="border-b border-gray-200 bg-white">
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -84,6 +84,15 @@ export default function LandingPage() {
       </main>
 
       <footer className="border-t border-gray-200 bg-white py-6 text-center text-sm text-gray-400">
+        <div className="flex items-center justify-center gap-4 mb-2">
+          <Link href="/privacy" className="hover:text-gray-600 transition-colors">
+            Privacy Policy
+          </Link>
+          <span>&middot;</span>
+          <Link href="/terms" className="hover:text-gray-600 transition-colors">
+            Terms of Service
+          </Link>
+        </div>
         &copy; {new Date().getFullYear()} PF Fitness Tracker. All rights reserved.
       </footer>
     </div>

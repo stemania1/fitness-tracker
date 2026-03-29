@@ -42,7 +42,11 @@ export async function updateSession(request: NextRequest) {
   const isRootPage = request.nextUrl.pathname === "/"
   const isCallbackPage = request.nextUrl.pathname.startsWith("/auth/callback")
 
-  if (!user && !isAuthPage && !isRootPage && !isCallbackPage) {
+  const isPublicPage = request.nextUrl.pathname.startsWith("/privacy") ||
+    request.nextUrl.pathname.startsWith("/terms") ||
+    request.nextUrl.pathname.startsWith("/api/auth/oura")
+
+  if (!user && !isAuthPage && !isRootPage && !isCallbackPage && !isPublicPage) {
     const url = request.nextUrl.clone()
     url.pathname = "/login"
     return NextResponse.redirect(url)
