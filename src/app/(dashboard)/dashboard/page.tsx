@@ -20,9 +20,15 @@ import {
   Flame,
   Plus,
   ChevronRight,
+  Moon,
+  Heart,
+  Activity,
+  Zap,
 } from "lucide-react"
 import { exercises as exerciseCatalog } from "@/data/exercises"
 import { estimateStrengthCalories, estimateCardioCalories } from "@/lib/calories"
+import type { OuraSummary } from "@/lib/oura"
+import { formatSleepDuration } from "@/lib/oura"
 
 const supabase = createClient()
 
@@ -170,6 +176,17 @@ export default function DashboardPage() {
     },
   })
 
+  // Oura Ring daily summary
+  const { data: ouraSummary, isLoading: ouraLoading } = useQuery<OuraSummary | null>({
+    queryKey: ["oura-summary"],
+    queryFn: async () => {
+      const res = await fetch("/api/oura")
+      if (!res.ok) return null
+      return res.json() as Promise<OuraSummary>
+    },
+    retry: false,
+  })
+
   const { data: personalRecords, isLoading: prsLoading } = useQuery({
     queryKey: ["personal-records"],
     queryFn: async () => {
@@ -278,6 +295,83 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Oura Ring Summary */}
+      {!ouraLoading && ouraSummary && (ouraSummary.sleep || ouraSummary.activity || ouraSummary.readiness) && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Activity className="h-5 w-5 text-teal-500" />
+              Today&apos;s Oura Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3">
+              {/* Sleep */}
+              {ouraSummary.sleep && (
+                <div className="rounded-lg bg-indigo-50 p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-indigo-600">
+                    <Moon className="h-3.5 w-3.5" />
+                    Sleep
+                  </div>
+                  <p className="mt-1 text-lg font-bold text-gray-900">
+                    {ouraSummary.sleep.score ?? "--"}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {ouraSummary.sleep.total_sleep_duration
+                      ? formatSleepDuration(ouraSummary.sleep.total_sleep_duration)
+                      : "No data"}
+                  </p>
+                </div>
+              )}
+
+              {/* Readiness */}
+              {ouraSummary.readiness && (
+                <div className="rounded-lg bg-emerald-50 p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+                    <Zap className="h-3.5 w-3.5" />
+                    Readiness
+                  </div>
+                  <p className="mt-1 text-lg font-bold text-gray-900">
+                    {ouraSummary.readiness.score ?? "--"}
+                  </p>
+                  <p className="text-xs text-gray-500">Recovery score</p>
+                </div>
+              )}
+
+              {/* Activity */}
+              {ouraSummary.activity && (
+                <div className="rounded-lg bg-orange-50 p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-orange-600">
+                    <Flame className="h-3.5 w-3.5" />
+                    Activity
+                  </div>
+                  <p className="mt-1 text-lg font-bold text-gray-900">
+                    {ouraSummary.activity.active_calories?.toLocaleString() ?? "--"}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Active cal &middot; {ouraSummary.activity.steps?.toLocaleString() ?? 0} steps
+                  </p>
+                </div>
+              )}
+
+              {/* Heart Rate */}
+              {ouraSummary.restingHeartRate && (
+                <div className="rounded-lg bg-red-50 p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-red-500">
+                    <Heart className="h-3.5 w-3.5" />
+                    Resting HR
+                  </div>
+                  <p className="mt-1 text-lg font-bold text-gray-900">
+                    {ouraSummary.restingHeartRate}
+                  </p>
+                  <p className="text-xs text-gray-500">bpm</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Weight Progress */}
       <Card>
