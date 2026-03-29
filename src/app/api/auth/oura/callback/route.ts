@@ -12,6 +12,12 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code")
   const error = searchParams.get("error")
 
+  // If no code and no error, this is likely a validation ping from Oura's
+  // developer portal — return 200 OK so it accepts the redirect URI.
+  if (!code && !error) {
+    return new NextResponse("OK", { status: 200 })
+  }
+
   if (error || !code) {
     return NextResponse.redirect(
       new URL("/profile?oura=error", request.url)
