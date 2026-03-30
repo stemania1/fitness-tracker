@@ -525,4 +525,14 @@ export const exercises: ExerciseDefinition[] = [
     defaultSets: 1,
     defaultReps: "15-20 min",
   },
+  {
+    id: "outdoor-run",
+    name: "Outdoor Run",
+    equipmentId: null,
+    muscleGroups: ["quads", "hamstrings", "glutes", "calves"],
+    exerciseType: "cardio",
+    difficulty: "beginner",
+    defaultSets: 1,
+    defaultReps: "20-30 min",
+  },
 ]

@@ -16,6 +16,7 @@ const MET_VALUES: Record<string, number> = {
   "stairmaster-exercise": 9.0,
   "stationary-bike-exercise": 6.8,
   "rowing-exercise": 7.0,
+  "outdoor-run": 9.8,
 
   // Bodyweight / Calisthenics
   "push-ups": 3.8,
