@@ -33,10 +33,10 @@ describe("estimateStrengthCalories", () => {
   it("handles very heavy body weight", () => {
     const result = estimateStrengthCalories("push-ups", 3, 400)
     expect(result).toBeGreaterThan(0)
-    // Should be roughly double the 180 lbs result
+    // Should be approximately double the 200 lbs result (rounding may differ by 1)
     const lightResult = estimateStrengthCalories("push-ups", 3, 200)
     const heavyResult = estimateStrengthCalories("push-ups", 3, 400)
-    expect(heavyResult).toBe(lightResult * 2)
+    expect(Math.abs(heavyResult - lightResult * 2)).toBeLessThanOrEqual(1)
   })
 })
 

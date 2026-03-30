@@ -193,9 +193,15 @@ export default function ActivityPage() {
             <p className="text-lg font-medium text-gray-500">
               No workouts logged yet
             </p>
-            <p className="mt-1 text-sm text-gray-400">
+            <p className="mb-5 mt-1 text-sm text-gray-400">
               Start your first workout to see your history here.
             </p>
+            <Link href="/activity/log">
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                Start Workout
+              </Button>
+            </Link>
           </div>
         ) : (
           <div className="space-y-3">
