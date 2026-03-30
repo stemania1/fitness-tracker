@@ -366,7 +366,7 @@ export default function ProfilePage() {
 
   async function handleSignOut() {
     await supabase.auth.signOut()
-    router.push("/")
+    router.push("/login")
   }
 
   const initial = profile?.display_name?.charAt(0)?.toUpperCase() ?? "U"

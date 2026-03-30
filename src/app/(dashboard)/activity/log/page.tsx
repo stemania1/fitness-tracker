@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils"
 import { exercises as exerciseCatalog, type ExerciseDefinition } from "@/data/exercises"
 import { ExercisePicker } from "@/components/activity/exercise-picker"
 import { RestTimer } from "@/components/activity/rest-timer"
+import { PreviousPerformance } from "@/components/activity/PreviousPerformance"
 import {
   estimateStrengthCalories,
   estimateCardioCalories,
@@ -516,6 +517,10 @@ export default function LogWorkoutPage() {
                         </span>
                       )}
                     </div>
+                    <PreviousPerformance
+                      exerciseId={currentExercise.exerciseId}
+                      exerciseType={currentExercise.exerciseType}
+                    />
                   </div>
                   <Button
                     variant="ghost"
