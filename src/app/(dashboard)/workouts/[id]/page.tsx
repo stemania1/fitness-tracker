@@ -224,6 +224,60 @@ export default function WorkoutDetailPage() {
     },
   })
 
+  const [reorderingId, setReorderingId] = useState<string | null>(null)
+
+  const reorderMutation = useMutation({
+    mutationFn: async ({
+      exerciseA,
+      exerciseB,
+    }: {
+      exerciseA: { id: string; order_index: number }
+      exerciseB: { id: string; order_index: number }
+    }) => {
+      setReorderingId(exerciseA.id)
+
+      // Swap the order_index values of the two adjacent exercises
+      const { error: errorA } = await supabase
+        .from("template_exercises")
+        .update({ order_index: exerciseB.order_index })
+        .eq("id", exerciseA.id)
+
+      if (errorA) throw errorA
+
+      const { error: errorB } = await supabase
+        .from("template_exercises")
+        .update({ order_index: exerciseA.order_index })
+        .eq("id", exerciseB.id)
+
+      if (errorB) throw errorB
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["workout-template", templateId],
+      })
+      setReorderingId(null)
+    },
+    onError: () => {
+      setReorderingId(null)
+    },
+  })
+
+  function handleReorder(index: number, direction: "up" | "down") {
+    const swapIdx = direction === "up" ? index - 1 : index + 1
+    if (swapIdx < 0 || swapIdx >= exercises.length) return
+
+    reorderMutation.mutate({
+      exerciseA: {
+        id: exercises[index].id,
+        order_index: exercises[index].order_index,
+      },
+      exerciseB: {
+        id: exercises[swapIdx].id,
+        order_index: exercises[swapIdx].order_index,
+      },
+    })
+  }
+
   const deleteMutation = useMutation({
     mutationFn: async () => {
       // Delete template exercises first (cascade may handle this, but be explicit)
@@ -361,6 +415,12 @@ export default function WorkoutDetailPage() {
         </p>
       )}
 
+      {reorderMutation.isError && (
+        <p className="text-sm text-red-600">
+          Failed to reorder exercises. Please try again.
+        </p>
+      )}
+
       {/* Exercise List */}
       <div className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500">
@@ -475,7 +535,32 @@ export default function WorkoutDetailPage() {
             ))
           : exercises.map((te, idx) => (
               <Card key={te.id}>
-                <CardContent className="flex items-center justify-between p-4">
+                <CardContent className="flex items-center gap-3 p-4">
+                  {/* Reorder buttons */}
+                  <div className="flex flex-col gap-0.5">
+                    <button
+                      onClick={() => handleReorder(idx, "up")}
+                      disabled={
+                        idx === 0 || reorderMutation.isPending
+                      }
+                      className="rounded p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                      aria-label="Move exercise up"
+                    >
+                      <ChevronUp className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleReorder(idx, "down")}
+                      disabled={
+                        idx === exercises.length - 1 ||
+                        reorderMutation.isPending
+                      }
+                      className="rounded p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                      aria-label="Move exercise down"
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </button>
+                  </div>
+
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-gray-900">
                       {te.exercises?.name ?? "Unknown Exercise"}

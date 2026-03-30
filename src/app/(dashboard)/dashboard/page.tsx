@@ -41,6 +41,7 @@ import type { OuraSummary } from "@/lib/oura"
 import { formatSleepDuration } from "@/lib/oura"
 import { QuickLogExercise } from "@/components/activity/QuickLogExercise"
 import { QuickLogWeight } from "@/components/activity/QuickLogWeight"
+import { ErrorBoundary } from "@/components/ui/error-boundary"
 
 const supabase = createClient()
 
@@ -364,63 +365,66 @@ export default function DashboardPage() {
       </div>
 
       {/* This Week */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Flame className="h-5 w-5 text-orange-500" />
-            This Week
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {weeklyLoading || profileLoading ? (
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="h-3 w-full" />
-            </div>
-          ) : (
-            <div className="space-y-3">
+      <ErrorBoundary>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Flame className="h-5 w-5 text-orange-500" />
+              This Week
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {weeklyLoading || profileLoading ? (
               <div className="space-y-2">
-                <div className="flex items-baseline justify-between">
-                  <span className="text-sm text-gray-600">
-                    <span className="text-lg font-semibold text-gray-900">
-                      {completedWorkouts}
-                    </span>{" "}
-                    of {workoutTarget} workouts
-                  </span>
-                  <span className="text-sm font-medium text-purple-600">
-                    {weeklyProgress}%
-                  </span>
-                </div>
-                <Progress value={weeklyProgress} />
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-full" />
               </div>
-              {!caloriesLoading && weeklyCalories != null && weeklyCalories > 0 && (
-                <div className="flex items-center gap-2 rounded-lg bg-orange-50 px-3 py-2">
-                  <Flame className="h-4 w-4 text-orange-500" />
-                  <span className="text-sm text-gray-700">
-                    <span className="font-semibold text-gray-900">
-                      {weeklyCalories.toLocaleString()}
-                    </span>{" "}
-                    calories burned
-                  </span>
+            ) : (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-sm text-gray-600">
+                      <span className="text-lg font-semibold text-gray-900">
+                        {completedWorkouts}
+                      </span>{" "}
+                      of {workoutTarget} workouts
+                    </span>
+                    <span className="text-sm font-medium text-purple-600">
+                      {weeklyProgress}%
+                    </span>
+                  </div>
+                  <Progress value={weeklyProgress} />
                 </div>
-              )}
-              {!allWorkoutsLoading && weeklyStreak >= 1 && (
-                <div className="flex items-center gap-2 rounded-lg bg-orange-50 px-3 py-2">
-                  <Flame className="h-4 w-4 text-orange-500" />
-                  <span className="text-sm text-gray-700">
-                    <span className="font-semibold text-gray-900">
-                      {weeklyStreak}
-                    </span>{" "}
-                    week streak
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                {!caloriesLoading && weeklyCalories != null && weeklyCalories > 0 && (
+                  <div className="flex items-center gap-2 rounded-lg bg-orange-50 px-3 py-2">
+                    <Flame className="h-4 w-4 text-orange-500" />
+                    <span className="text-sm text-gray-700">
+                      <span className="font-semibold text-gray-900">
+                        {weeklyCalories.toLocaleString()}
+                      </span>{" "}
+                      calories burned
+                    </span>
+                  </div>
+                )}
+                {!allWorkoutsLoading && weeklyStreak >= 1 && (
+                  <div className="flex items-center gap-2 rounded-lg bg-orange-50 px-3 py-2">
+                    <Flame className="h-4 w-4 text-orange-500" />
+                    <span className="text-sm text-gray-700">
+                      <span className="font-semibold text-gray-900">
+                        {weeklyStreak}
+                      </span>{" "}
+                      week streak
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </ErrorBoundary>
 
       {/* Oura Ring Summary */}
+      <ErrorBoundary>
       {!ouraLoading && ouraSummary && (ouraSummary.sleep || ouraSummary.activity || ouraSummary.readiness) && (
         <Card>
           <CardHeader className="pb-3">
@@ -496,8 +500,10 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       )}
+      </ErrorBoundary>
 
       {/* Weight Trend */}
+      <ErrorBoundary>
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
@@ -582,8 +588,10 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
+      </ErrorBoundary>
 
       {/* Recent Workouts */}
+      <ErrorBoundary>
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">

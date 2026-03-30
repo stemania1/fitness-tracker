@@ -75,6 +75,8 @@ export function RestTimer({ seconds, onComplete, onSkip }: RestTimerProps) {
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
           <span
+            aria-live="polite"
+            aria-atomic="true"
             className={cn(
               "text-4xl font-bold tabular-nums text-white transition-colors",
               done && "text-purple-300"

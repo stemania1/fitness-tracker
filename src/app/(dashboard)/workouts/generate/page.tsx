@@ -46,6 +46,7 @@ export default function GenerateWorkoutPage() {
   const [generatedWorkouts, setGeneratedWorkouts] = useState<
     GeneratedWorkout[] | null
   >(null)
+  const [includeExpress, setIncludeExpress] = useState(false)
 
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ["profile"],
@@ -66,6 +67,19 @@ export default function GenerateWorkoutPage() {
 
   function handleGenerate() {
     if (!profile) return
+
+    if (includeExpress) {
+      const expressWorkout = generateWorkout({
+        goal: profile.primary_goal ?? "general_fitness",
+        fitnessLevel: profile.fitness_level ?? "beginner",
+        workoutDays: profile.workout_days ?? 3,
+        splitType: "express",
+        limitations: profile.limitations ?? undefined,
+      })
+      setGeneratedWorkouts(expressWorkout)
+      return
+    }
+
     const workouts = generateWorkout({
       goal: profile.primary_goal ?? "general_fitness",
       fitnessLevel: profile.fitness_level ?? "beginner",
@@ -204,6 +218,39 @@ export default function GenerateWorkoutPage() {
         </CardContent>
       </Card>
 
+      {/* Express Circuit Toggle */}
+      {!generatedWorkouts && (
+        <Card>
+          <CardContent className="pt-6">
+            <label className="flex cursor-pointer items-center justify-between">
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium text-gray-900">
+                  Express 30-Minute Circuit
+                </p>
+                <p className="text-xs text-gray-500">
+                  Quick full-body circuit for busy days — compound movements with short rest
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={includeExpress}
+                onClick={() => setIncludeExpress((prev) => !prev)}
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                  includeExpress ? "bg-purple-600" : "bg-gray-200"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    includeExpress ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </label>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Generate Button */}
       {!generatedWorkouts && (
         <Button
@@ -213,7 +260,7 @@ export default function GenerateWorkoutPage() {
           disabled={profileLoading || !profile}
         >
           <Sparkles className="h-5 w-5" />
-          Generate Workouts
+          {includeExpress ? "Generate Express Circuit" : "Generate Workouts"}
         </Button>
       )}
 
