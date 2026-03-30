@@ -29,6 +29,7 @@ import { exercises as exerciseCatalog } from "@/data/exercises"
 import { estimateStrengthCalories, estimateCardioCalories } from "@/lib/calories"
 import type { OuraSummary } from "@/lib/oura"
 import { formatSleepDuration } from "@/lib/oura"
+import { QuickLogExercise } from "@/components/activity/QuickLogExercise"
 
 const supabase = createClient()
 
@@ -241,6 +242,7 @@ export default function DashboardPage() {
           <Plus className="h-4 w-4" />
           Start Workout
         </Link>
+        <QuickLogExercise />
         <Link
           href="/activity?tab=weight"
           className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-50"
