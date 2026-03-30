@@ -217,8 +217,8 @@ export default function DashboardPage() {
     []
   )
 
-  const exerciseMap = useMemo(
-    () => new Map(exerciseCatalog.map((e) => [e.id, e])),
+  const exerciseNameMap = useMemo(
+    () => new Map(exerciseCatalog.map((e) => [e.name.toLowerCase(), e])),
     []
   )
 
@@ -256,6 +256,17 @@ export default function DashboardPage() {
       if (!exLogs || exLogs.length === 0) return 0
 
       const exIds = exLogs.map((e) => e.id)
+      const exerciseUuids = [...new Set(exLogs.map((e) => e.exercise_id))]
+
+      // Fetch exercise names from DB to bridge UUIDs to the static catalog
+      const { data: dbExercises } = await supabase
+        .from("exercises")
+        .select("id, name")
+        .in("id", exerciseUuids)
+
+      const uuidToName = new Map<string, string>(
+        (dbExercises ?? []).map((e) => [e.id as string, e.name as string])
+      )
 
       // Get set logs
       const { data: setLogs } = await supabase
@@ -273,13 +284,15 @@ export default function DashboardPage() {
 
       let totalCal = 0
       exLogs.forEach((ex) => {
-        const def = exerciseMap.get(ex.exercise_id)
+        const name = uuidToName.get(ex.exercise_id)
+        const def = name ? exerciseNameMap.get(name.toLowerCase()) : undefined
         const sets = setsByEx.get(ex.id) ?? []
+        const catalogId = def?.id ?? ex.exercise_id
         if (def?.exerciseType === "cardio") {
           const totalMins = sets.reduce((s, set) => s + (set.duration_mins ?? 0), 0)
-          totalCal += estimateCardioCalories(ex.exercise_id, totalMins, weightLbs)
+          totalCal += estimateCardioCalories(catalogId, totalMins, weightLbs)
         } else {
-          totalCal += estimateStrengthCalories(ex.exercise_id, sets.length, weightLbs)
+          totalCal += estimateStrengthCalories(catalogId, sets.length, weightLbs)
         }
       })
 
@@ -646,8 +659,10 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
+      </ErrorBoundary>
 
       {/* Personal Records */}
+      <ErrorBoundary>
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
@@ -700,6 +715,7 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
+      </ErrorBoundary>
     </div>
   )
 }

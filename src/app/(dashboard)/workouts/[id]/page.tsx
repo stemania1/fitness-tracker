@@ -224,8 +224,6 @@ export default function WorkoutDetailPage() {
     },
   })
 
-  const [reorderingId, setReorderingId] = useState<string | null>(null)
-
   const reorderMutation = useMutation({
     mutationFn: async ({
       exerciseA,
@@ -234,8 +232,6 @@ export default function WorkoutDetailPage() {
       exerciseA: { id: string; order_index: number }
       exerciseB: { id: string; order_index: number }
     }) => {
-      setReorderingId(exerciseA.id)
-
       // Swap the order_index values of the two adjacent exercises
       const { error: errorA } = await supabase
         .from("template_exercises")
@@ -255,10 +251,6 @@ export default function WorkoutDetailPage() {
       queryClient.invalidateQueries({
         queryKey: ["workout-template", templateId],
       })
-      setReorderingId(null)
-    },
-    onError: () => {
-      setReorderingId(null)
     },
   })
 
