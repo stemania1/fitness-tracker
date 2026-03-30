@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
 import { exercises as exerciseCatalog } from "@/data/exercises"
+import { ensureExercisesExist } from "@/lib/supabase/exercises"
 import {
   Dialog,
   DialogTrigger,
@@ -45,6 +46,11 @@ export function QuickLogExercise() {
       const exercise = cardioExercises.find((e) => e.id === exerciseId)
       const exerciseName = exercise?.name ?? "Cardio"
 
+      // Resolve static slug ID to database UUID
+      const idMap = await ensureExercisesExist(supabase, [exerciseId])
+      const dbExerciseId = idMap.get(exerciseId)
+      if (!dbExerciseId) throw new Error("Exercise not found in database")
+
       const now = new Date()
       const startedAt = new Date(now.getTime() - mins * 60_000)
 
@@ -67,7 +73,7 @@ export function QuickLogExercise() {
         .from("exercise_logs")
         .insert({
           workout_log_id: workoutLog.id,
-          exercise_id: exerciseId,
+          exercise_id: dbExerciseId,
           order_index: 0,
         })
         .select("id")

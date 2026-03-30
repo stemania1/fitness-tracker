@@ -45,7 +45,8 @@ insert into exercises (name, equipment_id, muscle_groups, exercise_type, difficu
   ('Elliptical', 'a0000000-0000-0000-0000-000000000002', '{"quadriceps","hamstrings","glutes","chest","back"}', 'cardio', 'beginner', 'Maintain a moderate pace with resistance level 5-8. Use handles for upper body.', 1, '20 min', true),
   ('Stationary Bike', 'a0000000-0000-0000-0000-000000000003', '{"quadriceps","hamstrings","calves","glutes"}', 'cardio', 'beginner', 'Pedal at moderate intensity. Adjust resistance as needed.', 1, '20 min', true),
   ('Stair Climber', 'a0000000-0000-0000-0000-000000000004', '{"quadriceps","hamstrings","calves","glutes"}', 'cardio', 'intermediate', 'Step at a steady pace. Keep posture upright, avoid leaning on rails.', 1, '15 min', true),
-  ('Rowing Machine', 'a0000000-0000-0000-0000-000000000020', '{"back","shoulders","biceps","quadriceps","core"}', 'cardio', 'intermediate', 'Drive through legs first, then lean back slightly, then pull arms. Reverse to return.', 1, '15 min', true);
+  ('Rowing Machine', 'a0000000-0000-0000-0000-000000000020', '{"back","shoulders","biceps","quadriceps","core"}', 'cardio', 'intermediate', 'Drive through legs first, then lean back slightly, then pull arms. Reverse to return.', 1, '15 min', true),
+  ('Outdoor Run', null, '{"quadriceps","hamstrings","calves","glutes"}', 'cardio', 'beginner', 'Run outdoors at a comfortable pace. Great for building endurance.', 1, '20 min', true);
 
 -- Chest exercises
 insert into exercises (name, equipment_id, muscle_groups, exercise_type, difficulty, instructions, default_sets, default_reps, pf_friendly) values
