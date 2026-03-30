@@ -43,6 +43,51 @@ import { QuickLogExercise } from "@/components/activity/QuickLogExercise"
 
 const supabase = createClient()
 
+function calculateEstimated1RM(weight: number, reps: number): number {
+  if (reps <= 1) return weight
+  return Math.round(weight * (1 + reps / 30))
+}
+
+function getWeekLabel(dateStr: string): string {
+  const d = new Date(dateStr)
+  const startOfYear = new Date(d.getFullYear(), 0, 1)
+  const weekNum = Math.ceil(
+    ((d.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7
+  )
+  return `W${weekNum}`
+}
+
+function calcWeeklyStreak(
+  workoutLogs: { started_at: string }[],
+  targetPerWeek: number
+): number {
+  if (!workoutLogs.length || targetPerWeek <= 0) return 0
+
+  // Group workouts by ISO week
+  const weekMap = new Map<string, number>()
+  for (const log of workoutLogs) {
+    const d = new Date(log.started_at)
+    const yearWeek = `${d.getFullYear()}-${getWeekLabel(log.started_at)}`
+    weekMap.set(yearWeek, (weekMap.get(yearWeek) ?? 0) + 1)
+  }
+
+  // Get sorted weeks
+  const sortedWeeks = [...weekMap.entries()].sort((a, b) =>
+    a[0].localeCompare(b[0])
+  )
+
+  // Count consecutive weeks from the most recent that hit the target
+  let streak = 0
+  for (let i = sortedWeeks.length - 1; i >= 0; i--) {
+    if (sortedWeeks[i][1] >= targetPerWeek) {
+      streak++
+    } else {
+      break
+    }
+  }
+  return streak
+}
+
 function getStartOfWeek() {
   const now = new Date()
   const day = now.getDay()
@@ -80,6 +125,21 @@ export default function DashboardPage() {
         .select("id")
         .eq("user_id", user.id)
         .gte("started_at", weekStart)
+      if (error) throw error
+      return data
+    },
+  })
+
+  const { data: allWorkoutLogs, isLoading: allWorkoutsLoading } = useQuery({
+    queryKey: ["workout-logs-all"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
+      const { data, error } = await supabase
+        .from("workout_logs")
+        .select("id, started_at")
+        .eq("user_id", user.id)
+        .order("started_at", { ascending: true })
       if (error) throw error
       return data
     },
@@ -260,6 +320,14 @@ export default function DashboardPage() {
     },
   })
 
+  const weeklyStreak = useMemo(
+    () =>
+      allWorkoutLogs
+        ? calcWeeklyStreak(allWorkoutLogs, profile?.workout_days ?? 4)
+        : 0,
+    [allWorkoutLogs, profile?.workout_days]
+  )
+
   const workoutTarget = profile?.workout_days ?? 4
   const completedWorkouts = weeklyWorkouts?.length ?? 0
   const weeklyProgress = workoutTarget > 0
@@ -338,6 +406,17 @@ export default function DashboardPage() {
                       {weeklyCalories.toLocaleString()}
                     </span>{" "}
                     calories burned
+                  </span>
+                </div>
+              )}
+              {!allWorkoutsLoading && weeklyStreak >= 1 && (
+                <div className="flex items-center gap-2 rounded-lg bg-orange-50 px-3 py-2">
+                  <Flame className="h-4 w-4 text-orange-500" />
+                  <span className="text-sm text-gray-700">
+                    <span className="font-semibold text-gray-900">
+                      {weeklyStreak}
+                    </span>{" "}
+                    week streak
                   </span>
                 </div>
               )}
@@ -584,14 +663,25 @@ export default function DashboardPage() {
               {personalRecords.map((pr, index) => {
                 const exerciseLog = pr.exercise_log as any
                 const exerciseName = exerciseLog?.exercise?.name ?? "Unknown"
+                const estimated1RM =
+                  pr.weight && pr.reps && pr.reps > 0
+                    ? calculateEstimated1RM(pr.weight, pr.reps)
+                    : null
                 return (
                   <div
                     key={index}
                     className="flex items-center justify-between rounded-lg bg-gray-50 p-3"
                   >
-                    <span className="text-sm font-medium text-gray-900">
-                      {exerciseName}
-                    </span>
+                    <div>
+                      <span className="text-sm font-medium text-gray-900">
+                        {exerciseName}
+                      </span>
+                      {estimated1RM !== null && (
+                        <p className="text-xs text-gray-500">
+                          Est. 1RM: {estimated1RM} lbs
+                        </p>
+                      )}
+                    </div>
                     <Badge variant="secondary">
                       {pr.weight} lbs {pr.reps ? `x ${pr.reps}` : ""}
                     </Badge>
