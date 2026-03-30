@@ -113,6 +113,7 @@ function DialogContent({ className, children, ...props }: DialogContentProps) {
       <div
         role="dialog"
         aria-modal="true"
+        aria-labelledby={DIALOG_TITLE_ID}
         className={cn(
           "relative z-50 w-full max-w-lg rounded-xl border border-gray-200 bg-white p-6 shadow-lg",
           "animate-in fade-in-0 zoom-in-95",
@@ -160,12 +161,16 @@ function DialogHeader({
   )
 }
 
+const DIALOG_TITLE_ID = "dialog-title"
+
 function DialogTitle({
   className,
+  id = DIALOG_TITLE_ID,
   ...props
 }: React.HTMLAttributes<HTMLHeadingElement>) {
   return (
     <h2
+      id={id}
       className={cn("text-lg font-semibold leading-none tracking-tight", className)}
       {...props}
     />

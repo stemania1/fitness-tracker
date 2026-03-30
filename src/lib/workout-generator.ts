@@ -258,10 +258,89 @@ function pickCalisthenics(
   return shuffle(pool).slice(0, count)
 }
 
+function generateExpressWorkout(
+  fitnessLevel: string
+): GeneratedWorkout {
+  const picked: Set<string> = new Set()
+  const generatedExercises: GeneratedExercise[] = []
+
+  // Express circuit: 5-6 compound exercises covering major muscle groups + 1 cardio finisher
+  // Prioritize compound movements that hit multiple muscle groups
+  const circuitTargets: string[][] = [
+    ["chest", "triceps", "shoulders"],  // upper push (compound)
+    ["back", "biceps"],                 // upper pull (compound)
+    ["quads", "hamstrings", "glutes"],  // lower body (compound)
+    ["shoulders", "triceps"],           // shoulders
+    ["core"],                           // core
+  ]
+
+  for (const targets of circuitTargets) {
+    // Prefer compound exercises (those with 2+ muscle groups)
+    const pool = filterByDifficulty(
+      exercises.filter(
+        (e) =>
+          e.exerciseType === "strength" &&
+          e.muscleGroups.some((mg) => targets.includes(mg)) &&
+          !picked.has(e.id)
+      ),
+      fitnessLevel
+    )
+
+    // Sort so compound movements (more muscle groups) come first
+    const sorted = [...pool].sort(
+      (a, b) => b.muscleGroups.length - a.muscleGroups.length
+    )
+    const shuffledCompounds = shuffle(
+      sorted.filter((e) => e.muscleGroups.length >= 2)
+    )
+    const fallback = shuffle(sorted)
+    const pick = shuffledCompounds[0] ?? fallback[0]
+
+    if (pick) {
+      picked.add(pick.id)
+      generatedExercises.push({
+        exerciseId: pick.id,
+        name: pick.name,
+        sets: 3,
+        reps: "10-12",
+        restSeconds: 30,
+        muscleGroups: pick.muscleGroups,
+      })
+    }
+  }
+
+  // Add one cardio finisher (short burst, not a long session)
+  const cardio = pickCardio(fitnessLevel, picked)
+  if (cardio) {
+    picked.add(cardio.id)
+    generatedExercises.push({
+      exerciseId: cardio.id,
+      name: cardio.name,
+      sets: 1,
+      reps: "5-8 min",
+      restSeconds: 0,
+      muscleGroups: cardio.muscleGroups,
+    })
+  }
+
+  return {
+    name: "Express 30-Minute Circuit",
+    splitType: "express",
+    estimatedMins: 30,
+    exercises: generatedExercises,
+  }
+}
+
 export function generateWorkout(
   input: GenerateWorkoutInput
 ): GeneratedWorkout[] {
-  const { goal, fitnessLevel, workoutDays } = input
+  const { goal, fitnessLevel, workoutDays, splitType } = input
+
+  // Handle express circuit as a standalone workout
+  if (splitType === "express") {
+    return [generateExpressWorkout(fitnessLevel)]
+  }
+
   const scheme = GOAL_SCHEME[goal]
   const splitDays = determineSplitDays(workoutDays, goal)
 
