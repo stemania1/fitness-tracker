@@ -35,27 +35,37 @@ async function fetchPreviousPerformance(
 
   if (!dbExercise) return null
 
-  // Find the most recent exercise_log for this exercise (via workout_logs for ordering)
-  const { data: exerciseLog } = await supabase
+  // Find the most recent exercise_log for this exercise
+  const { data: exerciseLogs } = await supabase
     .from("exercise_logs")
-    .select(
-      `
-      id,
-      workout_log:workout_logs!inner(started_at)
-    `
-    )
+    .select("id, workout_log_id")
     .eq("exercise_id", dbExercise.id)
-    .order("workout_log(started_at)", { ascending: false })
-    .limit(1)
-    .single()
+    .order("workout_log_id", { ascending: false })
+    .limit(10)
 
-  if (!exerciseLog) return null
+  if (!exerciseLogs || exerciseLogs.length === 0) return null
+
+  // Get the workout start times to find the most recent one
+  const workoutIds = exerciseLogs.map((el) => el.workout_log_id)
+  const { data: workouts } = await supabase
+    .from("workout_logs")
+    .select("id, started_at")
+    .in("id", workoutIds)
+    .order("started_at", { ascending: false })
+    .limit(1)
+
+  if (!workouts || workouts.length === 0) return null
+
+  const latestExLog = exerciseLogs.find(
+    (el) => el.workout_log_id === workouts[0].id
+  )
+  if (!latestExLog) return null
 
   // Get the set_logs for that exercise_log
   const { data: sets } = await supabase
     .from("set_logs")
     .select("set_number, reps, weight, duration_mins, distance_miles")
-    .eq("exercise_log_id", exerciseLog.id)
+    .eq("exercise_log_id", latestExLog.id)
     .order("set_number", { ascending: true })
 
   return sets ?? null
