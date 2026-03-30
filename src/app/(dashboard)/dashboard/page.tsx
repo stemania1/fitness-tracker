@@ -40,6 +40,7 @@ import { estimateStrengthCalories, estimateCardioCalories } from "@/lib/calories
 import type { OuraSummary } from "@/lib/oura"
 import { formatSleepDuration } from "@/lib/oura"
 import { QuickLogExercise } from "@/components/activity/QuickLogExercise"
+import { QuickLogWeight } from "@/components/activity/QuickLogWeight"
 
 const supabase = createClient()
 
@@ -359,13 +360,7 @@ export default function DashboardPage() {
           Start Workout
         </Link>
         <QuickLogExercise />
-        <Link
-          href="/activity?tab=weight"
-          className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-50"
-        >
-          <Scale className="h-4 w-4" />
-          Log Weight
-        </Link>
+        <QuickLogWeight />
       </div>
 
       {/* This Week */}
@@ -615,9 +610,10 @@ export default function DashboardPage() {
           ) : recentWorkouts && recentWorkouts.length > 0 ? (
             <div className="space-y-3">
               {recentWorkouts.map((workout) => (
-                <div
+                <Link
                   key={workout.id}
-                  className="flex items-center justify-between rounded-lg bg-gray-50 p-3"
+                  href={`/activity/${workout.id}`}
+                  className="flex items-center justify-between rounded-lg bg-gray-50 p-3 cursor-pointer hover:bg-gray-100 transition-colors"
                 >
                   <div>
                     <p className="font-medium text-gray-900">{workout.name}</p>
@@ -632,7 +628,7 @@ export default function DashboardPage() {
                     </p>
                   </div>
                   <ChevronRight className="h-4 w-4 text-gray-400" />
-                </div>
+                </Link>
               ))}
             </div>
           ) : (
