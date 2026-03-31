@@ -6,7 +6,26 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
  * Oura redirects here after the user authorizes the app.
  * Exchanges the authorization code for access + refresh tokens
  * and stores them in the user's profile.
+ *
+ * On failure, redirects to /profile?oura=error&oura_reason=<code> so the
+ * profile page can show targeted troubleshooting steps.
  */
+
+type OuraErrorReason =
+  | "user_denied"
+  | "missing_code"
+  | "missing_env"
+  | "token_exchange"
+  | "not_authenticated"
+  | "db_write"
+
+function errorRedirect(request: NextRequest, reason: OuraErrorReason) {
+  const url = new URL("/profile", request.url)
+  url.searchParams.set("oura", "error")
+  url.searchParams.set("oura_reason", reason)
+  return NextResponse.redirect(url)
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const code = searchParams.get("code")
@@ -18,29 +37,51 @@ export async function GET(request: NextRequest) {
     return new NextResponse("OK", { status: 200 })
   }
 
-  if (error || !code) {
-    return NextResponse.redirect(
-      new URL("/profile?oura=error", request.url)
-    )
+  if (error) {
+    console.error("[Oura OAuth] Authorization error from Oura:", error)
+    return errorRedirect(request, error === "access_denied" ? "user_denied" : "missing_code")
+  }
+
+  if (!code) {
+    console.error("[Oura OAuth] No authorization code received")
+    return errorRedirect(request, "missing_code")
+  }
+
+  // Verify env vars are present
+  const clientId = process.env.OURA_CLIENT_ID
+  const clientSecret = process.env.OURA_CLIENT_SECRET
+  if (!clientId || !clientSecret) {
+    console.error("[Oura OAuth] Missing OURA_CLIENT_ID or OURA_CLIENT_SECRET environment variables")
+    return errorRedirect(request, "missing_env")
   }
 
   // Exchange code for tokens
-  const tokenRes = await fetch("https://api.ouraring.com/oauth/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      code,
-      client_id: process.env.OURA_CLIENT_ID ?? "",
-      client_secret: process.env.OURA_CLIENT_SECRET ?? "",
-      redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://fitness.craigfamilywebsite.com"}/api/auth/oura/callback`,
-    }),
-  })
+  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL ?? "https://fitness.craigfamilywebsite.com"}/api/auth/oura/callback`
+  let tokenRes: Response
+
+  try {
+    tokenRes = await fetch("https://api.ouraring.com/oauth/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+      }),
+    })
+  } catch (err) {
+    console.error("[Oura OAuth] Network error during token exchange:", err)
+    return errorRedirect(request, "token_exchange")
+  }
 
   if (!tokenRes.ok) {
-    return NextResponse.redirect(
-      new URL("/profile?oura=error", request.url)
+    const body = await tokenRes.text().catch(() => "(unreadable)")
+    console.error(
+      `[Oura OAuth] Token exchange failed — status ${tokenRes.status}: ${body}`
     )
+    return errorRedirect(request, "token_exchange")
   }
 
   const tokens = (await tokenRes.json()) as {
@@ -57,7 +98,8 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return NextResponse.redirect(new URL("/login", request.url))
+    console.error("[Oura OAuth] No authenticated user found in session")
+    return errorRedirect(request, "not_authenticated")
   }
 
   const expiresAt = new Date(
@@ -65,8 +107,7 @@ export async function GET(request: NextRequest) {
   ).toISOString()
 
   // Upsert into oura_tokens table
-  // Note: oura_tokens table must be created via migration before this works
-  await (supabase as unknown as { from: (table: string) => { upsert: (values: Record<string, string>, options?: Record<string, string>) => Promise<unknown> } })
+  const { error: dbError } = (await (supabase as unknown as { from: (table: string) => { upsert: (values: Record<string, string>, options?: Record<string, string>) => Promise<{ error: { message: string } | null }> } })
     .from("oura_tokens")
     .upsert(
       {
@@ -76,7 +117,12 @@ export async function GET(request: NextRequest) {
         expires_at: expiresAt,
       },
       { onConflict: "user_id" }
-    )
+    ))
+
+  if (dbError) {
+    console.error("[Oura OAuth] Failed to store tokens:", dbError.message)
+    return errorRedirect(request, "db_write")
+  }
 
   return NextResponse.redirect(
     new URL("/profile?oura=connected", request.url)

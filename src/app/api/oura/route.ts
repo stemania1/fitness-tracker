@@ -55,6 +55,10 @@ export async function GET() {
     })
 
     if (!refreshRes.ok) {
+      const body = await refreshRes.text().catch(() => "(unreadable)")
+      console.error(
+        `[Oura API] Token refresh failed — status ${refreshRes.status}: ${body}`
+      )
       return NextResponse.json(
         { error: "Failed to refresh Oura token" },
         { status: 401 }
