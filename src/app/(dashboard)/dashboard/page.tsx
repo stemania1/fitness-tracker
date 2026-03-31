@@ -301,15 +301,25 @@ export default function DashboardPage() {
   })
 
   // Oura Ring daily summary
-  const { data: ouraSummary, isLoading: ouraLoading } = useQuery<OuraSummary | null>({
+  const { data: ouraResult, isLoading: ouraLoading } = useQuery<{
+    connected: boolean
+    summary: OuraSummary | null
+    error?: string
+  }>({
     queryKey: ["oura-summary"],
     queryFn: async () => {
       const res = await fetch("/api/oura")
-      if (!res.ok) return null
-      return res.json() as Promise<OuraSummary>
+      if (res.status === 404) return { connected: false, summary: null }
+      if (res.status === 401) return { connected: true, summary: null, error: "token_expired" }
+      if (!res.ok) return { connected: true, summary: null, error: "fetch_failed" }
+      const summary = (await res.json()) as OuraSummary
+      return { connected: true, summary }
     },
     retry: false,
   })
+
+  const ouraSummary = ouraResult?.summary ?? null
+  const ouraConnected = ouraResult?.connected ?? false
 
   const { data: personalRecords, isLoading: prsLoading } = useQuery({
     queryKey: ["personal-records"],
@@ -438,7 +448,7 @@ export default function DashboardPage() {
 
       {/* Oura Ring Summary */}
       <ErrorBoundary>
-      {!ouraLoading && ouraSummary && (ouraSummary.sleep || ouraSummary.activity || ouraSummary.readiness) ? (
+      {!ouraLoading && ouraConnected && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
@@ -447,92 +457,104 @@ export default function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-3">
-              {/* Sleep */}
-              {ouraSummary.sleep && (
-                <div className="rounded-lg bg-indigo-50 p-3">
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-indigo-600">
-                    <Moon className="h-3.5 w-3.5" />
-                    Sleep
+            {ouraResult?.error === "token_expired" ? (
+              <div className="flex flex-col items-center gap-2 py-4 text-center">
+                <Heart className="h-6 w-6 text-red-300" />
+                <p className="text-sm text-gray-500">
+                  Your Oura Ring session has expired.
+                </p>
+                <p className="text-xs text-gray-400">
+                  Go to <a href="/profile" className="text-purple-600 underline hover:text-purple-700">Profile</a> to reconnect your ring.
+                </p>
+              </div>
+            ) : ouraResult?.error ? (
+              <div className="flex flex-col items-center gap-2 py-4 text-center">
+                <Activity className="h-6 w-6 text-gray-300" />
+                <p className="text-sm text-gray-500">
+                  Unable to fetch Oura data right now.
+                </p>
+                <p className="text-xs text-gray-400">
+                  This is usually temporary — try refreshing the page.
+                </p>
+              </div>
+            ) : ouraSummary && (ouraSummary.sleep || ouraSummary.activity || ouraSummary.readiness) ? (
+              <div className="grid grid-cols-2 gap-3">
+                {/* Sleep */}
+                {ouraSummary.sleep && (
+                  <div className="rounded-lg bg-indigo-50 p-3">
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-indigo-600">
+                      <Moon className="h-3.5 w-3.5" />
+                      Sleep
+                    </div>
+                    <p className="mt-1 text-lg font-bold text-gray-900">
+                      {ouraSummary.sleep.score ?? "--"}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {ouraSummary.sleep.total_sleep_duration
+                        ? formatSleepDuration(ouraSummary.sleep.total_sleep_duration)
+                        : "No data"}
+                    </p>
                   </div>
-                  <p className="mt-1 text-lg font-bold text-gray-900">
-                    {ouraSummary.sleep.score ?? "--"}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {ouraSummary.sleep.total_sleep_duration
-                      ? formatSleepDuration(ouraSummary.sleep.total_sleep_duration)
-                      : "No data"}
-                  </p>
-                </div>
-              )}
+                )}
 
-              {/* Readiness */}
-              {ouraSummary.readiness && (
-                <div className="rounded-lg bg-emerald-50 p-3">
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
-                    <Zap className="h-3.5 w-3.5" />
-                    Readiness
+                {/* Readiness */}
+                {ouraSummary.readiness && (
+                  <div className="rounded-lg bg-emerald-50 p-3">
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+                      <Zap className="h-3.5 w-3.5" />
+                      Readiness
+                    </div>
+                    <p className="mt-1 text-lg font-bold text-gray-900">
+                      {ouraSummary.readiness.score ?? "--"}
+                    </p>
+                    <p className="text-xs text-gray-500">Recovery score</p>
                   </div>
-                  <p className="mt-1 text-lg font-bold text-gray-900">
-                    {ouraSummary.readiness.score ?? "--"}
-                  </p>
-                  <p className="text-xs text-gray-500">Recovery score</p>
-                </div>
-              )}
+                )}
 
-              {/* Activity */}
-              {ouraSummary.activity && (
-                <div className="rounded-lg bg-orange-50 p-3">
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-orange-600">
-                    <Flame className="h-3.5 w-3.5" />
-                    Activity
+                {/* Activity */}
+                {ouraSummary.activity && (
+                  <div className="rounded-lg bg-orange-50 p-3">
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-orange-600">
+                      <Flame className="h-3.5 w-3.5" />
+                      Activity
+                    </div>
+                    <p className="mt-1 text-lg font-bold text-gray-900">
+                      {ouraSummary.activity.active_calories?.toLocaleString() ?? "--"}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Active cal &middot; {ouraSummary.activity.steps?.toLocaleString() ?? 0} steps
+                    </p>
                   </div>
-                  <p className="mt-1 text-lg font-bold text-gray-900">
-                    {ouraSummary.activity.active_calories?.toLocaleString() ?? "--"}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Active cal &middot; {ouraSummary.activity.steps?.toLocaleString() ?? 0} steps
-                  </p>
-                </div>
-              )}
+                )}
 
-              {/* Heart Rate */}
-              {ouraSummary.restingHeartRate && (
-                <div className="rounded-lg bg-red-50 p-3">
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-red-500">
-                    <Heart className="h-3.5 w-3.5" />
-                    Resting HR
+                {/* Heart Rate */}
+                {ouraSummary.restingHeartRate && (
+                  <div className="rounded-lg bg-red-50 p-3">
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-red-500">
+                      <Heart className="h-3.5 w-3.5" />
+                      Resting HR
+                    </div>
+                    <p className="mt-1 text-lg font-bold text-gray-900">
+                      {ouraSummary.restingHeartRate}
+                    </p>
+                    <p className="text-xs text-gray-500">bpm</p>
                   </div>
-                  <p className="mt-1 text-lg font-bold text-gray-900">
-                    {ouraSummary.restingHeartRate}
-                  </p>
-                  <p className="text-xs text-gray-500">bpm</p>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2 py-4 text-center">
+                <Moon className="h-6 w-6 text-gray-300" />
+                <p className="text-sm text-gray-500">
+                  Your Oura Ring is connected but there&apos;s no data for today yet.
+                </p>
+                <p className="text-xs text-gray-400">
+                  Sleep, activity, and readiness scores will appear here once your ring syncs.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
-      ) : !ouraLoading && ouraSummary && !ouraSummary.sleep && !ouraSummary.activity && !ouraSummary.readiness ? (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Activity className="h-5 w-5 text-teal-500" />
-              Today&apos;s Oura Summary
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col items-center gap-2 py-4 text-center">
-              <Moon className="h-6 w-6 text-gray-300" />
-              <p className="text-sm text-gray-500">
-                Your Oura Ring is connected but there&apos;s no data for today yet.
-              </p>
-              <p className="text-xs text-gray-400">
-                Sleep, activity, and readiness scores will appear here once your ring syncs.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
+      )}
       </ErrorBoundary>
 
       {/* Weight Trend */}
