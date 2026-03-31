@@ -1,11 +1,14 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { getOuraDailySummary } from "@/lib/oura"
 
 /**
  * GET /api/oura — Fetch today's Oura summary for the authenticated user.
  */
-export async function GET() {
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url)
+  const clientDate = searchParams.get("date")
+
   const supabase = await createServerSupabaseClient()
   const {
     data: { user },
@@ -93,6 +96,8 @@ export async function GET() {
       .eq("user_id", user.id)
   }
 
-  const summary = await getOuraDailySummary(accessToken)
+  // Use the client's local date if provided, so timezone differences
+  // between the server (UTC) and the user don't cause empty results.
+  const summary = await getOuraDailySummary(accessToken, clientDate ?? undefined)
   return NextResponse.json(summary)
 }
