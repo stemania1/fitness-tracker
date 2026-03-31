@@ -28,6 +28,7 @@ import {
   Calendar,
   Link2,
   Unlink,
+  AlertTriangle,
 } from "lucide-react"
 import type { UserProfileUpdate } from "@/types/database"
 
@@ -38,12 +39,73 @@ type FeedbackMessage = {
   text: string
 } | null
 
+type OuraErrorReason =
+  | "user_denied"
+  | "missing_code"
+  | "missing_env"
+  | "token_exchange"
+  | "not_authenticated"
+  | "db_write"
+
+const ouraErrorInfo: Record<OuraErrorReason, { title: string; steps: string[] }> = {
+  user_denied: {
+    title: "Authorization was denied on Oura's site.",
+    steps: [
+      "Click \"Connect\" again and make sure to tap \"Allow\" when Oura asks for permission.",
+      "If you didn't intend to deny access, your browser may have blocked the pop-up — check your pop-up blocker settings.",
+    ],
+  },
+  missing_code: {
+    title: "No authorization code was received from Oura.",
+    steps: [
+      "Try connecting again — the previous request may have expired or been interrupted.",
+      "Make sure you're not using a browser extension that strips URL parameters.",
+      "Clear your browser cookies for cloud.ouraring.com and try again.",
+    ],
+  },
+  missing_env: {
+    title: "The Oura integration is not configured on the server.",
+    steps: [
+      "This is a server configuration issue — please contact support.",
+      "If you are the site admin, verify that OURA_CLIENT_ID and OURA_CLIENT_SECRET are set in your environment variables.",
+    ],
+  },
+  token_exchange: {
+    title: "Failed to exchange your authorization for an access token.",
+    steps: [
+      "This is usually a temporary issue — wait a minute and try connecting again.",
+      "Make sure your Oura account is in good standing at cloud.ouraring.com.",
+      "Check that your internet connection is stable.",
+      "If the problem persists, the Oura API may be experiencing downtime — try again later.",
+    ],
+  },
+  not_authenticated: {
+    title: "Your session expired during the Oura connection flow.",
+    steps: [
+      "Log in again, then go to Profile and click \"Connect\" to retry.",
+      "Avoid leaving the Oura authorization page open for too long before approving.",
+    ],
+  },
+  db_write: {
+    title: "Your Oura tokens were received but couldn't be saved.",
+    steps: [
+      "Try connecting again — this is usually a transient database issue.",
+      "If the problem persists, contact support and mention error code \"db_write\".",
+    ],
+  },
+}
+
+function isOuraErrorReason(value: string): value is OuraErrorReason {
+  return value in ouraErrorInfo
+}
+
 export default function ProfilePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const queryClient = useQueryClient()
 
   const [feedback, setFeedback] = useState<FeedbackMessage>(null)
+  const [ouraErrorReason, setOuraErrorReason] = useState<OuraErrorReason | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [disconnectingOura, setDisconnectingOura] = useState(false)
 
@@ -180,10 +242,17 @@ export default function ProfilePage() {
     const ouraParam = searchParams.get("oura")
     if (ouraParam === "connected") {
       setFeedback({ type: "success", text: "Oura Ring connected successfully!" })
+      setOuraErrorReason(null)
       queryClient.invalidateQueries({ queryKey: ["oura-connected"] })
       router.replace("/profile")
     } else if (ouraParam === "error") {
-      setFeedback({ type: "error", text: "Failed to connect Oura Ring. Please try again." })
+      const reason = searchParams.get("oura_reason") ?? ""
+      if (isOuraErrorReason(reason)) {
+        setOuraErrorReason(reason)
+      } else {
+        setOuraErrorReason(null)
+      }
+      setFeedback({ type: "error", text: "Failed to connect Oura Ring." })
       router.replace("/profile")
     }
   }, [searchParams, queryClient, router])
@@ -694,7 +763,10 @@ export default function ProfilePage() {
             ) : (
               <Button
                 size="sm"
-                onClick={connectOura}
+                onClick={() => {
+                  setOuraErrorReason(null)
+                  connectOura()
+                }}
                 className="shrink-0 gap-1.5"
               >
                 <Link2 className="h-3.5 w-3.5" />
@@ -702,6 +774,35 @@ export default function ProfilePage() {
               </Button>
             )}
           </div>
+
+          {/* Oura troubleshooting panel */}
+          {ouraErrorReason && (
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-amber-800">
+                    {ouraErrorInfo[ouraErrorReason].title}
+                  </p>
+                  <p className="text-xs font-medium text-amber-700">
+                    Troubleshooting steps:
+                  </p>
+                  <ol className="list-decimal space-y-1 pl-4 text-xs text-amber-700">
+                    {ouraErrorInfo[ouraErrorReason].steps.map((step, i) => (
+                      <li key={i}>{step}</li>
+                    ))}
+                  </ol>
+                  <button
+                    type="button"
+                    onClick={() => setOuraErrorReason(null)}
+                    className="mt-1 flex items-center gap-1 text-xs font-medium text-amber-600 underline hover:text-amber-800"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
