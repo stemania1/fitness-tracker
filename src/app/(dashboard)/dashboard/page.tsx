@@ -438,7 +438,7 @@ export default function DashboardPage() {
 
       {/* Oura Ring Summary */}
       <ErrorBoundary>
-      {!ouraLoading && ouraSummary && (ouraSummary.sleep || ouraSummary.activity || ouraSummary.readiness) && (
+      {!ouraLoading && ouraSummary && (ouraSummary.sleep || ouraSummary.activity || ouraSummary.readiness) ? (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
@@ -512,7 +512,27 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
-      )}
+      ) : !ouraLoading && ouraSummary && !ouraSummary.sleep && !ouraSummary.activity && !ouraSummary.readiness ? (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Activity className="h-5 w-5 text-teal-500" />
+              Today&apos;s Oura Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col items-center gap-2 py-4 text-center">
+              <Moon className="h-6 w-6 text-gray-300" />
+              <p className="text-sm text-gray-500">
+                Your Oura Ring is connected but there&apos;s no data for today yet.
+              </p>
+              <p className="text-xs text-gray-400">
+                Sleep, activity, and readiness scores will appear here once your ring syncs.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
       </ErrorBoundary>
 
       {/* Weight Trend */}
