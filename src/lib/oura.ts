@@ -71,7 +71,7 @@ async function ouraFetch<T>(
 
   const res = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${accessToken}` },
-    next: { revalidate: 300 }, // Cache for 5 minutes
+    cache: "no-store",
   })
 
   if (!res.ok) return null
