@@ -74,8 +74,15 @@ async function ouraFetch<T>(
     cache: "no-store",
   })
 
-  if (!res.ok) return null
-  return res.json() as Promise<T>
+  if (!res.ok) {
+    const body = await res.text().catch(() => "(unreadable)")
+    console.error(`[Oura API] ${endpoint} failed — status ${res.status}: ${body}`)
+    return null
+  }
+
+  const json = (await res.json()) as T
+  console.log(`[Oura API] ${endpoint} response:`, JSON.stringify(json))
+  return json
 }
 
 /**
@@ -86,6 +93,7 @@ export async function getOuraDailySummary(
   date?: string
 ): Promise<OuraSummary> {
   const today = date ?? new Date().toISOString().split("T")[0]
+  console.log(`[Oura API] Fetching daily summary for date: ${today}`)
 
   const [sleepData, activityData, readinessData, heartRateData] =
     await Promise.all([
