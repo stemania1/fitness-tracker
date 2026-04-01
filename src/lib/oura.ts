@@ -117,18 +117,17 @@ export async function getOuraDailySummary(
       }),
     ])
 
-  // Calculate average resting heart rate from the data
+  // Calculate resting heart rate from the data.
+  // Prefer rest/sleep readings, but fall back to all readings if none exist.
   let restingHeartRate: number | null = null
   if (heartRateData?.data && heartRateData.data.length > 0) {
     const restingReadings = heartRateData.data.filter(
       (hr) => hr.source === "rest" || hr.source === "sleep"
     )
-    if (restingReadings.length > 0) {
-      restingHeartRate = Math.round(
-        restingReadings.reduce((sum, hr) => sum + hr.bpm, 0) /
-          restingReadings.length
-      )
-    }
+    const readings = restingReadings.length > 0 ? restingReadings : heartRateData.data
+    restingHeartRate = Math.round(
+      readings.reduce((sum, hr) => sum + hr.bpm, 0) / readings.length
+    )
   }
 
   return {

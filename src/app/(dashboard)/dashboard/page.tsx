@@ -478,7 +478,7 @@ export default function DashboardPage() {
                   This is usually temporary — try refreshing the page.
                 </p>
               </div>
-            ) : ouraSummary && (ouraSummary.sleep || ouraSummary.activity || ouraSummary.readiness) ? (
+            ) : ouraSummary && (ouraSummary.sleep || ouraSummary.activity || ouraSummary.readiness || ouraSummary.restingHeartRate) ? (
               <div className="grid grid-cols-2 gap-3">
                 {/* Sleep */}
                 {ouraSummary.sleep && (
@@ -533,7 +533,7 @@ export default function DashboardPage() {
                   <div className="rounded-lg bg-red-50 p-3">
                     <div className="flex items-center gap-1.5 text-xs font-medium text-red-500">
                       <Heart className="h-3.5 w-3.5" />
-                      Resting HR
+                      Avg Heart Rate
                     </div>
                     <p className="mt-1 text-lg font-bold text-gray-900">
                       {ouraSummary.restingHeartRate}
