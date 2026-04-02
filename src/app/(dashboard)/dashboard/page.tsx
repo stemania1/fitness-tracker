@@ -24,6 +24,10 @@ import {
   Heart,
   Activity,
   Zap,
+  Wind,
+  Brain,
+  Shield,
+  TrendingUp,
 } from "lucide-react"
 import {
   LineChart,
@@ -39,6 +43,8 @@ import { exercises as exerciseCatalog } from "@/data/exercises"
 import { estimateStrengthCalories, estimateCardioCalories } from "@/lib/calories"
 import type { OuraSummary } from "@/lib/oura"
 import { formatSleepDuration } from "@/lib/oura"
+import { generateInsights } from "@/lib/oura-insights"
+import type { OuraInsight } from "@/lib/oura-insights"
 import { QuickLogExercise } from "@/components/activity/QuickLogExercise"
 import { QuickLogWeight } from "@/components/activity/QuickLogWeight"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
@@ -97,6 +103,39 @@ function getStartOfWeek() {
   const monday = new Date(now.setDate(diff))
   monday.setHours(0, 0, 0, 0)
   return monday.toISOString()
+}
+
+const insightIconMap: Record<OuraInsight["icon"], typeof Heart> = {
+  dumbbell: Dumbbell,
+  moon: Moon,
+  zap: Zap,
+  flame: Flame,
+  heart: Heart,
+  brain: Brain,
+  shield: Shield,
+  wind: Wind,
+  "trending-up": TrendingUp,
+}
+
+const insightPriorityColors: Record<OuraInsight["priority"], string> = {
+  high: "border-l-amber-500 bg-amber-50",
+  medium: "border-l-blue-400 bg-blue-50",
+  low: "border-l-emerald-400 bg-emerald-50",
+}
+
+function OuraInsightRow({ insight }: { insight: OuraInsight }) {
+  const Icon = insightIconMap[insight.icon]
+  return (
+    <div className={`rounded-lg border-l-4 p-3 ${insightPriorityColors[insight.priority]}`}>
+      <div className="flex items-start gap-2.5">
+        <Icon className="mt-0.5 h-4 w-4 shrink-0 text-gray-500" />
+        <div>
+          <p className="text-sm font-medium text-gray-900">{insight.title}</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-gray-600">{insight.body}</p>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function DashboardPage() {
@@ -322,6 +361,11 @@ export default function DashboardPage() {
   const ouraSummary = ouraResult?.summary ?? null
   const ouraConnected = ouraResult?.connected ?? false
 
+  const ouraInsights = useMemo(
+    () => (ouraSummary ? generateInsights(ouraSummary) : []),
+    [ouraSummary]
+  )
+
   const { data: personalRecords, isLoading: prsLoading } = useQuery({
     queryKey: ["personal-records"],
     queryFn: async () => {
@@ -478,67 +522,191 @@ export default function DashboardPage() {
                   This is usually temporary — try refreshing the page.
                 </p>
               </div>
-            ) : ouraSummary && (ouraSummary.sleep || ouraSummary.activity || ouraSummary.readiness || ouraSummary.restingHeartRate) ? (
-              <div className="grid grid-cols-2 gap-3">
-                {/* Sleep */}
-                {ouraSummary.sleep && (
-                  <div className="rounded-lg bg-indigo-50 p-3">
-                    <div className="flex items-center gap-1.5 text-xs font-medium text-indigo-600">
-                      <Moon className="h-3.5 w-3.5" />
-                      Sleep
+            ) : ouraSummary && (ouraSummary.sleep || ouraSummary.sleepPeriod || ouraSummary.activity || ouraSummary.readiness || ouraSummary.restingHeartRate || ouraSummary.spo2 || ouraSummary.stress || ouraSummary.resilience || ouraSummary.vo2Max) ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Sleep */}
+                  {(ouraSummary.sleep || ouraSummary.sleepPeriod) && (
+                    <div className="rounded-lg bg-indigo-50 p-3">
+                      <div className="flex items-center gap-1.5 text-xs font-medium text-indigo-600">
+                        <Moon className="h-3.5 w-3.5" />
+                        Sleep
+                      </div>
+                      <p className="mt-1 text-lg font-bold text-gray-900">
+                        {ouraSummary.sleep?.score ?? "--"}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {(ouraSummary.sleep?.total_sleep_duration ?? ouraSummary.sleepPeriod?.total_sleep_duration)
+                          ? formatSleepDuration(ouraSummary.sleep?.total_sleep_duration ?? ouraSummary.sleepPeriod!.total_sleep_duration!)
+                          : "No duration data"}
+                      </p>
+                      {ouraSummary.sleepPeriod && (
+                        <p className="mt-0.5 text-xs text-gray-400">
+                          {ouraSummary.sleepPeriod.average_hrv != null && `HRV ${ouraSummary.sleepPeriod.average_hrv}ms`}
+                          {ouraSummary.sleepPeriod.average_hrv != null && ouraSummary.sleepPeriod.lowest_heart_rate != null && " · "}
+                          {ouraSummary.sleepPeriod.lowest_heart_rate != null && `Low HR ${ouraSummary.sleepPeriod.lowest_heart_rate}`}
+                        </p>
+                      )}
                     </div>
-                    <p className="mt-1 text-lg font-bold text-gray-900">
-                      {ouraSummary.sleep.score ?? "--"}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {ouraSummary.sleep.total_sleep_duration
-                        ? formatSleepDuration(ouraSummary.sleep.total_sleep_duration)
-                        : "No data"}
-                    </p>
-                  </div>
-                )}
+                  )}
 
-                {/* Readiness */}
-                {ouraSummary.readiness && (
-                  <div className="rounded-lg bg-emerald-50 p-3">
-                    <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
-                      <Zap className="h-3.5 w-3.5" />
-                      Readiness
+                  {/* Readiness */}
+                  {ouraSummary.readiness && (
+                    <div className="rounded-lg bg-emerald-50 p-3">
+                      <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+                        <Zap className="h-3.5 w-3.5" />
+                        Readiness
+                      </div>
+                      <p className="mt-1 text-lg font-bold text-gray-900">
+                        {ouraSummary.readiness.score ?? "--"}
+                      </p>
+                      <p className="text-xs text-gray-500">Recovery score</p>
+                      {ouraSummary.readiness.temperature_deviation != null && (
+                        <p className="mt-0.5 text-xs text-gray-400">
+                          Temp {ouraSummary.readiness.temperature_deviation > 0 ? "+" : ""}
+                          {ouraSummary.readiness.temperature_deviation.toFixed(1)}°
+                        </p>
+                      )}
                     </div>
-                    <p className="mt-1 text-lg font-bold text-gray-900">
-                      {ouraSummary.readiness.score ?? "--"}
-                    </p>
-                    <p className="text-xs text-gray-500">Recovery score</p>
-                  </div>
-                )}
+                  )}
 
-                {/* Activity */}
-                {ouraSummary.activity && (
-                  <div className="rounded-lg bg-orange-50 p-3">
-                    <div className="flex items-center gap-1.5 text-xs font-medium text-orange-600">
-                      <Flame className="h-3.5 w-3.5" />
-                      Activity
+                  {/* Activity */}
+                  {ouraSummary.activity && (
+                    <div className="rounded-lg bg-orange-50 p-3">
+                      <div className="flex items-center gap-1.5 text-xs font-medium text-orange-600">
+                        <Flame className="h-3.5 w-3.5" />
+                        Activity
+                      </div>
+                      <p className="mt-1 text-lg font-bold text-gray-900">
+                        {ouraSummary.activity.active_calories?.toLocaleString() ?? "--"}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Active cal &middot; {ouraSummary.activity.steps?.toLocaleString() ?? 0} steps
+                      </p>
                     </div>
-                    <p className="mt-1 text-lg font-bold text-gray-900">
-                      {ouraSummary.activity.active_calories?.toLocaleString() ?? "--"}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Active cal &middot; {ouraSummary.activity.steps?.toLocaleString() ?? 0} steps
-                    </p>
-                  </div>
-                )}
+                  )}
 
-                {/* Heart Rate */}
-                {ouraSummary.restingHeartRate && (
-                  <div className="rounded-lg bg-red-50 p-3">
-                    <div className="flex items-center gap-1.5 text-xs font-medium text-red-500">
-                      <Heart className="h-3.5 w-3.5" />
-                      Avg Heart Rate
+                  {/* Heart Rate */}
+                  {ouraSummary.restingHeartRate && (
+                    <div className="rounded-lg bg-red-50 p-3">
+                      <div className="flex items-center gap-1.5 text-xs font-medium text-red-500">
+                        <Heart className="h-3.5 w-3.5" />
+                        Avg Heart Rate
+                      </div>
+                      <p className="mt-1 text-lg font-bold text-gray-900">
+                        {ouraSummary.restingHeartRate}
+                      </p>
+                      <p className="text-xs text-gray-500">bpm</p>
                     </div>
-                    <p className="mt-1 text-lg font-bold text-gray-900">
-                      {ouraSummary.restingHeartRate}
+                  )}
+
+                  {/* Blood Oxygen */}
+                  {ouraSummary.spo2?.spo2_percentage?.average != null && (
+                    <div className="rounded-lg bg-sky-50 p-3">
+                      <div className="flex items-center gap-1.5 text-xs font-medium text-sky-600">
+                        <Wind className="h-3.5 w-3.5" />
+                        Blood Oxygen
+                      </div>
+                      <p className="mt-1 text-lg font-bold text-gray-900">
+                        {ouraSummary.spo2.spo2_percentage.average}%
+                      </p>
+                      <p className="text-xs text-gray-500">SpO2 average</p>
+                    </div>
+                  )}
+
+                  {/* Stress */}
+                  {ouraSummary.stress?.day_summary && (
+                    <div className="rounded-lg bg-violet-50 p-3">
+                      <div className="flex items-center gap-1.5 text-xs font-medium text-violet-600">
+                        <Brain className="h-3.5 w-3.5" />
+                        Stress
+                      </div>
+                      <p className="mt-1 text-lg font-bold capitalize text-gray-900">
+                        {ouraSummary.stress.day_summary}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {ouraSummary.stress.recovery_high != null
+                          ? `${Math.round(ouraSummary.stress.recovery_high / 60)}min recovery`
+                          : "Daily summary"}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Resilience */}
+                  {ouraSummary.resilience?.level && (
+                    <div className="rounded-lg bg-teal-50 p-3">
+                      <div className="flex items-center gap-1.5 text-xs font-medium text-teal-600">
+                        <Shield className="h-3.5 w-3.5" />
+                        Resilience
+                      </div>
+                      <p className="mt-1 text-lg font-bold capitalize text-gray-900">
+                        {ouraSummary.resilience.level}
+                      </p>
+                      <p className="text-xs text-gray-500">Recovery capacity</p>
+                    </div>
+                  )}
+
+                  {/* VO2 Max */}
+                  {ouraSummary.vo2Max != null && (
+                    <div className="rounded-lg bg-cyan-50 p-3">
+                      <div className="flex items-center gap-1.5 text-xs font-medium text-cyan-600">
+                        <TrendingUp className="h-3.5 w-3.5" />
+                        VO2 Max
+                      </div>
+                      <p className="mt-1 text-lg font-bold text-gray-900">
+                        {ouraSummary.vo2Max.toFixed(1)}
+                      </p>
+                      <p className="text-xs text-gray-500">ml/kg/min</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Heart Rate Timeline */}
+                {ouraSummary.heartRateReadings.length > 0 && (
+                  <div className="rounded-lg border border-gray-100 p-3">
+                    <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-gray-600">
+                      <Heart className="h-3.5 w-3.5 text-red-400" />
+                      Heart Rate Today
                     </p>
-                    <p className="text-xs text-gray-500">bpm</p>
+                    <ResponsiveContainer width="100%" height={120}>
+                      <LineChart
+                        data={ouraSummary.heartRateReadings.map((hr) => ({
+                          time: new Date(hr.timestamp).toLocaleTimeString("en-US", {
+                            hour: "numeric",
+                            minute: "2-digit",
+                            hour12: true,
+                          }),
+                          bpm: hr.bpm,
+                        }))}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis
+                          dataKey="time"
+                          tick={{ fontSize: 10 }}
+                          stroke="#9ca3af"
+                          interval="preserveStartEnd"
+                          minTickGap={40}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 10 }}
+                          stroke="#9ca3af"
+                          width={32}
+                          domain={["dataMin - 5", "dataMax + 5"]}
+                        />
+                        <Tooltip
+                          contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                          formatter={(value: number) => [`${value} bpm`, "Heart Rate"]}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="bpm"
+                          stroke="#ef4444"
+                          strokeWidth={1.5}
+                          dot={false}
+                          activeDot={{ r: 3 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
                   </div>
                 )}
               </div>
@@ -557,6 +725,27 @@ export default function DashboardPage() {
         </Card>
       )}
       </ErrorBoundary>
+
+      {/* Oura Insights */}
+      {ouraInsights.length > 0 && (
+        <ErrorBoundary>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Zap className="h-5 w-5 text-amber-500" />
+                Insights
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {ouraInsights.map((insight, i) => (
+                  <OuraInsightRow key={i} insight={insight} />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </ErrorBoundary>
+      )}
 
       {/* Weight Trend */}
       <ErrorBoundary>

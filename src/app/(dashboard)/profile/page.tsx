@@ -260,7 +260,7 @@ export default function ProfilePage() {
   function connectOura() {
     const clientId = process.env.NEXT_PUBLIC_OURA_CLIENT_ID
     const redirectUri = `${window.location.origin}/api/auth/oura/callback`
-    const scope = "daily sleep heartrate personal"
+    const scope = "daily sleep heartrate personal spo2 stress"
     const url = `https://cloud.ouraring.com/oauth/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}`
     window.location.href = url
   }
