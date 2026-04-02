@@ -140,6 +140,35 @@ async function ouraFetch<T>(
 }
 
 /**
+ * Fetch all pages of a paginated Oura endpoint, combining the `data` arrays.
+ */
+async function ouraFetchAll<TItem>(
+  endpoint: string,
+  accessToken: string,
+  params?: Record<string, string>
+): Promise<TItem[]> {
+  const allItems: TItem[] = []
+  let nextToken: string | null = null
+
+  do {
+    const pageParams = { ...params }
+    if (nextToken) pageParams.next_token = nextToken
+
+    const page = await ouraFetch<{ data: TItem[]; next_token: string | null }>(
+      endpoint,
+      accessToken,
+      pageParams
+    )
+    if (!page) break
+
+    allItems.push(...page.data)
+    nextToken = page.next_token ?? null
+  } while (nextToken)
+
+  return allItems
+}
+
+/**
  * Get today's Oura summary including all available metrics.
  */
 export async function getOuraDailySummary(
@@ -179,7 +208,7 @@ export async function getOuraDailySummary(
       accessToken,
       { start_date: today, end_date: today }
     ),
-    ouraFetch<{ data: OuraHeartRate[] }>("heartrate", accessToken, {
+    ouraFetchAll<OuraHeartRate>("heartrate", accessToken, {
       start_datetime: hrStart,
       end_datetime: hrEnd,
     }),
@@ -204,7 +233,7 @@ export async function getOuraDailySummary(
   // Calculate resting heart rate from the data.
   // Prefer rest/sleep readings, but fall back to all readings if none exist.
   let restingHeartRate: number | null = null
-  const allReadings = heartRateData?.data ?? []
+  const allReadings = heartRateData ?? []
   if (allReadings.length > 0) {
     const restingReadings = allReadings.filter(
       (hr) => hr.source === "rest" || hr.source === "sleep"
