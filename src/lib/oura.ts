@@ -145,34 +145,17 @@ async function ouraFetch<T>(
 export async function getOuraDailySummary(
   accessToken: string,
   date?: string,
-  timezone?: string
+  tzOffset?: string
 ): Promise<OuraSummary> {
   const today = date ?? new Date().toISOString().split("T")[0]
 
   // Build timezone-aware datetime boundaries for the heartrate endpoint.
   // The daily endpoints accept plain dates, but heartrate uses datetimes
   // and interprets them as UTC unless an offset is included.
-  let hrStart = `${today}T00:00:00`
-  let hrEnd = `${today}T23:59:59`
-  if (timezone) {
-    try {
-      const startOfDay = new Date(`${today}T00:00:00`)
-      const formatter = new Intl.DateTimeFormat("en-US", {
-        timeZone: timezone,
-        timeZoneName: "longOffset",
-      })
-      const parts = formatter.formatToParts(startOfDay)
-      const offsetPart = parts.find((p) => p.type === "timeZoneName")
-      // offsetPart.value is like "GMT-04:00" or "GMT+05:30"
-      const offset = offsetPart?.value?.replace("GMT", "") ?? ""
-      if (offset) {
-        hrStart = `${today}T00:00:00${offset}`
-        hrEnd = `${today}T23:59:59${offset}`
-      }
-    } catch {
-      // Fall back to no offset
-    }
-  }
+  // tzOffset is a pre-computed string like "-04:00" or "+05:30".
+  const offset = tzOffset ?? "+00:00"
+  const hrStart = `${today}T00:00:00${offset}`
+  const hrEnd = `${today}T23:59:59${offset}`
 
   const [
     sleepData, sleepPeriods, activityData, readinessData,
