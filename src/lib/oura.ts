@@ -1,6 +1,7 @@
 /**
  * Oura Ring API helper.
- * Fetches sleep, activity, readiness, heart rate, SpO2, and stress data.
+ * Fetches sleep, activity, readiness, heart rate, SpO2, stress,
+ * resilience, and VO2 max data.
  */
 
 const OURA_API_BASE = "https://api.ouraring.com/v2/usercollection"
@@ -84,14 +85,34 @@ export interface OuraDailyStress {
   day_summary: "restored" | "normal" | "strained" | null
 }
 
+export interface OuraDailyResilience {
+  id: string
+  day: string
+  level: "limited" | "adequate" | "solid" | "strong" | "exceptional" | null
+  contributors: {
+    sleep_recovery: number | null
+    daytime_recovery: number | null
+    stress: number | null
+  } | null
+}
+
+export interface OuraVo2Max {
+  id: string
+  day: string
+  vo2_max: number | null
+}
+
 export interface OuraSummary {
   sleep: OuraDailySleep | null
   sleepPeriod: OuraSleepPeriod | null
   activity: OuraDailyActivity | null
   readiness: OuraDailyReadiness | null
   restingHeartRate: number | null
+  heartRateReadings: OuraHeartRate[]
   spo2: OuraDailySpo2 | null
   stress: OuraDailyStress | null
+  resilience: OuraDailyResilience | null
+  vo2Max: number | null
 }
 
 async function ouraFetch<T>(
@@ -119,7 +140,7 @@ async function ouraFetch<T>(
 }
 
 /**
- * Get today's Oura summary (sleep, activity, readiness, heart rate, SpO2, stress).
+ * Get today's Oura summary including all available metrics.
  */
 export async function getOuraDailySummary(
   accessToken: string,
@@ -127,48 +148,59 @@ export async function getOuraDailySummary(
 ): Promise<OuraSummary> {
   const today = date ?? new Date().toISOString().split("T")[0]
 
-  const [sleepData, sleepPeriods, activityData, readinessData, heartRateData, spo2Data, stressData] =
-    await Promise.all([
-      ouraFetch<{ data: OuraDailySleep[] }>("daily_sleep", accessToken, {
-        start_date: today,
-        end_date: today,
-      }),
-      ouraFetch<{ data: OuraSleepPeriod[] }>("sleep", accessToken, {
-        start_date: today,
-        end_date: today,
-      }),
-      ouraFetch<{ data: OuraDailyActivity[] }>(
-        "daily_activity",
-        accessToken,
-        { start_date: today, end_date: today }
-      ),
-      ouraFetch<{ data: OuraDailyReadiness[] }>(
-        "daily_readiness",
-        accessToken,
-        { start_date: today, end_date: today }
-      ),
-      ouraFetch<{ data: OuraHeartRate[] }>("heartrate", accessToken, {
-        start_date: today,
-        end_date: today,
-      }),
-      ouraFetch<{ data: OuraDailySpo2[] }>("daily_spo2", accessToken, {
-        start_date: today,
-        end_date: today,
-      }),
-      ouraFetch<{ data: OuraDailyStress[] }>("daily_stress", accessToken, {
-        start_date: today,
-        end_date: today,
-      }),
-    ])
+  const [
+    sleepData, sleepPeriods, activityData, readinessData,
+    heartRateData, spo2Data, stressData, resilienceData, vo2Data,
+  ] = await Promise.all([
+    ouraFetch<{ data: OuraDailySleep[] }>("daily_sleep", accessToken, {
+      start_date: today,
+      end_date: today,
+    }),
+    ouraFetch<{ data: OuraSleepPeriod[] }>("sleep", accessToken, {
+      start_date: today,
+      end_date: today,
+    }),
+    ouraFetch<{ data: OuraDailyActivity[] }>(
+      "daily_activity",
+      accessToken,
+      { start_date: today, end_date: today }
+    ),
+    ouraFetch<{ data: OuraDailyReadiness[] }>(
+      "daily_readiness",
+      accessToken,
+      { start_date: today, end_date: today }
+    ),
+    ouraFetch<{ data: OuraHeartRate[] }>("heartrate", accessToken, {
+      start_date: today,
+      end_date: today,
+    }),
+    ouraFetch<{ data: OuraDailySpo2[] }>("daily_spo2", accessToken, {
+      start_date: today,
+      end_date: today,
+    }),
+    ouraFetch<{ data: OuraDailyStress[] }>("daily_stress", accessToken, {
+      start_date: today,
+      end_date: today,
+    }),
+    ouraFetch<{ data: OuraDailyResilience[] }>("daily_resilience", accessToken, {
+      start_date: today,
+      end_date: today,
+    }),
+    ouraFetch<{ data: OuraVo2Max[] }>("vo2_max", accessToken, {
+      start_date: today,
+      end_date: today,
+    }),
+  ])
 
   // Calculate resting heart rate from the data.
   // Prefer rest/sleep readings, but fall back to all readings if none exist.
   let restingHeartRate: number | null = null
-  if (heartRateData?.data && heartRateData.data.length > 0) {
-    const restingReadings = heartRateData.data.filter(
+  const allReadings = heartRateData?.data ?? []
+  if (allReadings.length > 0) {
+    const restingReadings = allReadings.filter(
       (hr) => hr.source === "rest" || hr.source === "sleep"
     )
-    const readings = restingReadings.length > 0 ? restingReadings : heartRateData.data
+    const readings = restingReadings.length > 0 ? restingReadings : allReadings
     restingHeartRate = Math.round(
       readings.reduce((sum, hr) => sum + hr.bpm, 0) / readings.length
     )
@@ -185,8 +217,11 @@ export async function getOuraDailySummary(
     activity: activityData?.data?.[0] ?? null,
     readiness: readinessData?.data?.[0] ?? null,
     restingHeartRate,
+    heartRateReadings: allReadings,
     spo2: spo2Data?.data?.[0] ?? null,
     stress: stressData?.data?.[0] ?? null,
+    resilience: resilienceData?.data?.[0] ?? null,
+    vo2Max: vo2Data?.data?.[0]?.vo2_max ?? null,
   }
 }
 
