@@ -24,6 +24,8 @@ import {
   Heart,
   Activity,
   Zap,
+  Wind,
+  Brain,
 } from "lucide-react"
 import {
   LineChart,
@@ -478,23 +480,30 @@ export default function DashboardPage() {
                   This is usually temporary — try refreshing the page.
                 </p>
               </div>
-            ) : ouraSummary && (ouraSummary.sleep || ouraSummary.activity || ouraSummary.readiness || ouraSummary.restingHeartRate) ? (
+            ) : ouraSummary && (ouraSummary.sleep || ouraSummary.sleepPeriod || ouraSummary.activity || ouraSummary.readiness || ouraSummary.restingHeartRate || ouraSummary.spo2 || ouraSummary.stress) ? (
               <div className="grid grid-cols-2 gap-3">
                 {/* Sleep */}
-                {ouraSummary.sleep && (
+                {(ouraSummary.sleep || ouraSummary.sleepPeriod) && (
                   <div className="rounded-lg bg-indigo-50 p-3">
                     <div className="flex items-center gap-1.5 text-xs font-medium text-indigo-600">
                       <Moon className="h-3.5 w-3.5" />
                       Sleep
                     </div>
                     <p className="mt-1 text-lg font-bold text-gray-900">
-                      {ouraSummary.sleep.score ?? "--"}
+                      {ouraSummary.sleep?.score ?? "--"}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {ouraSummary.sleep.total_sleep_duration
-                        ? formatSleepDuration(ouraSummary.sleep.total_sleep_duration)
-                        : "No data"}
+                      {(ouraSummary.sleep?.total_sleep_duration ?? ouraSummary.sleepPeriod?.total_sleep_duration)
+                        ? formatSleepDuration(ouraSummary.sleep?.total_sleep_duration ?? ouraSummary.sleepPeriod!.total_sleep_duration!)
+                        : "No duration data"}
                     </p>
+                    {ouraSummary.sleepPeriod && (
+                      <p className="mt-0.5 text-xs text-gray-400">
+                        {ouraSummary.sleepPeriod.average_hrv != null && `HRV ${ouraSummary.sleepPeriod.average_hrv}ms`}
+                        {ouraSummary.sleepPeriod.average_hrv != null && ouraSummary.sleepPeriod.lowest_heart_rate != null && " · "}
+                        {ouraSummary.sleepPeriod.lowest_heart_rate != null && `Low HR ${ouraSummary.sleepPeriod.lowest_heart_rate}`}
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -509,6 +518,12 @@ export default function DashboardPage() {
                       {ouraSummary.readiness.score ?? "--"}
                     </p>
                     <p className="text-xs text-gray-500">Recovery score</p>
+                    {ouraSummary.readiness.temperature_deviation != null && (
+                      <p className="mt-0.5 text-xs text-gray-400">
+                        Temp {ouraSummary.readiness.temperature_deviation > 0 ? "+" : ""}
+                        {ouraSummary.readiness.temperature_deviation.toFixed(1)}°
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -539,6 +554,38 @@ export default function DashboardPage() {
                       {ouraSummary.restingHeartRate}
                     </p>
                     <p className="text-xs text-gray-500">bpm</p>
+                  </div>
+                )}
+
+                {/* Blood Oxygen */}
+                {ouraSummary.spo2?.spo2_percentage?.average != null && (
+                  <div className="rounded-lg bg-sky-50 p-3">
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-sky-600">
+                      <Wind className="h-3.5 w-3.5" />
+                      Blood Oxygen
+                    </div>
+                    <p className="mt-1 text-lg font-bold text-gray-900">
+                      {ouraSummary.spo2.spo2_percentage.average}%
+                    </p>
+                    <p className="text-xs text-gray-500">SpO2 average</p>
+                  </div>
+                )}
+
+                {/* Stress */}
+                {ouraSummary.stress?.day_summary && (
+                  <div className="rounded-lg bg-violet-50 p-3">
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-violet-600">
+                      <Brain className="h-3.5 w-3.5" />
+                      Stress
+                    </div>
+                    <p className="mt-1 text-lg font-bold capitalize text-gray-900">
+                      {ouraSummary.stress.day_summary}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {ouraSummary.stress.recovery_high != null
+                        ? `${Math.round(ouraSummary.stress.recovery_high / 60)}min recovery`
+                        : "Daily summary"}
+                    </p>
                   </div>
                 )}
               </div>
