@@ -8,6 +8,7 @@ import { getOuraDailySummary } from "@/lib/oura"
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const clientDate = searchParams.get("date")
+  const clientTz = searchParams.get("tz")
 
   const supabase = await createServerSupabaseClient()
   const {
@@ -98,6 +99,6 @@ export async function GET(request: Request) {
 
   // Use the client's local date if provided, so timezone differences
   // between the server (UTC) and the user don't cause empty results.
-  const summary = await getOuraDailySummary(accessToken, clientDate ?? undefined)
+  const summary = await getOuraDailySummary(accessToken, clientDate ?? undefined, clientTz ?? undefined)
   return NextResponse.json(summary)
 }

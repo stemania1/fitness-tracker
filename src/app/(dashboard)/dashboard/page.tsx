@@ -348,7 +348,8 @@ export default function DashboardPage() {
     queryKey: ["oura-summary"],
     queryFn: async () => {
       const localDate = new Date().toLocaleDateString("en-CA") // YYYY-MM-DD in local tz
-      const res = await fetch(`/api/oura?date=${localDate}`)
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+      const res = await fetch(`/api/oura?date=${localDate}&tz=${encodeURIComponent(tz)}`)
       if (res.status === 404) return { connected: false, summary: null }
       if (res.status === 401) return { connected: true, summary: null, error: "token_expired" }
       if (!res.ok) return { connected: true, summary: null, error: "fetch_failed" }
