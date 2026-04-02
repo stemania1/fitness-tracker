@@ -695,7 +695,7 @@ export default function DashboardPage() {
                         />
                         <Tooltip
                           contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                          formatter={(value: number) => [`${value} bpm`, "Heart Rate"]}
+                          formatter={(value) => [`${value} bpm`, "Heart Rate"]}
                         />
                         <Line
                           type="monotone"
