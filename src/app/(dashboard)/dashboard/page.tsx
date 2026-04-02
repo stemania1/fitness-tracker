@@ -43,6 +43,8 @@ import { exercises as exerciseCatalog } from "@/data/exercises"
 import { estimateStrengthCalories, estimateCardioCalories } from "@/lib/calories"
 import type { OuraSummary } from "@/lib/oura"
 import { formatSleepDuration } from "@/lib/oura"
+import { generateInsights } from "@/lib/oura-insights"
+import type { OuraInsight } from "@/lib/oura-insights"
 import { QuickLogExercise } from "@/components/activity/QuickLogExercise"
 import { QuickLogWeight } from "@/components/activity/QuickLogWeight"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
@@ -101,6 +103,39 @@ function getStartOfWeek() {
   const monday = new Date(now.setDate(diff))
   monday.setHours(0, 0, 0, 0)
   return monday.toISOString()
+}
+
+const insightIconMap: Record<OuraInsight["icon"], typeof Heart> = {
+  dumbbell: Dumbbell,
+  moon: Moon,
+  zap: Zap,
+  flame: Flame,
+  heart: Heart,
+  brain: Brain,
+  shield: Shield,
+  wind: Wind,
+  "trending-up": TrendingUp,
+}
+
+const insightPriorityColors: Record<OuraInsight["priority"], string> = {
+  high: "border-l-amber-500 bg-amber-50",
+  medium: "border-l-blue-400 bg-blue-50",
+  low: "border-l-emerald-400 bg-emerald-50",
+}
+
+function OuraInsightRow({ insight }: { insight: OuraInsight }) {
+  const Icon = insightIconMap[insight.icon]
+  return (
+    <div className={`rounded-lg border-l-4 p-3 ${insightPriorityColors[insight.priority]}`}>
+      <div className="flex items-start gap-2.5">
+        <Icon className="mt-0.5 h-4 w-4 shrink-0 text-gray-500" />
+        <div>
+          <p className="text-sm font-medium text-gray-900">{insight.title}</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-gray-600">{insight.body}</p>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function DashboardPage() {
@@ -325,6 +360,11 @@ export default function DashboardPage() {
 
   const ouraSummary = ouraResult?.summary ?? null
   const ouraConnected = ouraResult?.connected ?? false
+
+  const ouraInsights = useMemo(
+    () => (ouraSummary ? generateInsights(ouraSummary) : []),
+    [ouraSummary]
+  )
 
   const { data: personalRecords, isLoading: prsLoading } = useQuery({
     queryKey: ["personal-records"],
@@ -685,6 +725,27 @@ export default function DashboardPage() {
         </Card>
       )}
       </ErrorBoundary>
+
+      {/* Oura Insights */}
+      {ouraInsights.length > 0 && (
+        <ErrorBoundary>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Zap className="h-5 w-5 text-amber-500" />
+                Insights
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {ouraInsights.map((insight, i) => (
+                  <OuraInsightRow key={i} insight={insight} />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </ErrorBoundary>
+      )}
 
       {/* Weight Trend */}
       <ErrorBoundary>
