@@ -32,6 +32,7 @@ import {
   estimateStrengthCalories,
   estimateCardioCalories,
 } from "@/lib/calories"
+import { ensureExercisesExist } from "@/lib/supabase/exercises"
 
 // ── Types ─────────────────────────────────────────────────────
 interface ActiveSet {
@@ -364,17 +365,24 @@ export default function LogWorkoutPage() {
       return
     }
 
+    // Map static exercise IDs to database UUIDs
+    const exerciseIds = workout.exercises.map((ex) => ex.exerciseId)
+    const idMap = await ensureExercisesExist(supabase, exerciseIds)
+
     // Insert exercise logs + set logs
     for (let ei = 0; ei < workout.exercises.length; ei++) {
       const ex = workout.exercises[ei]
       const completedSets = ex.sets.filter((s) => s.completed)
       if (completedSets.length === 0) continue
 
+      const dbExerciseId = idMap.get(ex.exerciseId)
+      if (!dbExerciseId) continue
+
       const { data: exRow } = await supabase
         .from("exercise_logs")
         .insert({
           workout_log_id: logRow.id,
-          exercise_id: ex.exerciseId,
+          exercise_id: dbExerciseId,
           order_index: ei,
           notes: ex.notes || null,
         })
