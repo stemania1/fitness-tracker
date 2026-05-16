@@ -61,6 +61,8 @@ function determineSplitDays(
           ["chest", "shoulders"],
           ["back"],
           ["quads", "hamstrings", "glutes"],
+          ["biceps"],
+          ["triceps"],
           ["core"],
         ],
         addCardio: true,
