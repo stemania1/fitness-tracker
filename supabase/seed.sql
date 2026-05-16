@@ -30,7 +30,9 @@ insert into equipment (id, name, category, muscle_groups, available_at_pf, max_w
   ('a0000000-0000-0000-0000-000000000021', 'Preacher Curl Machine', 'strength_machine', '{"biceps"}', true, 100.0, null),
   ('a0000000-0000-0000-0000-000000000022', 'Tricep Extension Machine', 'strength_machine', '{"triceps"}', true, 100.0, null),
   ('a0000000-0000-0000-0000-000000000023', 'Calf Raise Machine', 'strength_machine', '{"calves"}', true, 200.0, null),
-  ('a0000000-0000-0000-0000-000000000024', 'Bodyweight', 'other', '{"chest","back","core","quadriceps","glutes"}', true, null, 'No equipment needed');
+  ('a0000000-0000-0000-0000-000000000024', 'Bodyweight', 'other', '{"chest","back","core","quadriceps","glutes"}', true, null, 'No equipment needed'),
+  ('a0000000-0000-0000-0000-000000000025', 'EZ Curl Bar', 'free_weight', '{"biceps","triceps"}', true, 60.0, 'Fixed weight EZ bars in multiple weights'),
+  ('a0000000-0000-0000-0000-000000000026', 'Fixed Barbells', 'free_weight', '{"chest","back","shoulders","biceps","triceps"}', true, 60.0, 'Pre-loaded straight bars, typically 20-60 lbs');
 
 -- ============================================================
 -- EXERCISES
@@ -57,7 +59,8 @@ insert into exercises (name, equipment_id, muscle_groups, exercise_type, difficu
   ('Dumbbell Fly', 'a0000000-0000-0000-0000-000000000014', '{"chest"}', 'strength', 'intermediate', 'Lie on bench. Extend arms wide with slight elbow bend. Bring dumbbells together above chest.', 3, '10-12', true),
   ('Smith Machine Bench Press', 'a0000000-0000-0000-0000-000000000005', '{"chest","triceps","shoulders"}', 'strength', 'intermediate', 'Lie on bench under Smith machine. Unrack and lower bar to chest. Press up.', 3, '8-12', true),
   ('Cable Crossover', 'a0000000-0000-0000-0000-000000000013', '{"chest"}', 'strength', 'intermediate', 'Set cables high. Step forward and bring handles together in front of body with slight elbow bend.', 3, '10-12', true),
-  ('Push-Ups', 'a0000000-0000-0000-0000-000000000024', '{"chest","triceps","shoulders","core"}', 'strength', 'beginner', 'Hands shoulder-width apart. Lower chest to floor. Push back up. Keep body straight.', 3, '10-15', true);
+  ('Push-Ups', 'a0000000-0000-0000-0000-000000000024', '{"chest","triceps","shoulders","core"}', 'strength', 'beginner', 'Hands shoulder-width apart. Lower chest to floor. Push back up. Keep body straight.', 3, '10-15', true),
+  ('Dumbbell Pullover', 'a0000000-0000-0000-0000-000000000014', '{"chest","back"}', 'strength', 'intermediate', 'Lie across bench with dumbbell held over chest. Lower behind head with slight elbow bend. Pull back over chest.', 3, '10-12', true);
 
 -- Back exercises
 insert into exercises (name, equipment_id, muscle_groups, exercise_type, difficulty, instructions, default_sets, default_reps, pf_friendly) values
@@ -77,7 +80,9 @@ insert into exercises (name, equipment_id, muscle_groups, exercise_type, difficu
   ('Dumbbell Front Raise', 'a0000000-0000-0000-0000-000000000014', '{"shoulders"}', 'strength', 'beginner', 'Stand with dumbbells in front of thighs. Raise one or both arms to shoulder height. Lower slowly.', 3, '10-12', true),
   ('Cable Lateral Raise', 'a0000000-0000-0000-0000-000000000013', '{"shoulders"}', 'strength', 'intermediate', 'Stand sideways to cable set low. Raise arm out to side until parallel with floor.', 3, '12-15', true),
   ('Smith Machine Overhead Press', 'a0000000-0000-0000-0000-000000000005', '{"shoulders","triceps"}', 'strength', 'intermediate', 'Sit under Smith machine. Unrack bar from shoulder level. Press overhead. Lower to chin level.', 3, '8-12', true),
-  ('Dumbbell Rear Delt Fly', 'a0000000-0000-0000-0000-000000000014', '{"rear_delts","upper_back"}', 'strength', 'intermediate', 'Bend forward at hips. Raise dumbbells out to sides. Squeeze shoulder blades.', 3, '12-15', true);
+  ('Dumbbell Rear Delt Fly', 'a0000000-0000-0000-0000-000000000014', '{"rear_delts","upper_back"}', 'strength', 'intermediate', 'Bend forward at hips. Raise dumbbells out to sides. Squeeze shoulder blades.', 3, '12-15', true),
+  ('Dumbbell Arnold Press', 'a0000000-0000-0000-0000-000000000014', '{"shoulders","triceps"}', 'strength', 'intermediate', 'Start with dumbbells in front of shoulders, palms facing you. Press overhead while rotating palms forward.', 3, '10-12', true),
+  ('Dumbbell Shrug', 'a0000000-0000-0000-0000-000000000014', '{"upper_back","shoulders"}', 'strength', 'beginner', 'Stand with dumbbells at sides. Shrug shoulders straight up toward ears. Hold briefly. Lower slowly.', 3, '12-15', true);
 
 -- Bicep exercises
 insert into exercises (name, equipment_id, muscle_groups, exercise_type, difficulty, instructions, default_sets, default_reps, pf_friendly) values
@@ -85,7 +90,10 @@ insert into exercises (name, equipment_id, muscle_groups, exercise_type, difficu
   ('Dumbbell Bicep Curl', 'a0000000-0000-0000-0000-000000000014', '{"biceps"}', 'strength', 'beginner', 'Stand with dumbbells at sides. Curl weights up, rotating palms up. Lower with control.', 3, '10-12', true),
   ('Dumbbell Hammer Curl', 'a0000000-0000-0000-0000-000000000014', '{"biceps","forearms"}', 'strength', 'beginner', 'Stand with palms facing in. Curl weights up maintaining neutral grip. Lower slowly.', 3, '10-12', true),
   ('Cable Bicep Curl', 'a0000000-0000-0000-0000-000000000013', '{"biceps"}', 'strength', 'beginner', 'Stand facing cable set low. Curl bar or rope up. Squeeze at top. Lower slowly.', 3, '10-12', true),
-  ('Concentration Curl', 'a0000000-0000-0000-0000-000000000014', '{"biceps"}', 'strength', 'intermediate', 'Sit with elbow braced on inner thigh. Curl dumbbell up. Squeeze. Lower slowly.', 3, '10-12', true);
+  ('Concentration Curl', 'a0000000-0000-0000-0000-000000000014', '{"biceps"}', 'strength', 'intermediate', 'Sit with elbow braced on inner thigh. Curl dumbbell up. Squeeze. Lower slowly.', 3, '10-12', true),
+  ('Barbell Bicep Curl', 'a0000000-0000-0000-0000-000000000026', '{"biceps"}', 'strength', 'beginner', 'Stand holding barbell at thighs with underhand grip. Curl bar to shoulders. Lower with control.', 3, '8-12', true),
+  ('EZ Bar Curl', 'a0000000-0000-0000-0000-000000000025', '{"biceps"}', 'strength', 'beginner', 'Stand with EZ bar at thighs, hands on angled grips. Curl bar to shoulders. Lower with control.', 3, '8-12', true),
+  ('Dumbbell Reverse Curl', 'a0000000-0000-0000-0000-000000000014', '{"biceps","forearms"}', 'strength', 'intermediate', 'Stand with dumbbells, palms facing down. Curl up keeping wrists straight. Lower slowly.', 3, '10-12', true);
 
 -- Tricep exercises
 insert into exercises (name, equipment_id, muscle_groups, exercise_type, difficulty, instructions, default_sets, default_reps, pf_friendly) values
@@ -93,7 +101,8 @@ insert into exercises (name, equipment_id, muscle_groups, exercise_type, difficu
   ('Cable Tricep Pushdown', 'a0000000-0000-0000-0000-000000000013', '{"triceps"}', 'strength', 'beginner', 'Stand facing cable set high. Push rope or bar down until arms are extended. Return slowly.', 3, '10-12', true),
   ('Dumbbell Overhead Tricep Extension', 'a0000000-0000-0000-0000-000000000014', '{"triceps"}', 'strength', 'intermediate', 'Hold one dumbbell overhead with both hands. Lower behind head. Extend back up.', 3, '10-12', true),
   ('Dumbbell Kickback', 'a0000000-0000-0000-0000-000000000014', '{"triceps"}', 'strength', 'intermediate', 'Bend forward. Keep upper arm parallel to floor. Extend forearm back. Squeeze. Return.', 3, '10-12', true),
-  ('Cable Overhead Tricep Extension', 'a0000000-0000-0000-0000-000000000013', '{"triceps"}', 'strength', 'intermediate', 'Face away from cable set low. Extend arms overhead. Keep elbows close to head.', 3, '10-12', true);
+  ('Cable Overhead Tricep Extension', 'a0000000-0000-0000-0000-000000000013', '{"triceps"}', 'strength', 'intermediate', 'Face away from cable set low. Extend arms overhead. Keep elbows close to head.', 3, '10-12', true),
+  ('Dumbbell Skull Crusher', 'a0000000-0000-0000-0000-000000000014', '{"triceps"}', 'strength', 'intermediate', 'Lie on bench holding dumbbells overhead. Bend elbows to lower weights toward head. Extend back up.', 3, '10-12', true);
 
 -- Leg exercises
 insert into exercises (name, equipment_id, muscle_groups, exercise_type, difficulty, instructions, default_sets, default_reps, pf_friendly) values
@@ -107,7 +116,9 @@ insert into exercises (name, equipment_id, muscle_groups, exercise_type, difficu
   ('Dumbbell Goblet Squat', 'a0000000-0000-0000-0000-000000000014', '{"quadriceps","hamstrings","glutes","core"}', 'strength', 'beginner', 'Hold dumbbell at chest. Feet shoulder-width. Squat down. Keep chest up. Stand up.', 3, '10-12', true),
   ('Dumbbell Lunges', 'a0000000-0000-0000-0000-000000000014', '{"quadriceps","hamstrings","glutes"}', 'strength', 'intermediate', 'Hold dumbbells at sides. Step forward into lunge. Lower back knee toward floor. Push back up.', 3, '10 each', true),
   ('Dumbbell Romanian Deadlift', 'a0000000-0000-0000-0000-000000000014', '{"hamstrings","glutes","lower_back"}', 'strength', 'intermediate', 'Hold dumbbells in front. Hinge at hips, pushing hips back. Lower until stretch in hamstrings. Stand up.', 3, '10-12', true),
-  ('Smith Machine Lunge', 'a0000000-0000-0000-0000-000000000005', '{"quadriceps","hamstrings","glutes"}', 'strength', 'intermediate', 'Bar on shoulders. Step one foot forward. Lower until back knee nearly touches floor. Push up.', 3, '10 each', true);
+  ('Smith Machine Lunge', 'a0000000-0000-0000-0000-000000000005', '{"quadriceps","hamstrings","glutes"}', 'strength', 'intermediate', 'Bar on shoulders. Step one foot forward. Lower until back knee nearly touches floor. Push up.', 3, '10 each', true),
+  ('Bulgarian Split Squat', 'a0000000-0000-0000-0000-000000000014', '{"quadriceps","glutes","hamstrings"}', 'strength', 'intermediate', 'Place rear foot on bench behind you. Hold dumbbells at sides. Lower into lunge. Drive through front heel to stand.', 3, '10 each', true),
+  ('Dumbbell Step-Up', 'a0000000-0000-0000-0000-000000000014', '{"quadriceps","glutes"}', 'strength', 'intermediate', 'Hold dumbbells at sides. Step one foot onto bench or platform. Drive up through heel. Step down with control.', 3, '10 each', true);
 
 -- Core exercises
 insert into exercises (name, equipment_id, muscle_groups, exercise_type, difficulty, instructions, default_sets, default_reps, pf_friendly) values

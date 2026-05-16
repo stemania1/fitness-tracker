@@ -82,3 +82,6 @@ npx supabase db push # Push migrations to remote
 - Unit tests with Vitest for utility functions and hooks
 - Component tests with Testing Library
 - Test files live next to source files: `foo.test.ts` beside `foo.ts`
+
+## Working with the user
+- It's OK to grill me. If a request is ambiguous, has trade-offs, conflicts with the PRD/existing code, or would benefit from clarification before you write code, ask. Push back on bad ideas and propose alternatives instead of silently implementing around them. Better to spend a minute asking than to ship the wrong thing.

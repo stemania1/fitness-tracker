@@ -261,6 +261,7 @@ export interface Database {
           weight: number | null
           duration_mins: number | null
           distance_miles: number | null
+          incline_percent: number | null
           heart_rate: number | null
           rpe: number | null
         }
@@ -272,6 +273,7 @@ export interface Database {
           weight?: number | null
           duration_mins?: number | null
           distance_miles?: number | null
+          incline_percent?: number | null
           heart_rate?: number | null
           rpe?: number | null
         }
@@ -283,6 +285,7 @@ export interface Database {
           weight?: number | null
           duration_mins?: number | null
           distance_miles?: number | null
+          incline_percent?: number | null
           heart_rate?: number | null
           rpe?: number | null
         }

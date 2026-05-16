@@ -28,6 +28,7 @@ import {
   Dumbbell,
   Play,
   Pencil,
+  Plus,
   Trash2,
   ChevronUp,
   ChevronDown,
@@ -36,6 +37,9 @@ import {
   Loader2,
 } from "lucide-react"
 import { SPLIT_TYPES } from "@/lib/constants"
+import { ExercisePicker } from "@/components/activity/exercise-picker"
+import { ensureExercisesExist } from "@/lib/supabase/exercises"
+import type { ExerciseDefinition } from "@/data/exercises"
 
 const supabase = createClient()
 
@@ -68,6 +72,10 @@ interface EditableExercise {
   reps: string
   restSeconds: number
   orderIndex: number
+  // staticSlug is set for newly added (unsaved) exercises so we can resolve
+  // the static catalog ID to a database UUID on save. Existing rows have id
+  // set and don't need this.
+  staticSlug?: string
 }
 
 export default function WorkoutDetailPage() {
@@ -80,6 +88,7 @@ export default function WorkoutDetailPage() {
   const [editName, setEditName] = useState("")
   const [editExercises, setEditExercises] = useState<EditableExercise[]>([])
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showPicker, setShowPicker] = useState(false)
 
   const { data: template, isLoading } = useQuery<any>({
     queryKey: ["workout-template", templateId],
@@ -146,6 +155,24 @@ export default function WorkoutDetailPage() {
     setEditExercises(next)
   }
 
+  function addExerciseFromPicker(def: ExerciseDefinition) {
+    setEditExercises((prev) => [
+      ...prev,
+      {
+        id: "",
+        exerciseId: "",
+        staticSlug: def.id,
+        name: def.name,
+        muscleGroups: def.muscleGroups,
+        sets: def.defaultSets,
+        reps: def.defaultReps,
+        restSeconds: def.exerciseType === "cardio" ? 0 : 60,
+        orderIndex: prev.length,
+      },
+    ])
+    setShowPicker(false)
+  }
+
   function updateExerciseField(
     index: number,
     field: "sets" | "reps" | "restSeconds",
@@ -201,6 +228,37 @@ export default function WorkoutDetailPage() {
           .eq("id", ex.id)
 
         if (upError) throw upError
+      }
+
+      // Insert newly added exercises (those without a db row id yet)
+      const newExercises = editExercises.filter(
+        (e) => !e.id && e.staticSlug
+      )
+      if (newExercises.length > 0) {
+        const slugs = newExercises.map((e) => e.staticSlug!)
+        const idMap = await ensureExercisesExist(supabase, slugs)
+        const rows = newExercises
+          .map((ex) => {
+            const dbExerciseId = idMap.get(ex.staticSlug!)
+            if (!dbExerciseId) return null
+            return {
+              template_id: templateId,
+              exercise_id: dbExerciseId,
+              order_index: ex.orderIndex,
+              sets: ex.sets,
+              reps: ex.reps,
+              rest_seconds: ex.restSeconds,
+              notes: null,
+            }
+          })
+          .filter(Boolean)
+
+        if (rows.length > 0) {
+          const { error: insertError } = await supabase
+            .from("template_exercises")
+            .insert(rows as any[])
+          if (insertError) throw insertError
+        }
       }
 
       // Recalculate estimated duration
@@ -418,6 +476,16 @@ export default function WorkoutDetailPage() {
         <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500">
           Exercises
         </h2>
+        {isEditing && (
+          <Button
+            variant="secondary"
+            onClick={() => setShowPicker(true)}
+            className="w-full gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Add Exercise
+          </Button>
+        )}
         {isEditing
           ? editExercises.map((ex, idx) => (
               <Card key={ex.id || idx}>
@@ -596,6 +664,14 @@ export default function WorkoutDetailPage() {
             Delete Workout
           </Button>
         </div>
+      )}
+
+      {/* Exercise picker modal */}
+      {showPicker && (
+        <ExercisePicker
+          onSelect={addExerciseFromPicker}
+          onClose={() => setShowPicker(false)}
+        />
       )}
 
       {/* Delete Confirmation Dialog */}
