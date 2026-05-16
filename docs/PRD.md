@@ -57,6 +57,10 @@ A simple, focused fitness app for Planet Fitness members that builds personalize
   - Duration
   - Distance (optional)
   - Avg heart rate (optional)
+- For treadmill exercises specifically:
+  - Required: Duration and Distance
+  - Average speed is computed automatically from distance ÷ duration (not entered manually)
+  - Optional: Incline (%) — collapsible field, hidden by default
 - Rest timer between sets (configurable, default based on goal)
 - Workout duration tracked automatically (start → finish)
 - Weekly/monthly calendar view of completed workouts

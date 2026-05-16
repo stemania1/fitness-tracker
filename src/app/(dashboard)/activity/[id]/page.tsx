@@ -30,6 +30,7 @@ interface SetLogRow {
   weight: number | null
   duration_mins: number | null
   distance_miles: number | null
+  incline_percent: number | null
   rpe: number | null
 }
 
@@ -111,7 +112,7 @@ export default function WorkoutDetailPage() {
       const { data: setLogs } = await supabase
         .from("set_logs")
         .select(
-          "id, exercise_log_id, set_number, reps, weight, duration_mins, distance_miles, rpe"
+          "id, exercise_log_id, set_number, reps, weight, duration_mins, distance_miles, incline_percent, rpe"
         )
         .in("exercise_log_id", exIds.length > 0 ? exIds : ["__none__"])
         .order("set_number", { ascending: true })
@@ -162,12 +163,38 @@ export default function WorkoutDetailPage() {
     return workout.exercises.reduce((sum, ex) => {
       const def = exerciseMap.get(ex.exercise_id)
       const isCardio = def?.exerciseType === "cardio"
+      const isTreadmill = def?.equipmentId === "treadmill"
       if (isCardio) {
         const totalMins = ex.sets.reduce(
           (s, set) => s + (set.duration_mins ?? 0),
           0
         )
-        return sum + estimateCardioCalories(ex.exercise_id, totalMins, userWeightLbs)
+        // For treadmill, derive avg speed from distance/duration so the
+        // calorie estimate matches the speed-based MET adjustments.
+        let avgSpeed: number | null = null
+        if (isTreadmill) {
+          const speeds = ex.sets
+            .map((set) =>
+              set.distance_miles != null &&
+              set.duration_mins != null &&
+              set.duration_mins > 0
+                ? set.distance_miles / (set.duration_mins / 60)
+                : null
+            )
+            .filter((v): v is number => v != null && v > 0)
+          if (speeds.length > 0) {
+            avgSpeed = speeds.reduce((a, b) => a + b, 0) / speeds.length
+          }
+        }
+        return (
+          sum +
+          estimateCardioCalories(
+            ex.exercise_id,
+            totalMins,
+            userWeightLbs,
+            avgSpeed
+          )
+        )
       }
       return sum + estimateStrengthCalories(ex.exercise_id, ex.sets.length, userWeightLbs)
     }, 0)
@@ -290,6 +317,7 @@ export default function WorkoutDetailPage() {
         {workout.exercises.map((ex) => {
           const def = exerciseMap.get(ex.exercise_id)
           const isCardio = def?.exerciseType === "cardio"
+          const isTreadmill = def?.equipmentId === "treadmill"
 
           return (
             <Card key={ex.id}>
@@ -319,7 +347,14 @@ export default function WorkoutDetailPage() {
                     <thead>
                       <tr className="border-b border-gray-100 text-left text-xs uppercase text-gray-400">
                         <th className="pb-2 pr-4 font-medium">Set</th>
-                        {isCardio ? (
+                        {isTreadmill ? (
+                          <>
+                            <th className="pb-2 pr-4 font-medium">Duration</th>
+                            <th className="pb-2 pr-4 font-medium">Distance</th>
+                            <th className="pb-2 pr-4 font-medium">Avg Speed</th>
+                            <th className="pb-2 pr-4 font-medium">Incline</th>
+                          </>
+                        ) : isCardio ? (
                           <>
                             <th className="pb-2 pr-4 font-medium">Duration</th>
                             <th className="pb-2 pr-4 font-medium">Distance</th>
@@ -342,7 +377,35 @@ export default function WorkoutDetailPage() {
                           <td className="py-2 pr-4 font-medium text-gray-500">
                             {s.set_number}
                           </td>
-                          {isCardio ? (
+                          {isTreadmill ? (
+                            <>
+                              <td className="py-2 pr-4 text-gray-900">
+                                {s.duration_mins != null
+                                  ? `${s.duration_mins} min`
+                                  : "--"}
+                              </td>
+                              <td className="py-2 pr-4 text-gray-900">
+                                {s.distance_miles != null
+                                  ? `${s.distance_miles} mi`
+                                  : "--"}
+                              </td>
+                              <td className="py-2 pr-4 text-gray-900">
+                                {s.distance_miles != null &&
+                                s.duration_mins != null &&
+                                s.duration_mins > 0
+                                  ? `${(
+                                      s.distance_miles /
+                                      (s.duration_mins / 60)
+                                    ).toFixed(1)} mph`
+                                  : "--"}
+                              </td>
+                              <td className="py-2 pr-4 text-gray-900">
+                                {s.incline_percent != null
+                                  ? `${s.incline_percent}%`
+                                  : "--"}
+                              </td>
+                            </>
+                          ) : isCardio ? (
                             <>
                               <td className="py-2 pr-4 text-gray-900">
                                 {s.duration_mins != null

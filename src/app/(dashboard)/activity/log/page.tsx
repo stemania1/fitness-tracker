@@ -18,6 +18,7 @@ import {
   Plus,
   Square,
   Trash2,
+  TrendingUp,
   X,
   MessageSquare,
   Gauge,
@@ -41,6 +42,7 @@ interface ActiveSet {
   durationMins: number | null
   distanceMiles: number | null
   speedMph: number | null
+  inclinePercent: number | null
   rpe: number | null
   completed: boolean
 }
@@ -50,6 +52,7 @@ interface ActiveExercise {
   name: string
   muscleGroups: string[]
   exerciseType: "strength" | "cardio" | "flexibility"
+  equipmentId: string | null
   sets: ActiveSet[]
   notes: string
   restSeconds: number
@@ -70,6 +73,7 @@ function makeSet(): ActiveSet {
     durationMins: null,
     distanceMiles: null,
     speedMph: null,
+    inclinePercent: null,
     rpe: null,
     completed: false,
   }
@@ -82,10 +86,26 @@ function makeExercise(def: ExerciseDefinition, restSec: number = 60): ActiveExer
     name: def.name,
     muscleGroups: def.muscleGroups,
     exerciseType: def.exerciseType,
+    equipmentId: def.equipmentId,
     sets: Array.from({ length: numSets }, () => makeSet()),
     notes: "",
     restSeconds: restSec,
   }
+}
+
+function isTreadmill(ex: ActiveExercise): boolean {
+  return ex.equipmentId === "treadmill"
+}
+
+/** Average speed (mph) computed from distance + duration. Returns null when
+ *  either input is missing or zero. */
+function computeSpeedMph(
+  distanceMiles: number | null,
+  durationMins: number | null
+): number | null {
+  if (!distanceMiles || !durationMins) return null
+  if (distanceMiles <= 0 || durationMins <= 0) return null
+  return distanceMiles / (durationMins / 60)
 }
 
 function formatTimer(totalSeconds: number): string {
@@ -112,6 +132,7 @@ export default function LogWorkoutPage() {
   const [showDrawer, setShowDrawer] = useState(false)
   const [showRpe, setShowRpe] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
+  const [showIncline, setShowIncline] = useState(false)
   const [restTimer, setRestTimer] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [userWeightLbs, setUserWeightLbs] = useState<number>(170)
@@ -144,6 +165,7 @@ export default function LogWorkoutPage() {
               name: def.name,
               muscleGroups: def.muscleGroups,
               exerciseType: def.exerciseType,
+              equipmentId: def.equipmentId,
               sets: Array.from({ length: te.sets || 3 }, () => makeSet()),
               notes: "",
               restSeconds: te.rest_seconds || 60,
@@ -307,16 +329,25 @@ export default function LogWorkoutPage() {
         (sum, s) => sum + (s.durationMins ?? 0),
         0
       )
+      // For treadmill, compute speed from distance/duration; otherwise use
+      // the manually entered speedMph.
+      const speedPerSet = completedSets.map((s) =>
+        isTreadmill(ex)
+          ? computeSpeedMph(s.distanceMiles, s.durationMins)
+          : s.speedMph
+      )
+      const validSpeeds = speedPerSet.filter(
+        (v): v is number => v != null && v > 0
+      )
       const avgSpeed =
-        completedSets.length > 0
-          ? completedSets.reduce((sum, s) => sum + (s.speedMph ?? 0), 0) /
-            completedSets.length
+        validSpeeds.length > 0
+          ? validSpeeds.reduce((sum, v) => sum + v, 0) / validSpeeds.length
           : null
       return estimateCardioCalories(
         ex.exerciseId,
         totalMins,
         userWeightLbs,
-        avgSpeed && avgSpeed > 0 ? avgSpeed : null
+        avgSpeed
       )
     }
     return estimateStrengthCalories(
@@ -398,6 +429,7 @@ export default function LogWorkoutPage() {
         weight: s.weight,
         duration_mins: s.durationMins,
         distance_miles: s.distanceMiles,
+        incline_percent: s.inclinePercent,
         rpe: s.rpe,
       }))
 
@@ -418,6 +450,8 @@ export default function LogWorkoutPage() {
 
   const currentExercise = workout.exercises[currentIdx]
   const isCardio = currentExercise?.exerciseType === "cardio"
+  const isTreadmillExercise =
+    !!currentExercise && isTreadmill(currentExercise)
 
   return (
     <div className="mx-auto max-w-lg">
@@ -544,13 +578,21 @@ export default function LogWorkoutPage() {
                 <div
                   className={cn(
                     "mb-2 grid items-center gap-2 text-xs font-medium uppercase text-gray-400",
-                    isCardio
+                    isTreadmillExercise
+                      ? "grid-cols-[2.5rem_1fr_1fr_3.5rem_3rem]"
+                      : isCardio
                       ? "grid-cols-[2.5rem_1fr_1fr_1fr_3rem]"
                       : "grid-cols-[2.5rem_1fr_1fr_3rem]"
                   )}
                 >
                   <span className="text-center">Set</span>
-                  {isCardio ? (
+                  {isTreadmillExercise ? (
+                    <>
+                      <span>Time</span>
+                      <span>Dist</span>
+                      <span className="text-center text-[10px] tracking-tight">Avg mph</span>
+                    </>
+                  ) : isCardio ? (
                     <>
                       <span>Time</span>
                       <span>Dist</span>
@@ -573,7 +615,9 @@ export default function LogWorkoutPage() {
                     key={si}
                     className={cn(
                       "mb-1.5 grid items-center gap-2 rounded-lg px-1 py-1.5 transition-colors",
-                      isCardio
+                      isTreadmillExercise
+                        ? "grid-cols-[2.5rem_1fr_1fr_3.5rem_3rem]"
+                        : isCardio
                         ? "grid-cols-[2.5rem_1fr_1fr_1fr_3rem]"
                         : "grid-cols-[2.5rem_1fr_1fr_3rem]",
                       set.completed && "bg-purple-50"
@@ -584,7 +628,47 @@ export default function LogWorkoutPage() {
                       {si + 1}
                     </span>
 
-                    {isCardio ? (
+                    {isTreadmillExercise ? (
+                      <>
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          placeholder="min"
+                          value={set.durationMins ?? ""}
+                          onChange={(e) =>
+                            updateSet(currentIdx, si, {
+                              durationMins: e.target.value
+                                ? Number(e.target.value)
+                                : null,
+                            })
+                          }
+                          className="h-10 text-center text-sm"
+                        />
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          placeholder="mi"
+                          value={set.distanceMiles ?? ""}
+                          onChange={(e) =>
+                            updateSet(currentIdx, si, {
+                              distanceMiles: e.target.value
+                                ? Number(e.target.value)
+                                : null,
+                            })
+                          }
+                          className="h-10 text-center text-sm"
+                        />
+                        <span className="flex h-10 items-center justify-center rounded-md bg-gray-50 text-center text-sm tabular-nums text-gray-600">
+                          {(() => {
+                            const speed = computeSpeedMph(
+                              set.distanceMiles,
+                              set.durationMins
+                            )
+                            return speed != null ? speed.toFixed(1) : "—"
+                          })()}
+                        </span>
+                      </>
+                    ) : isCardio ? (
                       <>
                         <Input
                           type="number"
@@ -706,6 +790,53 @@ export default function LogWorkoutPage() {
                     </Button>
                   )}
                 </div>
+
+                {/* Incline (treadmill only, collapsible) */}
+                {isTreadmillExercise && (
+                  <>
+                    <button
+                      onClick={() => setShowIncline((v) => !v)}
+                      className="mt-3 flex w-full items-center gap-1.5 border-t border-gray-100 pt-3 text-sm text-gray-500 hover:text-gray-700"
+                    >
+                      <TrendingUp className="h-4 w-4" />
+                      Incline (optional)
+                      {showIncline ? (
+                        <ChevronUp className="ml-auto h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="ml-auto h-4 w-4" />
+                      )}
+                    </button>
+                    {showIncline && (
+                      <div className="mt-2 space-y-1.5">
+                        {currentExercise.sets.map((set, si) => (
+                          <div key={si} className="flex items-center gap-2">
+                            <span className="w-10 text-center text-xs text-gray-400">
+                              Set {si + 1}
+                            </span>
+                            <Input
+                              type="number"
+                              inputMode="decimal"
+                              step="0.5"
+                              min={0}
+                              max={30}
+                              placeholder="%"
+                              value={set.inclinePercent ?? ""}
+                              onChange={(e) =>
+                                updateSet(currentIdx, si, {
+                                  inclinePercent: e.target.value
+                                    ? Number(e.target.value)
+                                    : null,
+                                })
+                              }
+                              className="h-8 max-w-[5rem] text-center text-sm"
+                            />
+                            <span className="text-xs text-gray-400">%</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
 
                 {/* RPE selector (collapsible) */}
                 <button

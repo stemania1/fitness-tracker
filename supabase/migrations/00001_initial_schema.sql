@@ -100,6 +100,7 @@ create table set_logs (
   weight decimal(5,1),
   duration_mins decimal(5,1),
   distance_miles decimal(5,2),
+  incline_percent decimal(4,1),
   heart_rate integer,
   rpe integer check (rpe between 1 and 10)
 );
