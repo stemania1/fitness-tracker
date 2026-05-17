@@ -11,11 +11,16 @@ import {
   Calendar,
   Clock,
   Dumbbell,
+  Loader2,
+  Pencil,
+  Save,
   Trash2,
   TrendingUp,
   MessageSquare,
   Flame,
+  X,
 } from "lucide-react"
+import { Input } from "@/components/ui/input"
 import { formatDuration } from "@/lib/utils"
 import { exercises as exerciseCatalog } from "@/data/exercises"
 import {
@@ -82,6 +87,111 @@ export default function WorkoutDetailPage() {
   const [deleting, setDeleting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [userWeightLbs, setUserWeightLbs] = useState<number>(170)
+  const [editing, setEditing] = useState<WorkoutDetail | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  const isEditing = editing !== null
+
+  function startEditing() {
+    if (!workout) return
+    // Deep clone so user edits don't mutate the original until saved.
+    setEditing(
+      JSON.parse(JSON.stringify(workout)) as WorkoutDetail
+    )
+    setSaveError(null)
+  }
+
+  function cancelEditing() {
+    setEditing(null)
+    setSaveError(null)
+  }
+
+  function updateSet(
+    exerciseLogId: string,
+    setId: string,
+    patch: Partial<SetLogRow>
+  ) {
+    setEditing((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        exercises: prev.exercises.map((ex) =>
+          ex.id !== exerciseLogId
+            ? ex
+            : {
+                ...ex,
+                sets: ex.sets.map((s) =>
+                  s.id === setId ? { ...s, ...patch } : s
+                ),
+              }
+        ),
+      }
+    })
+  }
+
+  function updateExerciseNotes(exerciseLogId: string, notes: string) {
+    setEditing((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        exercises: prev.exercises.map((ex) =>
+          ex.id !== exerciseLogId ? ex : { ...ex, notes }
+        ),
+      }
+    })
+  }
+
+  function updateWorkoutNotes(notes: string) {
+    setEditing((prev) => (prev ? { ...prev, notes } : prev))
+  }
+
+  async function saveEdits() {
+    if (!editing) return
+    setSaving(true)
+    setSaveError(null)
+    const supabase = createClient()
+    try {
+      // Workout-level notes
+      await supabase
+        .from("workout_logs")
+        .update({ notes: editing.notes })
+        .eq("id", editing.id)
+
+      // Per-exercise notes
+      for (const ex of editing.exercises) {
+        await supabase
+          .from("exercise_logs")
+          .update({ notes: ex.notes })
+          .eq("id", ex.id)
+      }
+
+      // Sets
+      for (const ex of editing.exercises) {
+        for (const s of ex.sets) {
+          const { error } = await supabase
+            .from("set_logs")
+            .update({
+              reps: s.reps,
+              weight: s.weight,
+              duration_mins: s.duration_mins,
+              distance_miles: s.distance_miles,
+              incline_percent: s.incline_percent,
+              rpe: s.rpe,
+            })
+            .eq("id", s.id)
+          if (error) throw error
+        }
+      }
+
+      setWorkout(editing)
+      setEditing(null)
+    } catch (err) {
+      setSaveError((err as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const exerciseMap = useMemo(
     () => new Map(exerciseCatalog.map((e) => [e.id, e])),
@@ -329,7 +439,7 @@ export default function WorkoutDetailPage() {
 
       {/* Exercises */}
       <div className="space-y-4">
-        {workout.exercises.map((ex) => {
+        {(editing ?? workout).exercises.map((ex) => {
           const def = exerciseMap.get(ex.exercise_id)
           const isCardio = def?.exerciseType === "cardio"
           const isTreadmill = def?.equipmentId === "treadmill"
@@ -395,7 +505,35 @@ export default function WorkoutDetailPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {ex.sets.map((s) => (
+                      {ex.sets.map((s) => {
+                        const numCell = (
+                          value: number | null,
+                          suffix: string,
+                          field: keyof SetLogRow,
+                          inputMode: "decimal" | "numeric" = "decimal"
+                        ) =>
+                          isEditing ? (
+                            <td className="py-2 pr-2">
+                              <Input
+                                type="number"
+                                inputMode={inputMode}
+                                value={value ?? ""}
+                                onChange={(e) =>
+                                  updateSet(ex.id, s.id, {
+                                    [field]: e.target.value
+                                      ? Number(e.target.value)
+                                      : null,
+                                  } as Partial<SetLogRow>)
+                                }
+                                className="h-8 w-20 text-center text-sm"
+                              />
+                            </td>
+                          ) : (
+                            <td className="py-2 pr-4 text-gray-900">
+                              {value != null ? `${value}${suffix}` : "--"}
+                            </td>
+                          )
+                        return (
                         <tr
                           key={s.id}
                           className="border-b border-gray-50 last:border-0"
@@ -405,17 +543,13 @@ export default function WorkoutDetailPage() {
                           </td>
                           {isDistanceCardio ? (
                             <>
-                              <td className="py-2 pr-4 text-gray-900">
-                                {s.duration_mins != null
-                                  ? `${s.duration_mins} min`
-                                  : "--"}
-                              </td>
-                              <td className="py-2 pr-4 text-gray-900">
-                                {s.distance_miles != null
-                                  ? `${s.distance_miles} mi`
-                                  : "--"}
-                              </td>
-                              <td className="py-2 pr-4 text-gray-900">
+                              {numCell(s.duration_mins, " min", "duration_mins")}
+                              {numCell(
+                                s.distance_miles,
+                                " mi",
+                                "distance_miles"
+                              )}
+                              <td className="py-2 pr-4 text-gray-500 tabular-nums">
                                 {s.distance_miles != null &&
                                 s.duration_mins != null &&
                                 s.duration_mins > 0
@@ -435,35 +569,26 @@ export default function WorkoutDetailPage() {
                                       ).toFixed(1)} mph`
                                   : "--"}
                               </td>
-                              {isTreadmill && (
-                                <td className="py-2 pr-4 text-gray-900">
-                                  {s.incline_percent != null
-                                    ? `${s.incline_percent}%`
-                                    : "--"}
-                                </td>
-                              )}
+                              {isTreadmill &&
+                                numCell(
+                                  s.incline_percent,
+                                  "%",
+                                  "incline_percent"
+                                )}
                             </>
                           ) : isCardio ? (
                             <>
-                              <td className="py-2 pr-4 text-gray-900">
-                                {s.duration_mins != null
-                                  ? `${s.duration_mins} min`
-                                  : "--"}
-                              </td>
-                              <td className="py-2 pr-4 text-gray-900">
-                                {s.distance_miles != null
-                                  ? `${s.distance_miles} mi`
-                                  : "--"}
-                              </td>
+                              {numCell(s.duration_mins, " min", "duration_mins")}
+                              {numCell(
+                                s.distance_miles,
+                                " mi",
+                                "distance_miles"
+                              )}
                             </>
                           ) : (
                             <>
-                              <td className="py-2 pr-4 text-gray-900">
-                                {s.weight != null ? `${s.weight} lbs` : "--"}
-                              </td>
-                              <td className="py-2 pr-4 text-gray-900">
-                                {s.reps ?? "--"}
-                              </td>
+                              {numCell(s.weight, " lbs", "weight")}
+                              {numCell(s.reps, "", "reps", "numeric")}
                               <td className="py-2 pr-4 text-gray-500 tabular-nums">
                                 {(() => {
                                   const e1rm = estimateOneRepMax(
@@ -477,21 +602,32 @@ export default function WorkoutDetailPage() {
                               </td>
                             </>
                           )}
-                          <td className="py-2 text-gray-500">
-                            {s.rpe ?? "--"}
-                          </td>
+                          {numCell(s.rpe, "", "rpe", "numeric")}
                         </tr>
-                      ))}
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>
 
                 {/* Exercise notes */}
-                {ex.notes && (
-                  <div className="mt-3 flex items-start gap-2 rounded-lg bg-gray-50 px-3 py-2">
-                    <MessageSquare className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" />
-                    <p className="text-sm text-gray-600">{ex.notes}</p>
-                  </div>
+                {isEditing ? (
+                  <textarea
+                    value={ex.notes ?? ""}
+                    onChange={(e) =>
+                      updateExerciseNotes(ex.id, e.target.value)
+                    }
+                    placeholder="Notes for this exercise…"
+                    className="mt-3 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    rows={2}
+                  />
+                ) : (
+                  ex.notes && (
+                    <div className="mt-3 flex items-start gap-2 rounded-lg bg-gray-50 px-3 py-2">
+                      <MessageSquare className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" />
+                      <p className="text-sm text-gray-600">{ex.notes}</p>
+                    </div>
+                  )
                 )}
               </CardContent>
             </Card>
@@ -500,20 +636,66 @@ export default function WorkoutDetailPage() {
       </div>
 
       {/* Workout notes */}
-      {workout.notes && (
+      {isEditing ? (
         <Card className="mt-4">
           <CardContent className="p-4">
-            <h3 className="mb-1 text-sm font-medium text-gray-500">
+            <h3 className="mb-2 text-sm font-medium text-gray-500">
               Workout Notes
             </h3>
-            <p className="text-sm text-gray-700">{workout.notes}</p>
+            <textarea
+              value={editing?.notes ?? ""}
+              onChange={(e) => updateWorkoutNotes(e.target.value)}
+              placeholder="Overall workout notes…"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-purple-500"
+              rows={3}
+            />
           </CardContent>
         </Card>
+      ) : (
+        workout.notes && (
+          <Card className="mt-4">
+            <CardContent className="p-4">
+              <h3 className="mb-1 text-sm font-medium text-gray-500">
+                Workout Notes
+              </h3>
+              <p className="text-sm text-gray-700">{workout.notes}</p>
+            </CardContent>
+          </Card>
+        )
       )}
 
-      {/* Delete button */}
+      {/* Edit / Delete actions */}
       <div className="mt-8 border-t border-gray-100 pt-6">
-        {showDeleteConfirm ? (
+        {isEditing ? (
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <Button
+                onClick={saveEdits}
+                disabled={saving}
+                className="gap-1.5"
+              >
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                {saving ? "Saving…" : "Save changes"}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={cancelEditing}
+                disabled={saving}
+                className="gap-1.5"
+              >
+                <X className="h-4 w-4" />
+                Cancel
+              </Button>
+            </div>
+            {saveError && (
+              <p className="text-sm text-red-600">{saveError}</p>
+            )}
+          </div>
+        ) : showDeleteConfirm ? (
           <div className="rounded-xl border border-red-200 bg-red-50 p-4">
             <p className="mb-3 text-sm font-medium text-red-800">
               Are you sure you want to delete this workout? This cannot be
@@ -541,14 +723,24 @@ export default function WorkoutDetailPage() {
             </div>
           </div>
         ) : (
-          <Button
-            variant="ghost"
-            onClick={() => setShowDeleteConfirm(true)}
-            className="gap-1.5 text-red-500 hover:bg-red-50 hover:text-red-600"
-          >
-            <Trash2 className="h-4 w-4" />
-            Delete Workout
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              onClick={startEditing}
+              className="gap-1.5"
+            >
+              <Pencil className="h-4 w-4" />
+              Edit workout
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => setShowDeleteConfirm(true)}
+              className="gap-1.5 text-red-500 hover:bg-red-50 hover:text-red-600"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </Button>
+          </div>
         )}
       </div>
     </div>

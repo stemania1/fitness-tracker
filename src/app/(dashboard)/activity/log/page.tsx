@@ -172,6 +172,9 @@ export default function LogWorkoutPage() {
   const [saving, setSaving] = useState(false)
   const [userWeightLbs, setUserWeightLbs] = useState<number>(170)
   const startRef = useRef<Date | null>(null)
+  /** Exercises we've already pre-filled this session, so we don't clobber
+   *  user edits if they tab back to the exercise. */
+  const prefilledExercises = useRef<Set<string>>(new Set())
 
   // Load template or start freestyle
   useEffect(() => {
@@ -529,6 +532,46 @@ export default function LogWorkoutPage() {
     currentExercise?.exerciseId ?? ""
   )
   const allTimeMaxWeight = currentHistory?.allTimeMaxWeight ?? null
+
+  // Pre-fill set weights from the previous session. Runs once per exercise
+  // per session, only if every set is still untouched (no weight typed, no
+  // reps typed, not completed). Reps are not pre-filled since they vary
+  // more than weight session to session.
+  useEffect(() => {
+    if (!currentExercise) return
+    if (currentExercise.exerciseType !== "strength") return
+    if (prefilledExercises.current.has(currentExercise.exerciseId)) return
+    if (!currentHistory) return
+    const prevSets = currentHistory.previousSets
+    if (prevSets.length === 0) {
+      prefilledExercises.current.add(currentExercise.exerciseId)
+      return
+    }
+    const untouched = currentExercise.sets.every(
+      (s) => s.weight == null && s.reps == null && !s.completed
+    )
+    if (!untouched) {
+      prefilledExercises.current.add(currentExercise.exerciseId)
+      return
+    }
+    const exerciseId = currentExercise.exerciseId
+    setWorkout((prev) => {
+      if (!prev) return prev
+      const idx = prev.exercises.findIndex((e) => e.exerciseId === exerciseId)
+      if (idx === -1) return prev
+      const exercises = [...prev.exercises]
+      const ex = { ...exercises[idx] }
+      ex.sets = ex.sets.map((s, i) => {
+        const prevSet = prevSets[i] ?? prevSets[prevSets.length - 1]
+        return prevSet?.weight != null
+          ? { ...s, weight: prevSet.weight }
+          : s
+      })
+      exercises[idx] = ex
+      return { ...prev, exercises }
+    })
+    prefilledExercises.current.add(currentExercise.exerciseId)
+  }, [currentExercise, currentHistory])
 
   return (
     <div className="mx-auto max-w-lg">
