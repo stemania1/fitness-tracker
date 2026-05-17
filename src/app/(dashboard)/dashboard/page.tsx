@@ -44,6 +44,7 @@ import { estimateStrengthCalories, estimateCardioCalories } from "@/lib/calories
 import {
   estimateOneRepMax,
   findRecentPRs,
+  findRecentRepPRs,
   type SetWithMeta,
 } from "@/lib/personal-records"
 import type { OuraSummary } from "@/lib/oura"
@@ -456,10 +457,23 @@ export default function DashboardPage() {
     },
   })
 
-  const recentPRs = useMemo(
-    () => (allStrengthSets ? findRecentPRs(allStrengthSets, 30).slice(0, 5) : []),
-    [allStrengthSets]
-  )
+  // Combine weight and rep PRs into a single chronological feed. When an
+  // exercise has both a weight PR and a rep PR in the window, keep only
+  // the weight PR — it's strictly more impressive.
+  const recentPRs = useMemo(() => {
+    if (!allStrengthSets) return []
+    const weightPRs = findRecentPRs(allStrengthSets, 30).map((pr) => ({
+      kind: "weight" as const,
+      ...pr,
+    }))
+    const weightPRExercises = new Set(weightPRs.map((p) => p.exerciseName))
+    const repPRs = findRecentRepPRs(allStrengthSets, 30)
+      .filter((pr) => !weightPRExercises.has(pr.exerciseName))
+      .map((pr) => ({ kind: "rep" as const, ...pr }))
+    return [...weightPRs, ...repPRs]
+      .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+      .slice(0, 5)
+  }, [allStrengthSets])
 
   const volumeTrend = useMemo(
     () => buildWeeklyVolumeTrend(allStrengthSets ?? [], 8),
@@ -1050,7 +1064,7 @@ export default function DashboardPage() {
             Recent PRs
           </CardTitle>
           <p className="text-xs text-gray-500">
-            New heaviest-weight personal records from the last 30 days
+            New weight and rep records from the last 30 days
           </p>
         </CardHeader>
         <CardContent>
@@ -1064,23 +1078,40 @@ export default function DashboardPage() {
             <div className="space-y-2">
               {recentPRs.map((pr) => {
                 const e1rm = estimateOneRepMax(pr.weight, pr.reps)
+                const date = new Date(pr.startedAt).toLocaleDateString(
+                  "en-US",
+                  { month: "short", day: "numeric" }
+                )
                 return (
                   <div
-                    key={`${pr.exerciseName}-${pr.startedAt}`}
+                    key={`${pr.kind}-${pr.exerciseName}-${pr.startedAt}`}
                     className="flex items-center justify-between rounded-lg bg-amber-50 p-3"
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-gray-900">
-                        {pr.exerciseName}
-                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="truncate text-sm font-medium text-gray-900">
+                          {pr.exerciseName}
+                        </p>
+                        <span
+                          className={
+                            pr.kind === "weight"
+                              ? "rounded-full bg-amber-200 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-900"
+                              : "rounded-full bg-purple-200 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-purple-900"
+                          }
+                        >
+                          {pr.kind === "weight" ? "Weight" : "Reps"}
+                        </span>
+                      </div>
                       <p className="text-xs text-gray-500">
-                        {new Date(pr.startedAt).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                        })}
-                        {pr.previousMaxWeight != null && (
-                          <> · prev {pr.previousMaxWeight} lbs</>
-                        )}
+                        {date}
+                        {pr.kind === "weight" &&
+                          pr.previousMaxWeight != null && (
+                            <> · prev {pr.previousMaxWeight} lbs</>
+                          )}
+                        {pr.kind === "rep" &&
+                          pr.previousMaxReps != null && (
+                            <> · prev {pr.previousMaxReps} reps</>
+                          )}
                         {e1rm != null && (
                           <> · est. 1RM {Math.round(e1rm)} lbs</>
                         )}

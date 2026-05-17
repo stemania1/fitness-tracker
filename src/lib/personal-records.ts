@@ -75,6 +75,17 @@ export interface RecentPR {
   previousMaxWeight: number | null
 }
 
+/** Rep PRs track "most reps ever at this weight" for an exercise — a way
+ *  to celebrate progress without bumping the weight. */
+export interface RecentRepPR {
+  exerciseName: string
+  weight: number
+  reps: number
+  startedAt: string
+  /** The previous max reps at this same weight, before this PR was set. */
+  previousMaxReps: number | null
+}
+
 /**
  * Find the most recent personal-record-setting set per exercise within
  * the last `sinceDays`. Returns at most one entry per exercise (the
@@ -120,6 +131,59 @@ export function findRecentPRs(
   }
 
   return [...latestPRByExercise.values()].sort((a, b) =>
+    b.startedAt.localeCompare(a.startedAt)
+  )
+}
+
+/**
+ * Find the most recent rep-PR per exercise within the last `sinceDays`.
+ * A rep PR is "most reps ever at this same weight" — useful for tracking
+ * progress at sub-max working weights, where you might rep out before
+ * adding load.
+ *
+ * Returns at most one entry per exercise (the latest rep PR), sorted by
+ * startedAt descending. Excludes single-rep sets (a 1RM attempt is not a
+ * rep PR).
+ */
+export function findRecentRepPRs(
+  sets: SetWithMeta[],
+  sinceDays: number,
+  now: Date = new Date()
+): RecentRepPR[] {
+  const cutoff = now.getTime() - sinceDays * 24 * 60 * 60 * 1000
+
+  const ordered = [...sets].sort((a, b) =>
+    a.startedAt.localeCompare(b.startedAt)
+  )
+
+  // Running max reps per (exercise, weight) pair.
+  const runningMaxReps = new Map<string, number>()
+  const latestRepPRByExercise = new Map<string, RecentRepPR>()
+
+  for (const s of ordered) {
+    if (s.weight == null || s.reps == null) continue
+    if (s.weight <= 0 || s.reps < 2) continue // singles don't count
+    const key = `${s.exerciseName}|${s.weight}`
+    const prevMax = runningMaxReps.get(key) ?? null
+    const isPR = prevMax == null || s.reps > prevMax
+    if (isPR) {
+      runningMaxReps.set(key, s.reps)
+      const ts = new Date(s.startedAt).getTime()
+      if (Number.isFinite(ts) && ts >= cutoff && prevMax != null) {
+        // Require a prior entry at this weight — otherwise this is just
+        // "first time doing this weight" which isn't very meaningful.
+        latestRepPRByExercise.set(s.exerciseName, {
+          exerciseName: s.exerciseName,
+          weight: s.weight,
+          reps: s.reps,
+          startedAt: s.startedAt,
+          previousMaxReps: prevMax,
+        })
+      }
+    }
+  }
+
+  return [...latestRepPRByExercise.values()].sort((a, b) =>
     b.startedAt.localeCompare(a.startedAt)
   )
 }
