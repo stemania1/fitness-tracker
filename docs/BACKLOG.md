@@ -12,7 +12,7 @@ still open.
 - [x] Rep PR detection (most reps ever at a given weight, dashboard card)
 - [x] Workouts-per-week streak tracker
 - [x] Volume trend chart (weekly total lifted, last 8 weeks)
-- [ ] Deload week suggestion when N consecutive weeks of climbing volume
+- [x] Deload week suggestion when 4 consecutive weeks of 5%+ volume climb
 
 ## Goal tracking
 - [x] Weight goal: target + projected timeline based on actual rate
@@ -34,7 +34,7 @@ still open.
 - [x] Add Exercise button in template edit mode
 - [x] Reorder template exercises (up / down)
 - [ ] Drag-and-drop reorder (replace up/down chevrons)
-- [ ] Swap one exercise for another within a template
+- [x] Swap one exercise for another within a template
 
 ## Equipment & exercises
 - [x] Free-weight exercise catalog expanded (16 added Apr–May 2026)
