@@ -19,6 +19,7 @@ import {
   Square,
   Trash2,
   TrendingUp,
+  Trophy,
   X,
   MessageSquare,
   Gauge,
@@ -29,6 +30,9 @@ import { exercises as exerciseCatalog, type ExerciseDefinition } from "@/data/ex
 import { ExercisePicker } from "@/components/activity/exercise-picker"
 import { RestTimer } from "@/components/activity/rest-timer"
 import { PreviousPerformance } from "@/components/activity/PreviousPerformance"
+import { OverloadSuggestion } from "@/components/activity/OverloadSuggestion"
+import { useExerciseHistory } from "@/hooks/useExerciseHistory"
+import { isNewPersonalRecord } from "@/lib/personal-records"
 import {
   estimateStrengthCalories,
   estimateCardioCalories,
@@ -53,6 +57,9 @@ interface ActiveExercise {
   muscleGroups: string[]
   exerciseType: "strength" | "cardio" | "flexibility"
   equipmentId: string | null
+  /** Prescribed rep range string from the template (e.g. "8-12"). Null for
+   *  freestyle workouts. Drives the progressive-overload suggestion. */
+  repsTarget: string | null
   sets: ActiveSet[]
   notes: string
   restSeconds: number
@@ -79,7 +86,11 @@ function makeSet(): ActiveSet {
   }
 }
 
-function makeExercise(def: ExerciseDefinition, restSec: number = 60): ActiveExercise {
+function makeExercise(
+  def: ExerciseDefinition,
+  restSec: number = 60,
+  repsTarget: string | null = null
+): ActiveExercise {
   const numSets = def.defaultSets || 3
   return {
     exerciseId: def.id,
@@ -87,6 +98,7 @@ function makeExercise(def: ExerciseDefinition, restSec: number = 60): ActiveExer
     muscleGroups: def.muscleGroups,
     exerciseType: def.exerciseType,
     equipmentId: def.equipmentId,
+    repsTarget,
     sets: Array.from({ length: numSets }, () => makeSet()),
     notes: "",
     restSeconds: restSec,
@@ -151,14 +163,34 @@ export default function LogWorkoutPage() {
 
         const { data: templateExercises } = await supabase
           .from("template_exercises")
-          .select("exercise_id, sets, rest_seconds, order_index")
+          .select(
+            "exercise_id, sets, reps, rest_seconds, order_index, exercises(name)"
+          )
           .eq("template_id", templateId)
           .order("order_index", { ascending: true })
 
-        const exDefs = new Map(exerciseCatalog.map((e) => [e.id, e]))
-        const activeExercises: ActiveExercise[] = (templateExercises ?? [])
+        // template_exercises.exercise_id is a DB UUID; map it to the static
+        // catalog entry by the exercise name (the two catalogs share names).
+        const exDefsByName = new Map(
+          exerciseCatalog.map((e) => [e.name, e])
+        )
+        const activeExercises: ActiveExercise[] = (
+          (templateExercises ?? []) as Array<{
+            exercise_id: string
+            sets: number | null
+            reps: string | null
+            rest_seconds: number | null
+            order_index: number
+            exercises: { name: string } | { name: string }[] | null
+          }>
+        )
           .map((te) => {
-            const def = exDefs.get(te.exercise_id)
+            const exRow = Array.isArray(te.exercises)
+              ? te.exercises[0]
+              : te.exercises
+            const name = exRow?.name
+            if (!name) return null
+            const def = exDefsByName.get(name)
             if (!def) return null
             return {
               exerciseId: def.id,
@@ -166,6 +198,7 @@ export default function LogWorkoutPage() {
               muscleGroups: def.muscleGroups,
               exerciseType: def.exerciseType,
               equipmentId: def.equipmentId,
+              repsTarget: te.reps ?? null,
               sets: Array.from({ length: te.sets || 3 }, () => makeSet()),
               notes: "",
               restSeconds: te.rest_seconds || 60,
@@ -453,6 +486,13 @@ export default function LogWorkoutPage() {
   const isTreadmillExercise =
     !!currentExercise && isTreadmill(currentExercise)
 
+  // For PR detection during the active workout. Returns the all-time max
+  // weight for the current exercise *before* this session.
+  const { data: currentHistory } = useExerciseHistory(
+    currentExercise?.exerciseId ?? ""
+  )
+  const allTimeMaxWeight = currentHistory?.allTimeMaxWeight ?? null
+
   return (
     <div className="mx-auto max-w-lg">
       {/* Top bar */}
@@ -574,6 +614,15 @@ export default function LogWorkoutPage() {
                   </Button>
                 </div>
 
+                {/* Progressive overload suggestion (only when there's a
+                    rep target and last session cleared it on all sets) */}
+                {currentExercise.exerciseType === "strength" && (
+                  <OverloadSuggestion
+                    exerciseId={currentExercise.exerciseId}
+                    repsTarget={currentExercise.repsTarget}
+                  />
+                )}
+
                 {/* Sets table header */}
                 <div
                   className={cn(
@@ -610,7 +659,29 @@ export default function LogWorkoutPage() {
                 </div>
 
                 {/* Set rows */}
-                {currentExercise.sets.map((set, si) => (
+                {currentExercise.sets.map((set, si) => {
+                  // PR = strictly heavier than the all-time max AND
+                  // heavier than any earlier completed set this session.
+                  const earlierMaxThisSession = currentExercise.sets
+                    .slice(0, si)
+                    .filter((s) => s.completed && s.weight != null)
+                    .reduce(
+                      (m, s) => (s.weight! > m ? s.weight! : m),
+                      0
+                    )
+                  const threshold = Math.max(
+                    allTimeMaxWeight ?? 0,
+                    earlierMaxThisSession
+                  )
+                  const isPR =
+                    !isCardio &&
+                    set.completed &&
+                    isNewPersonalRecord(
+                      { weight: set.weight, reps: set.reps },
+                      threshold > 0 ? threshold : null
+                    )
+
+                  return (
                   <div
                     key={si}
                     className={cn(
@@ -620,12 +691,22 @@ export default function LogWorkoutPage() {
                         : isCardio
                         ? "grid-cols-[2.5rem_1fr_1fr_1fr_3rem]"
                         : "grid-cols-[2.5rem_1fr_1fr_3rem]",
-                      set.completed && "bg-purple-50"
+                      set.completed && "bg-purple-50",
+                      isPR && "ring-1 ring-amber-300 bg-amber-50"
                     )}
                   >
-                    {/* Set number */}
-                    <span className="text-center text-sm font-semibold text-gray-500">
+                    {/* Set number (with PR badge when applicable) */}
+                    <span
+                      className={cn(
+                        "relative text-center text-sm font-semibold",
+                        isPR ? "text-amber-600" : "text-gray-500"
+                      )}
+                      title={isPR ? "New personal record!" : undefined}
+                    >
                       {si + 1}
+                      {isPR && (
+                        <Trophy className="absolute -right-1 -top-1 h-3 w-3 text-amber-500" />
+                      )}
                     </span>
 
                     {isTreadmillExercise ? (
@@ -763,7 +844,8 @@ export default function LogWorkoutPage() {
                       )}
                     </button>
                   </div>
-                ))}
+                  )
+                })}
 
                 {/* Add set / remove set */}
                 <div className="mt-2 flex gap-2">

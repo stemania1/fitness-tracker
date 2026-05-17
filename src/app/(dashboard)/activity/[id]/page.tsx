@@ -22,6 +22,7 @@ import {
   estimateStrengthCalories,
   estimateCardioCalories,
 } from "@/lib/calories"
+import { estimateOneRepMax } from "@/lib/personal-records"
 
 interface SetLogRow {
   id: string
@@ -363,6 +364,11 @@ export default function WorkoutDetailPage() {
                           <>
                             <th className="pb-2 pr-4 font-medium">Weight</th>
                             <th className="pb-2 pr-4 font-medium">Reps</th>
+                            <th className="pb-2 pr-4 font-medium">
+                              <span title="Estimated 1-rep max (Epley)">
+                                Est. 1RM
+                              </span>
+                            </th>
                           </>
                         )}
                         <th className="pb-2 font-medium">RPE</th>
@@ -425,6 +431,17 @@ export default function WorkoutDetailPage() {
                               </td>
                               <td className="py-2 pr-4 text-gray-900">
                                 {s.reps ?? "--"}
+                              </td>
+                              <td className="py-2 pr-4 text-gray-500 tabular-nums">
+                                {(() => {
+                                  const e1rm = estimateOneRepMax(
+                                    s.weight,
+                                    s.reps
+                                  )
+                                  return e1rm != null
+                                    ? `${Math.round(e1rm)}`
+                                    : "--"
+                                })()}
                               </td>
                             </>
                           )}
