@@ -26,8 +26,8 @@ still open.
 - [x] Treadmill: time + distance → computed Avg mph + optional incline
 - [x] Outdoor Run: time + distance → computed pace (min/mi)
 - [x] Incline contributes to calorie estimate at walking speeds
-- [ ] Edit a saved workout log (sets and notes — not exercise selection)
-- [ ] Pre-fill new set weights from previous performance
+- [x] Edit a saved workout log (sets and notes — not exercise selection)
+- [x] Pre-fill new set weights from previous performance
 - [ ] Rest-timer auto-advances to the next exercise when sets are complete
 
 ## Workout builder
