@@ -41,6 +41,11 @@ import {
 } from "recharts"
 import { exercises as exerciseCatalog } from "@/data/exercises"
 import { estimateStrengthCalories, estimateCardioCalories } from "@/lib/calories"
+import {
+  estimateOneRepMax,
+  findRecentPRs,
+  type SetWithMeta,
+} from "@/lib/personal-records"
 import type { OuraSummary } from "@/lib/oura"
 import { formatSleepDuration } from "@/lib/oura"
 import { generateInsights } from "@/lib/oura-insights"
@@ -52,9 +57,48 @@ import { ErrorBoundary } from "@/components/ui/error-boundary"
 
 const supabase = createClient()
 
-function calculateEstimated1RM(weight: number, reps: number): number {
-  if (reps <= 1) return weight
-  return Math.round(weight * (1 + reps / 30))
+/** Group strength sets by ISO week (Mon-starting), sum weight × reps,
+ *  return the last `weeks` weeks ascending so a chart renders left-to-right. */
+function buildWeeklyVolumeTrend(
+  sets: SetWithMeta[],
+  weeks: number,
+  now: Date = new Date()
+): { weekLabel: string; volume: number }[] {
+  // Compute Monday of the current week.
+  const today = new Date(now)
+  today.setHours(0, 0, 0, 0)
+  const dow = today.getDay()
+  const mondayOffset = dow === 0 ? -6 : 1 - dow
+  const currentMonday = new Date(today)
+  currentMonday.setDate(today.getDate() + mondayOffset)
+
+  // Initialize buckets for the last `weeks` weeks.
+  const buckets: { weekStart: Date; weekLabel: string; volume: number }[] = []
+  for (let i = weeks - 1; i >= 0; i--) {
+    const ws = new Date(currentMonday)
+    ws.setDate(currentMonday.getDate() - i * 7)
+    buckets.push({
+      weekStart: ws,
+      weekLabel: `${ws.getMonth() + 1}/${ws.getDate()}`,
+      volume: 0,
+    })
+  }
+  const earliest = buckets[0].weekStart
+
+  for (const s of sets) {
+    if (s.weight == null || s.reps == null) continue
+    const ts = new Date(s.startedAt)
+    if (Number.isNaN(ts.getTime()) || ts < earliest) continue
+    // Find the bucket whose weekStart <= ts < next weekStart.
+    for (let i = buckets.length - 1; i >= 0; i--) {
+      if (ts >= buckets[i].weekStart) {
+        buckets[i].volume += s.weight * s.reps
+        break
+      }
+    }
+  }
+
+  return buckets.map(({ weekLabel, volume }) => ({ weekLabel, volume }))
 }
 
 function getWeekLabel(dateStr: string): string {
@@ -371,8 +415,10 @@ export default function DashboardPage() {
     [ouraSummary]
   )
 
-  const { data: personalRecords, isLoading: prsLoading } = useQuery({
-    queryKey: ["personal-records"],
+  // All strength sets the user has ever logged. Used to derive both the
+  // recent PRs and the weekly volume trend without firing extra queries.
+  const { data: allStrengthSets, isLoading: strengthSetsLoading } = useQuery({
+    queryKey: ["all-strength-sets"],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error("Not authenticated")
@@ -382,18 +428,43 @@ export default function DashboardPage() {
           weight,
           reps,
           exercise_log:exercise_logs!inner(
-            exercise:exercises!inner(name),
+            exercise:exercises!inner(name, exercise_type),
             workout_log:workout_logs!inner(user_id, started_at)
           )
         `)
         .eq("exercise_log.workout_log.user_id", user.id)
+        .eq("exercise_log.exercise.exercise_type", "strength")
         .not("weight", "is", null)
-        .order("weight", { ascending: false })
-        .limit(5)
       if (error) throw error
-      return data as any[]
+      type Row = {
+        weight: number | null
+        reps: number | null
+        exercise_log: {
+          exercise: { name: string }
+          workout_log: { started_at: string }
+        } | null
+      }
+      const rows = (data ?? []) as unknown as Row[]
+      return rows
+        .map((r) => ({
+          exerciseName: r.exercise_log?.exercise?.name ?? "",
+          weight: r.weight,
+          reps: r.reps,
+          startedAt: r.exercise_log?.workout_log?.started_at ?? "",
+        }))
+        .filter((s) => s.exerciseName && s.startedAt)
     },
   })
+
+  const recentPRs = useMemo(
+    () => (allStrengthSets ? findRecentPRs(allStrengthSets, 30).slice(0, 5) : []),
+    [allStrengthSets]
+  )
+
+  const volumeTrend = useMemo(
+    () => buildWeeklyVolumeTrend(allStrengthSets ?? [], 8),
+    [allStrengthSets]
+  )
 
   const weeklyStreak = useMemo(
     () =>
@@ -901,48 +972,122 @@ export default function DashboardPage() {
       </Card>
       </ErrorBoundary>
 
-      {/* Personal Records */}
+      {/* Volume Trend */}
+      <ErrorBoundary>
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <TrendingUp className="h-5 w-5 text-purple-500" />
+            Volume Trend
+          </CardTitle>
+          <p className="text-xs text-gray-500">
+            Total weight lifted per week (last 8)
+          </p>
+        </CardHeader>
+        <CardContent>
+          {strengthSetsLoading ? (
+            <Skeleton className="h-32 w-full" />
+          ) : volumeTrend.some((v) => v.volume > 0) ? (
+            <div className="h-32">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={volumeTrend}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                  <XAxis
+                    dataKey="weekLabel"
+                    tick={{ fontSize: 11, fill: "#9ca3af" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: "#9ca3af" }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(v) =>
+                      v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`
+                    }
+                  />
+                  <Tooltip
+                    formatter={(value) =>
+                      [
+                        typeof value === "number"
+                          ? `${value.toLocaleString()} lbs`
+                          : `${value}`,
+                        "Volume",
+                      ] as [string, string]
+                    }
+                    contentStyle={{
+                      fontSize: 12,
+                      borderRadius: 8,
+                      border: "1px solid #e5e7eb",
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="volume"
+                    stroke="#9333ea"
+                    strokeWidth={2}
+                    dot={{ r: 3, fill: "#9333ea" }}
+                    activeDot={{ r: 5 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="py-4 text-center text-sm text-gray-500">
+              Log a few strength workouts to see your volume trend.
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      </ErrorBoundary>
+
+      {/* Recent PRs */}
       <ErrorBoundary>
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Trophy className="h-5 w-5 text-yellow-500" />
-            Personal Records
+            Recent PRs
           </CardTitle>
+          <p className="text-xs text-gray-500">
+            New heaviest-weight personal records from the last 30 days
+          </p>
         </CardHeader>
         <CardContent>
-          {prsLoading ? (
+          {strengthSetsLoading ? (
             <div className="space-y-3">
               {[1, 2].map((i) => (
-                <Skeleton key={i} className="h-10 w-full" />
+                <Skeleton key={i} className="h-12 w-full" />
               ))}
             </div>
-          ) : personalRecords && personalRecords.length > 0 ? (
+          ) : recentPRs.length > 0 ? (
             <div className="space-y-2">
-              {personalRecords.map((pr, index) => {
-                const exerciseLog = pr.exercise_log as any
-                const exerciseName = exerciseLog?.exercise?.name ?? "Unknown"
-                const estimated1RM =
-                  pr.weight && pr.reps && pr.reps > 0
-                    ? calculateEstimated1RM(pr.weight, pr.reps)
-                    : null
+              {recentPRs.map((pr) => {
+                const e1rm = estimateOneRepMax(pr.weight, pr.reps)
                 return (
                   <div
-                    key={index}
-                    className="flex items-center justify-between rounded-lg bg-gray-50 p-3"
+                    key={`${pr.exerciseName}-${pr.startedAt}`}
+                    className="flex items-center justify-between rounded-lg bg-amber-50 p-3"
                   >
-                    <div>
-                      <span className="text-sm font-medium text-gray-900">
-                        {exerciseName}
-                      </span>
-                      {estimated1RM !== null && (
-                        <p className="text-xs text-gray-500">
-                          Est. 1RM: {estimated1RM} lbs
-                        </p>
-                      )}
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-gray-900">
+                        {pr.exerciseName}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {new Date(pr.startedAt).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                        {pr.previousMaxWeight != null && (
+                          <> · prev {pr.previousMaxWeight} lbs</>
+                        )}
+                        {e1rm != null && (
+                          <> · est. 1RM {Math.round(e1rm)} lbs</>
+                        )}
+                      </p>
                     </div>
-                    <Badge variant="secondary">
-                      {pr.weight} lbs {pr.reps ? `x ${pr.reps}` : ""}
+                    <Badge variant="secondary" className="shrink-0">
+                      {pr.weight} lbs × {pr.reps}
                     </Badge>
                   </div>
                 )
@@ -950,7 +1095,7 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="py-4 text-center text-sm text-gray-500">
-              No personal records yet. Keep training!
+              No new PRs in the last 30 days. Time to chase one!
             </div>
           )}
         </CardContent>

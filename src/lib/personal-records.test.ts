@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest"
 import {
   estimateOneRepMax,
   findHeaviestWeight,
+  findRecentPRs,
   isNewPersonalRecord,
 } from "./personal-records"
 
@@ -70,5 +71,66 @@ describe("isNewPersonalRecord", () => {
   it("ignores invalid sets", () => {
     expect(isNewPersonalRecord({ weight: null, reps: 10 }, 25)).toBe(false)
     expect(isNewPersonalRecord({ weight: 30, reps: 0 }, 25)).toBe(false)
+  })
+})
+
+describe("findRecentPRs", () => {
+  const now = new Date("2026-05-17T12:00:00Z")
+  const day = (n: number) =>
+    new Date(now.getTime() - n * 24 * 60 * 60 * 1000).toISOString()
+
+  it("returns the latest PR per exercise within the window", () => {
+    const sets = [
+      { exerciseName: "Curl", weight: 20, reps: 10, startedAt: day(60) },
+      // 25 lbs PR set 40 days ago — outside 30-day window
+      { exerciseName: "Curl", weight: 25, reps: 10, startedAt: day(40) },
+      // 30 lbs PR 10 days ago — inside window
+      { exerciseName: "Curl", weight: 30, reps: 8, startedAt: day(10) },
+      // 35 lbs PR 2 days ago — newer, should win for this exercise
+      { exerciseName: "Curl", weight: 35, reps: 5, startedAt: day(2) },
+    ]
+    const result = findRecentPRs(sets, 30, now)
+    expect(result).toHaveLength(1)
+    expect(result[0].exerciseName).toBe("Curl")
+    expect(result[0].weight).toBe(35)
+    expect(result[0].previousMaxWeight).toBe(30)
+  })
+
+  it("returns the first-ever set for a new exercise (it is the PR)", () => {
+    const sets = [
+      { exerciseName: "Row", weight: 100, reps: 8, startedAt: day(20) },
+      // Equal weight doesn't count as a new PR.
+      { exerciseName: "Row", weight: 100, reps: 10, startedAt: day(5) },
+      { exerciseName: "Row", weight: 90, reps: 12, startedAt: day(2) },
+    ]
+    const result = findRecentPRs(sets, 30, now)
+    expect(result).toHaveLength(1)
+    expect(result[0].weight).toBe(100)
+    expect(result[0].previousMaxWeight).toBeNull()
+  })
+
+  it("returns multiple exercises sorted by recency", () => {
+    const sets = [
+      { exerciseName: "Bench", weight: 135, reps: 5, startedAt: day(10) },
+      { exerciseName: "Squat", weight: 185, reps: 5, startedAt: day(3) },
+    ]
+    const result = findRecentPRs(sets, 30, now)
+    expect(result.map((r) => r.exerciseName)).toEqual(["Squat", "Bench"])
+  })
+
+  it("excludes PRs set before the window", () => {
+    const sets = [
+      { exerciseName: "Press", weight: 95, reps: 5, startedAt: day(120) },
+    ]
+    expect(findRecentPRs(sets, 30, now)).toEqual([])
+  })
+
+  it("skips invalid sets", () => {
+    const sets = [
+      { exerciseName: "Curl", weight: null, reps: 10, startedAt: day(5) },
+      { exerciseName: "Curl", weight: 25, reps: null, startedAt: day(5) },
+      { exerciseName: "Curl", weight: 0, reps: 10, startedAt: day(5) },
+    ]
+    expect(findRecentPRs(sets, 30, now)).toEqual([])
   })
 })

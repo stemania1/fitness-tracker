@@ -8,10 +8,10 @@ still open.
 - [x] Epley 1RM estimate on workout detail
 - [x] Progressive overload nudge ("Try +5 lbs") when last session cleared
       the top of the rep range on all sets at the same weight
-- [ ] Dashboard "Recent PRs" card showing the last 5 weight PRs
+- [x] Dashboard "Recent PRs" card showing the last 5 weight PRs (30-day window)
 - [ ] Rep PR detection (best reps at a given weight)
-- [ ] Workouts-per-week streak tracker
-- [ ] Volume trend chart (weekly total lifted)
+- [x] Workouts-per-week streak tracker
+- [x] Volume trend chart (weekly total lifted, last 8 weeks)
 - [ ] Deload week suggestion when N consecutive weeks of climbing volume
 
 ## Goal tracking

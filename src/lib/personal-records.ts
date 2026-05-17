@@ -56,3 +56,70 @@ export function isNewPersonalRecord(
   if (previousMaxWeight == null) return true
   return set.weight > previousMaxWeight
 }
+
+export interface SetWithMeta {
+  /** Exercise name. PRs are tracked per-exercise. */
+  exerciseName: string
+  weight: number | null
+  reps: number | null
+  /** When the workout containing this set started, as an ISO string. */
+  startedAt: string
+}
+
+export interface RecentPR {
+  exerciseName: string
+  weight: number
+  reps: number
+  startedAt: string
+  /** The previous max weight for this exercise before this PR was set. */
+  previousMaxWeight: number | null
+}
+
+/**
+ * Find the most recent personal-record-setting set per exercise within
+ * the last `sinceDays`. Returns at most one entry per exercise (the
+ * latest PR), sorted by startedAt descending.
+ *
+ * Pure function — caller supplies all the sets they want to consider,
+ * typically every strength set the user has ever logged.
+ */
+export function findRecentPRs(
+  sets: SetWithMeta[],
+  sinceDays: number,
+  now: Date = new Date()
+): RecentPR[] {
+  const cutoff = now.getTime() - sinceDays * 24 * 60 * 60 * 1000
+
+  // Walk all sets in chronological order, tracking the running max per
+  // exercise. A set that strictly beats its exercise's running max is
+  // a PR.
+  const ordered = [...sets].sort((a, b) =>
+    a.startedAt.localeCompare(b.startedAt)
+  )
+  const runningMax = new Map<string, number>()
+  const latestPRByExercise = new Map<string, RecentPR>()
+
+  for (const s of ordered) {
+    if (s.weight == null || s.reps == null) continue
+    if (s.weight <= 0 || s.reps < 1) continue
+    const prevMax = runningMax.get(s.exerciseName) ?? null
+    const isPR = prevMax == null || s.weight > prevMax
+    if (isPR) {
+      runningMax.set(s.exerciseName, s.weight)
+      const ts = new Date(s.startedAt).getTime()
+      if (Number.isFinite(ts) && ts >= cutoff) {
+        latestPRByExercise.set(s.exerciseName, {
+          exerciseName: s.exerciseName,
+          weight: s.weight,
+          reps: s.reps,
+          startedAt: s.startedAt,
+          previousMaxWeight: prevMax,
+        })
+      }
+    }
+  }
+
+  return [...latestPRByExercise.values()].sort((a, b) =>
+    b.startedAt.localeCompare(a.startedAt)
+  )
+}
