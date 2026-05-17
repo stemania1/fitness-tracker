@@ -64,7 +64,8 @@ export function estimateCardioCalories(
   exerciseId: string,
   durationMins: number,
   bodyWeightLbs: number,
-  speedMph?: number | null
+  speedMph?: number | null,
+  inclinePercent?: number | null
 ): number {
   let met = getMetValue(exerciseId, "cardio")
 
@@ -79,6 +80,19 @@ export function estimateCardioCalories(
       else if (speedMph < 9.0) met = 11.0
       else met = 12.8
     }
+  }
+
+  // Incline bump: only at walking pace (< 4 mph) where it actually changes
+  // demand much. +0.5 MET per 1% grade. Cap at +10 MET so a 30% incline
+  // typo doesn't blow up the estimate.
+  if (
+    inclinePercent != null &&
+    inclinePercent > 0 &&
+    speedMph != null &&
+    speedMph > 0 &&
+    speedMph < 4.0
+  ) {
+    met += Math.min(10, inclinePercent * 0.5)
   }
 
   const weightKg = bodyWeightLbs * 0.453592
@@ -98,6 +112,7 @@ export interface ExerciseCalorieInput {
   completedSets: number
   totalDurationMins: number | null
   speedMph?: number | null
+  inclinePercent?: number | null
 }
 
 export function calculateWorkoutCalories(
@@ -110,7 +125,8 @@ export function calculateWorkoutCalories(
         ex.exerciseId,
         ex.totalDurationMins,
         bodyWeightLbs,
-        ex.speedMph
+        ex.speedMph,
+        ex.inclinePercent
       )
     }
     return estimateStrengthCalories(

@@ -268,9 +268,9 @@ export const exercises: ExerciseDefinition[] = [
     defaultReps: "10-12",
   },
   {
-    id: "ez-bar-curl",
+    id: "preacher-curl-machine",
     name: "Preacher Curl Machine",
-    equipmentId: "ez-curl-bar",
+    equipmentId: "preacher-curl-machine",
     muscleGroups: ["biceps"],
     exerciseType: "strength",
     difficulty: "beginner",

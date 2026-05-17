@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
 import { exercises as exerciseCatalog } from "@/data/exercises"
@@ -18,6 +17,10 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectOption } from "@/components/ui/select"
+import {
+  BackdateChips,
+  nowLocalDatetimeString,
+} from "@/components/activity/BackdateChips"
 import { Timer } from "lucide-react"
 
 const supabase = createClient()
@@ -30,8 +33,10 @@ export function QuickLogExercise() {
   const [open, setOpen] = useState(false)
   const [exerciseId, setExerciseId] = useState(cardioExercises[0]?.id ?? "")
   const [durationMins, setDurationMins] = useState("")
+  const [finishedAt, setFinishedAt] = useState<string>(
+    nowLocalDatetimeString()
+  )
   const queryClient = useQueryClient()
-  const router = useRouter()
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -51,8 +56,11 @@ export function QuickLogExercise() {
       const dbExerciseId = idMap.get(exerciseId)
       if (!dbExerciseId) throw new Error("Exercise not found in database")
 
-      const now = new Date()
-      const startedAt = new Date(now.getTime() - mins * 60_000)
+      const finished = finishedAt ? new Date(finishedAt) : new Date()
+      if (Number.isNaN(finished.getTime())) {
+        throw new Error("Invalid date")
+      }
+      const startedAt = new Date(finished.getTime() - mins * 60_000)
 
       // Create workout log
       const { data: workoutLog, error: wErr } = await supabase
@@ -61,7 +69,7 @@ export function QuickLogExercise() {
           user_id: user.id,
           name: exerciseName,
           started_at: startedAt.toISOString(),
-          finished_at: now.toISOString(),
+          finished_at: finished.toISOString(),
           duration_mins: mins,
         })
         .select("id")
@@ -97,6 +105,7 @@ export function QuickLogExercise() {
       setOpen(false)
       setDurationMins("")
       setExerciseId(cardioExercises[0]?.id ?? "")
+      setFinishedAt(nowLocalDatetimeString())
     },
   })
 
@@ -148,6 +157,11 @@ export function QuickLogExercise() {
               onChange={(e) => setDurationMins(e.target.value)}
               autoFocus
             />
+          </div>
+
+          <div className="space-y-1">
+            <Label>When</Label>
+            <BackdateChips value={finishedAt} onChange={setFinishedAt} />
           </div>
 
           {mutation.isError && (

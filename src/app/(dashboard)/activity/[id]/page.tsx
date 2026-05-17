@@ -165,15 +165,17 @@ export default function WorkoutDetailPage() {
       const def = exerciseMap.get(ex.exercise_id)
       const isCardio = def?.exerciseType === "cardio"
       const isTreadmill = def?.equipmentId === "treadmill"
+      const isOutdoorRun = def?.id === "outdoor-run"
+      const isDistanceCardio = isTreadmill || isOutdoorRun
       if (isCardio) {
         const totalMins = ex.sets.reduce(
           (s, set) => s + (set.duration_mins ?? 0),
           0
         )
-        // For treadmill, derive avg speed from distance/duration so the
-        // calorie estimate matches the speed-based MET adjustments.
+        // For distance-based cardio, derive avg speed from distance/duration
+        // so the calorie estimate matches the speed-based MET adjustments.
         let avgSpeed: number | null = null
-        if (isTreadmill) {
+        if (isDistanceCardio) {
           const speeds = ex.sets
             .map((set) =>
               set.distance_miles != null &&
@@ -187,13 +189,25 @@ export default function WorkoutDetailPage() {
             avgSpeed = speeds.reduce((a, b) => a + b, 0) / speeds.length
           }
         }
+        // Average incline (treadmill only).
+        let avgIncline: number | null = null
+        if (isTreadmill) {
+          const inclines = ex.sets
+            .map((set) => set.incline_percent)
+            .filter((v): v is number => v != null && v > 0)
+          if (inclines.length > 0) {
+            avgIncline =
+              inclines.reduce((a, b) => a + b, 0) / inclines.length
+          }
+        }
         return (
           sum +
           estimateCardioCalories(
             ex.exercise_id,
             totalMins,
             userWeightLbs,
-            avgSpeed
+            avgSpeed,
+            avgIncline
           )
         )
       }
@@ -319,6 +333,8 @@ export default function WorkoutDetailPage() {
           const def = exerciseMap.get(ex.exercise_id)
           const isCardio = def?.exerciseType === "cardio"
           const isTreadmill = def?.equipmentId === "treadmill"
+          const isOutdoorRun = def?.id === "outdoor-run"
+          const isDistanceCardio = isTreadmill || isOutdoorRun
 
           return (
             <Card key={ex.id}>
@@ -348,12 +364,16 @@ export default function WorkoutDetailPage() {
                     <thead>
                       <tr className="border-b border-gray-100 text-left text-xs uppercase text-gray-400">
                         <th className="pb-2 pr-4 font-medium">Set</th>
-                        {isTreadmill ? (
+                        {isDistanceCardio ? (
                           <>
                             <th className="pb-2 pr-4 font-medium">Duration</th>
                             <th className="pb-2 pr-4 font-medium">Distance</th>
-                            <th className="pb-2 pr-4 font-medium">Avg Speed</th>
-                            <th className="pb-2 pr-4 font-medium">Incline</th>
+                            <th className="pb-2 pr-4 font-medium">
+                              {isOutdoorRun ? "Pace" : "Avg Speed"}
+                            </th>
+                            {isTreadmill && (
+                              <th className="pb-2 pr-4 font-medium">Incline</th>
+                            )}
                           </>
                         ) : isCardio ? (
                           <>
@@ -383,7 +403,7 @@ export default function WorkoutDetailPage() {
                           <td className="py-2 pr-4 font-medium text-gray-500">
                             {s.set_number}
                           </td>
-                          {isTreadmill ? (
+                          {isDistanceCardio ? (
                             <>
                               <td className="py-2 pr-4 text-gray-900">
                                 {s.duration_mins != null
@@ -399,17 +419,29 @@ export default function WorkoutDetailPage() {
                                 {s.distance_miles != null &&
                                 s.duration_mins != null &&
                                 s.duration_mins > 0
-                                  ? `${(
-                                      s.distance_miles /
-                                      (s.duration_mins / 60)
-                                    ).toFixed(1)} mph`
+                                  ? isOutdoorRun
+                                    ? (() => {
+                                        const mpm =
+                                          s.duration_mins / s.distance_miles
+                                        const m = Math.floor(mpm)
+                                        const sec = Math.round((mpm - m) * 60)
+                                        return `${m}:${sec
+                                          .toString()
+                                          .padStart(2, "0")} /mi`
+                                      })()
+                                    : `${(
+                                        s.distance_miles /
+                                        (s.duration_mins / 60)
+                                      ).toFixed(1)} mph`
                                   : "--"}
                               </td>
-                              <td className="py-2 pr-4 text-gray-900">
-                                {s.incline_percent != null
-                                  ? `${s.incline_percent}%`
-                                  : "--"}
-                              </td>
+                              {isTreadmill && (
+                                <td className="py-2 pr-4 text-gray-900">
+                                  {s.incline_percent != null
+                                    ? `${s.incline_percent}%`
+                                    : "--"}
+                                </td>
+                              )}
                             </>
                           ) : isCardio ? (
                             <>

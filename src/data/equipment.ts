@@ -171,6 +171,14 @@ export const equipment: EquipmentItem[] = [
     maxWeight: 150,
     notes: "Seated crunch with adjustable resistance",
   },
+  {
+    id: "preacher-curl-machine",
+    name: "Preacher Curl Machine",
+    category: "strength_machine",
+    muscleGroups: ["biceps"],
+    maxWeight: 100,
+    notes: "Isolated bicep curl with arm pad",
+  },
 
   // ── Free Weights ────────────────────────────────────────
   {

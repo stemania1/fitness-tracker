@@ -83,6 +83,43 @@ describe("estimateCardioCalories", () => {
     const result = estimateCardioCalories("elliptical-exercise", 0, 180)
     expect(result).toBe(0)
   })
+
+  it("adds an incline bump at walking pace", () => {
+    // 3.0 mph walk, 5% incline -> +2.5 MET
+    const flat = estimateCardioCalories("treadmill-walk", 30, 180, 3.0, 0)
+    const incline = estimateCardioCalories("treadmill-walk", 30, 180, 3.0, 5)
+    expect(incline).toBeGreaterThan(flat)
+  })
+
+  it("does not add incline bump at running speeds", () => {
+    // At 6 mph the speed-based MET bracket dominates; incline doesn't apply.
+    const flat = estimateCardioCalories("treadmill-run", 30, 180, 6.0, 0)
+    const incline = estimateCardioCalories("treadmill-run", 30, 180, 6.0, 5)
+    expect(incline).toBe(flat)
+  })
+
+  it("caps incline bump at +10 MET to guard against typos", () => {
+    // 20% incline = +10 MET (the cap). 99% should hit the same cap.
+    const capped = estimateCardioCalories("treadmill-walk", 30, 180, 3.0, 20)
+    const ridiculous = estimateCardioCalories(
+      "treadmill-walk",
+      30,
+      180,
+      3.0,
+      99
+    )
+    expect(ridiculous).toBe(capped)
+  })
+
+  it("does not bump when incline is null or zero", () => {
+    const base = estimateCardioCalories("treadmill-walk", 30, 180, 3.0)
+    expect(estimateCardioCalories("treadmill-walk", 30, 180, 3.0, null)).toBe(
+      base
+    )
+    expect(estimateCardioCalories("treadmill-walk", 30, 180, 3.0, 0)).toBe(
+      base
+    )
+  })
 })
 
 describe("calculateWorkoutCalories", () => {
