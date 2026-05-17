@@ -3,7 +3,7 @@
 Shipped features are documented in the PRD. This backlog tracks what's
 still open.
 
-## Motivation layer (in progress)
+## Motivation layer
 - [x] Personal-record detection during active workout (heaviest weight)
 - [x] Epley 1RM estimate on workout detail
 - [x] Progressive overload nudge ("Try +5 lbs") when last session cleared
@@ -16,9 +16,9 @@ still open.
 
 ## Goal tracking
 - [x] Weight goal: target + projected timeline based on actual rate
+- [x] Milestone celebrations (first workout, 10 workouts, first PR, four-week streak, goal achieved)
 - [ ] Strength goals: target 1RM per exercise, progress chart
 - [ ] Endurance goals: cardio duration / distance targets
-- [ ] Milestone celebrations (first workout, 10 workouts, first PR)
 
 ## Logging UX
 - [x] Quick Log Strength (set-by-set entry of a session you just finished)
@@ -44,7 +44,6 @@ still open.
       trainer was added but unreferenced by any exercise yet)
 
 ## Polish & quality
-- [ ] Drag-and-drop reorder (replace up/down chevrons in template editor)
 - [ ] Accessibility audit (keyboard nav, screen reader, focus states)
 - [ ] Performance audit (Core Web Vitals)
 - [ ] Component tests for active-workout flow and Quick Log dialogs
