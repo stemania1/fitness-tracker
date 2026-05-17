@@ -3,6 +3,7 @@ import {
   estimateOneRepMax,
   findHeaviestWeight,
   findRecentPRs,
+  findRecentRepPRs,
   isNewPersonalRecord,
 } from "./personal-records"
 
@@ -132,5 +133,74 @@ describe("findRecentPRs", () => {
       { exerciseName: "Curl", weight: 0, reps: 10, startedAt: day(5) },
     ]
     expect(findRecentPRs(sets, 30, now)).toEqual([])
+  })
+})
+
+describe("findRecentRepPRs", () => {
+  const now = new Date("2026-05-17T12:00:00Z")
+  const day = (n: number) =>
+    new Date(now.getTime() - n * 24 * 60 * 60 * 1000).toISOString()
+
+  it("returns a rep PR when reps beat the prior max at the same weight", () => {
+    const sets = [
+      { exerciseName: "Curl", weight: 25, reps: 8, startedAt: day(60) },
+      { exerciseName: "Curl", weight: 25, reps: 10, startedAt: day(40) },
+      // Recent rep PR at the same weight
+      { exerciseName: "Curl", weight: 25, reps: 12, startedAt: day(5) },
+    ]
+    const result = findRecentRepPRs(sets, 30, now)
+    expect(result).toHaveLength(1)
+    expect(result[0].weight).toBe(25)
+    expect(result[0].reps).toBe(12)
+    expect(result[0].previousMaxReps).toBe(10)
+  })
+
+  it("ignores the first ever set at a weight (no prior to beat)", () => {
+    const sets = [
+      { exerciseName: "Row", weight: 100, reps: 5, startedAt: day(5) },
+    ]
+    expect(findRecentRepPRs(sets, 30, now)).toEqual([])
+  })
+
+  it("ignores singles (1RM attempts aren't rep PRs)", () => {
+    const sets = [
+      { exerciseName: "Bench", weight: 135, reps: 1, startedAt: day(40) },
+      { exerciseName: "Bench", weight: 135, reps: 1, startedAt: day(5) },
+    ]
+    expect(findRecentRepPRs(sets, 30, now)).toEqual([])
+  })
+
+  it("returns the latest rep PR per exercise", () => {
+    const sets = [
+      { exerciseName: "Curl", weight: 25, reps: 8, startedAt: day(60) },
+      { exerciseName: "Curl", weight: 25, reps: 10, startedAt: day(20) },
+      // Another rep PR more recently — should win
+      { exerciseName: "Curl", weight: 25, reps: 12, startedAt: day(2) },
+    ]
+    const result = findRecentRepPRs(sets, 30, now)
+    expect(result).toHaveLength(1)
+    expect(result[0].reps).toBe(12)
+  })
+
+  it("tracks rep maxes separately per weight", () => {
+    const sets = [
+      // At 25 lbs: 10 reps is a PR (prev 8)
+      { exerciseName: "Curl", weight: 25, reps: 8, startedAt: day(60) },
+      { exerciseName: "Curl", weight: 25, reps: 10, startedAt: day(5) },
+      // At 30 lbs: 6 reps first time — not a PR yet
+      { exerciseName: "Curl", weight: 30, reps: 6, startedAt: day(3) },
+    ]
+    const result = findRecentRepPRs(sets, 30, now)
+    expect(result).toHaveLength(1)
+    expect(result[0].weight).toBe(25)
+    expect(result[0].reps).toBe(10)
+  })
+
+  it("excludes rep PRs outside the window", () => {
+    const sets = [
+      { exerciseName: "Curl", weight: 25, reps: 8, startedAt: day(100) },
+      { exerciseName: "Curl", weight: 25, reps: 10, startedAt: day(60) },
+    ]
+    expect(findRecentRepPRs(sets, 30, now)).toEqual([])
   })
 })
