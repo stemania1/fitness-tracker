@@ -29,6 +29,7 @@ import {
   Play,
   Pencil,
   Plus,
+  Repeat,
   Trash2,
   ChevronUp,
   ChevronDown,
@@ -89,6 +90,10 @@ export default function WorkoutDetailPage() {
   const [editExercises, setEditExercises] = useState<EditableExercise[]>([])
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showPicker, setShowPicker] = useState(false)
+  /** When the picker is opened from a row's swap button, this holds the
+   *  row index. Selecting in the picker replaces that exercise instead of
+   *  appending a new one. */
+  const [swapTargetIdx, setSwapTargetIdx] = useState<number | null>(null)
 
   const { data: template, isLoading } = useQuery<any>({
     queryKey: ["workout-template", templateId],
@@ -155,21 +160,45 @@ export default function WorkoutDetailPage() {
     setEditExercises(next)
   }
 
-  function addExerciseFromPicker(def: ExerciseDefinition) {
-    setEditExercises((prev) => [
-      ...prev,
-      {
-        id: "",
-        exerciseId: "",
-        staticSlug: def.id,
-        name: def.name,
-        muscleGroups: def.muscleGroups,
-        sets: def.defaultSets,
-        reps: def.defaultReps,
-        restSeconds: def.exerciseType === "cardio" ? 0 : 60,
-        orderIndex: prev.length,
-      },
-    ])
+  function handlePickerSelect(def: ExerciseDefinition) {
+    if (swapTargetIdx != null) {
+      // Replace the targeted exercise. Preserve its existing sets/reps/rest
+      // so the user doesn't lose their tuning — only the exercise identity
+      // changes. Cardio exercises override rest to 0.
+      setEditExercises((prev) =>
+        prev.map((ex, i) =>
+          i === swapTargetIdx
+            ? {
+                ...ex,
+                // New row — server hasn't seen it yet; will be inserted on save.
+                id: "",
+                exerciseId: "",
+                staticSlug: def.id,
+                name: def.name,
+                muscleGroups: def.muscleGroups,
+                restSeconds:
+                  def.exerciseType === "cardio" ? 0 : ex.restSeconds,
+              }
+            : ex
+        )
+      )
+      setSwapTargetIdx(null)
+    } else {
+      setEditExercises((prev) => [
+        ...prev,
+        {
+          id: "",
+          exerciseId: "",
+          staticSlug: def.id,
+          name: def.name,
+          muscleGroups: def.muscleGroups,
+          sets: def.defaultSets,
+          reps: def.defaultReps,
+          restSeconds: def.exerciseType === "cardio" ? 0 : 60,
+          orderIndex: prev.length,
+        },
+      ])
+    }
     setShowPicker(false)
   }
 
@@ -582,13 +611,26 @@ export default function WorkoutDetailPage() {
                       </div>
                     </div>
 
-                    {/* Remove button */}
-                    <button
-                      onClick={() => removeExercise(idx)}
-                      className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
+                    {/* Swap + remove */}
+                    <div className="flex flex-col gap-1">
+                      <button
+                        onClick={() => {
+                          setSwapTargetIdx(idx)
+                          setShowPicker(true)
+                        }}
+                        title="Swap exercise"
+                        className="rounded p-1 text-gray-400 hover:bg-purple-50 hover:text-purple-600"
+                      >
+                        <Repeat className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => removeExercise(idx)}
+                        title="Remove exercise"
+                        className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -669,8 +711,11 @@ export default function WorkoutDetailPage() {
       {/* Exercise picker modal */}
       {showPicker && (
         <ExercisePicker
-          onSelect={addExerciseFromPicker}
-          onClose={() => setShowPicker(false)}
+          onSelect={handlePickerSelect}
+          onClose={() => {
+            setShowPicker(false)
+            setSwapTargetIdx(null)
+          }}
         />
       )}
 

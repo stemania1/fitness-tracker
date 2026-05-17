@@ -47,6 +47,10 @@ import {
   findRecentRepPRs,
   type SetWithMeta,
 } from "@/lib/personal-records"
+import {
+  buildWeeklyVolumeTrend,
+  shouldSuggestDeload,
+} from "@/lib/volume-trend"
 import type { OuraSummary } from "@/lib/oura"
 import { formatSleepDuration } from "@/lib/oura"
 import { generateInsights } from "@/lib/oura-insights"
@@ -57,50 +61,6 @@ import { QuickLogWeight } from "@/components/activity/QuickLogWeight"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 
 const supabase = createClient()
-
-/** Group strength sets by ISO week (Mon-starting), sum weight × reps,
- *  return the last `weeks` weeks ascending so a chart renders left-to-right. */
-function buildWeeklyVolumeTrend(
-  sets: SetWithMeta[],
-  weeks: number,
-  now: Date = new Date()
-): { weekLabel: string; volume: number }[] {
-  // Compute Monday of the current week.
-  const today = new Date(now)
-  today.setHours(0, 0, 0, 0)
-  const dow = today.getDay()
-  const mondayOffset = dow === 0 ? -6 : 1 - dow
-  const currentMonday = new Date(today)
-  currentMonday.setDate(today.getDate() + mondayOffset)
-
-  // Initialize buckets for the last `weeks` weeks.
-  const buckets: { weekStart: Date; weekLabel: string; volume: number }[] = []
-  for (let i = weeks - 1; i >= 0; i--) {
-    const ws = new Date(currentMonday)
-    ws.setDate(currentMonday.getDate() - i * 7)
-    buckets.push({
-      weekStart: ws,
-      weekLabel: `${ws.getMonth() + 1}/${ws.getDate()}`,
-      volume: 0,
-    })
-  }
-  const earliest = buckets[0].weekStart
-
-  for (const s of sets) {
-    if (s.weight == null || s.reps == null) continue
-    const ts = new Date(s.startedAt)
-    if (Number.isNaN(ts.getTime()) || ts < earliest) continue
-    // Find the bucket whose weekStart <= ts < next weekStart.
-    for (let i = buckets.length - 1; i >= 0; i--) {
-      if (ts >= buckets[i].weekStart) {
-        buckets[i].volume += s.weight * s.reps
-        break
-      }
-    }
-  }
-
-  return buckets.map(({ weekLabel, volume }) => ({ weekLabel, volume }))
-}
 
 function getWeekLabel(dateStr: string): string {
   const d = new Date(dateStr)
@@ -478,6 +438,11 @@ export default function DashboardPage() {
   const volumeTrend = useMemo(
     () => buildWeeklyVolumeTrend(allStrengthSets ?? [], 8),
     [allStrengthSets]
+  )
+
+  const deloadSuggestion = useMemo(
+    () => shouldSuggestDeload(volumeTrend.map((v) => v.volume)),
+    [volumeTrend]
   )
 
   const weeklyStreak = useMemo(
@@ -999,6 +964,16 @@ export default function DashboardPage() {
           </p>
         </CardHeader>
         <CardContent>
+          {deloadSuggestion && (
+            <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <p className="font-medium">Consider a deload week</p>
+              <p className="text-amber-700">
+                Volume has climbed ~{deloadSuggestion.climbPercent}% over the
+                last 4 weeks. A lighter week now helps recovery and sets up
+                the next push.
+              </p>
+            </div>
+          )}
           {strengthSetsLoading ? (
             <Skeleton className="h-32 w-full" />
           ) : volumeTrend.some((v) => v.volume > 0) ? (
