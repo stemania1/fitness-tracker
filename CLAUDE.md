@@ -32,8 +32,13 @@ fitness-tracker/
 │   ├── lib/                  # Utilities and config
 │   │   ├── supabase/         # Supabase client & helpers
 │   │   ├── utils.ts
-│   │   └── constants.ts      # PF machines, muscle groups, etc.
-│   ├── hooks/                # Custom React hooks
+│   │   ├── constants.ts      # PF machines, muscle groups, etc.
+│   │   ├── calories.ts       # MET-based calorie estimation
+│   │   ├── personal-records.ts     # PR detection + Epley 1RM
+│   │   ├── progressive-overload.ts # +5 lbs suggestion logic
+│   │   ├── weight-projection.ts    # Goal-date linear regression
+│   │   └── volume-trend.ts         # Weekly volume + deload heuristic
+│   ├── hooks/                # Custom React hooks (useExerciseHistory, etc.)
 │   ├── types/                # TypeScript type definitions
 │   └── data/                 # Static data (PF equipment catalog)
 ├── supabase/
