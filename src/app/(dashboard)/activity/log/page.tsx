@@ -1172,7 +1172,22 @@ export default function LogWorkoutPage() {
       {restTimer !== null && (
         <RestTimer
           seconds={restTimer}
-          onComplete={() => setRestTimer(null)}
+          onComplete={() => {
+            setRestTimer(null)
+            // Auto-advance: if the current exercise is fully complete and
+            // there's a next one, jump to it. Only on natural timer end
+            // (not on skip — user may have skipped to do another set).
+            const ex = workout?.exercises[currentIdx]
+            if (
+              ex &&
+              ex.sets.length > 0 &&
+              ex.sets.every((s) => s.completed) &&
+              workout &&
+              currentIdx < workout.exercises.length - 1
+            ) {
+              setCurrentIdx(currentIdx + 1)
+            }
+          }}
           onSkip={() => setRestTimer(null)}
         />
       )}

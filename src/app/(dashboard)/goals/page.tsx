@@ -3,6 +3,11 @@
 import { useState, useMemo } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
+import {
+  linearRegression,
+  logsToPoints,
+  projectWeightDate,
+} from "@/lib/weight-projection"
 import { exercises as staticExercises } from "@/data/exercises"
 import Milestones, { type MilestoneData } from "./milestones"
 import {
@@ -579,6 +584,19 @@ export default function GoalsPage() {
   // Weight goal summary from profile
   const currentWeight = profile?.current_weight
   const targetWeight = profile?.target_weight
+
+  // Project the target date from the last 60 days of weight logs.
+  const projection = useMemo(() => {
+    if (!currentWeight || !targetWeight) return null
+    if (!weightLogs || weightLogs.length < 2) return null
+    const cutoff = Date.now() - 60 * 24 * 60 * 60 * 1000
+    const recent = weightLogs.filter(
+      (w) => new Date(w.logged_at).getTime() >= cutoff
+    )
+    const points = logsToPoints(recent)
+    const fit = linearRegression(points)
+    return projectWeightDate(currentWeight, targetWeight, fit)
+  }, [weightLogs, currentWeight, targetWeight])
   const weightProgress =
     currentWeight && targetWeight
       ? Math.min(
@@ -632,6 +650,26 @@ export default function GoalsPage() {
                 <p className="text-xs text-gray-500">
                   {Math.abs(currentWeight - targetWeight)} lbs to go
                 </p>
+                {projection?.onTrack ? (
+                  <div className="rounded-md bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+                    <span className="font-medium">
+                      On track \u2014 about{" "}
+                      {projection.daysToTarget > 30
+                        ? `${Math.round(projection.daysToTarget / 7)} weeks`
+                        : `${projection.daysToTarget} days`}{" "}
+                      to go
+                    </span>
+                    <p className="text-emerald-700">
+                      At {Math.abs(projection.lbsPerWeek).toFixed(1)} lbs/week.
+                      Target by {projection.projectedDate}.
+                    </p>
+                  </div>
+                ) : projection && !projection.onTrack ? (
+                  <div className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                    Recent weight log trend is moving away from your target.
+                    Adjust your routine to course-correct.
+                  </div>
+                ) : null}
               </div>
             ) : (
               <p className="text-sm text-gray-500">

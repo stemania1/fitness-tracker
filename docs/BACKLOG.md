@@ -15,7 +15,7 @@ still open.
 - [ ] Deload week suggestion when N consecutive weeks of climbing volume
 
 ## Goal tracking
-- [ ] Weight goal: target + projected timeline based on actual rate
+- [x] Weight goal: target + projected timeline based on actual rate
 - [ ] Strength goals: target 1RM per exercise, progress chart
 - [ ] Endurance goals: cardio duration / distance targets
 - [ ] Milestone celebrations (first workout, 10 workouts, first PR)
@@ -28,7 +28,7 @@ still open.
 - [x] Incline contributes to calorie estimate at walking speeds
 - [x] Edit a saved workout log (sets and notes — not exercise selection)
 - [x] Pre-fill new set weights from previous performance
-- [ ] Rest-timer auto-advances to the next exercise when sets are complete
+- [x] Rest-timer auto-advances to the next exercise when sets are complete
 
 ## Workout builder
 - [x] Add Exercise button in template edit mode
