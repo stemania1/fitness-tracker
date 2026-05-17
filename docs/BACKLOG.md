@@ -1,116 +1,58 @@
 # Product Backlog — PF Fitness Tracker
 
-## Epic 1: Project Setup & Infrastructure
-- [x] Initialize Next.js 14 project with TypeScript
-- [ ] Configure Tailwind CSS + shadcn/ui
-- [ ] Set up Supabase project (local + remote)
-- [ ] Configure Supabase Auth (email/password)
-- [ ] Create database schema migrations
-- [ ] Seed Planet Fitness equipment catalog
-- [ ] Set up RLS policies on all tables
-- [ ] Configure TanStack Query provider
-- [ ] Set up ESLint + Prettier
-- [ ] Set up Vitest + Testing Library
+Shipped features are documented in the PRD. This backlog tracks what's
+still open.
 
-## Epic 2: Authentication & Onboarding
-- [ ] Login page (email + password)
-- [ ] Sign-up page
-- [ ] Auth middleware (protect dashboard routes)
-- [ ] Onboarding flow — step 1: basic info (weight, height, age, sex)
-- [ ] Onboarding flow — step 2: fitness level selection
-- [ ] Onboarding flow — step 3: goal selection
-- [ ] Onboarding flow — step 4: schedule (days per week)
-- [ ] Onboarding flow — step 5: limitations (optional)
-- [ ] Save onboarding data to user_profiles table
-- [ ] Redirect logic (new users → onboarding, returning → dashboard)
-
-## Epic 3: Equipment & Exercise Data
-- [ ] Define PF equipment catalog (static data + DB seed)
-- [ ] Define exercise library (name, equipment, muscle groups, instructions)
-- [ ] Map exercises to goals and difficulty levels
-- [ ] Create exercise detail component (name, muscles, demo description)
-- [ ] Exercise search/filter by muscle group and equipment
-
-## Epic 4: Workout Builder
-- [ ] Auto-generate workout based on user profile + goal
-- [ ] Split recommendation logic (full body / upper-lower / PPL)
-- [ ] Workout template creation UI
-- [ ] Exercise picker (search, filter, add to workout)
-- [ ] Set/rep/weight configuration per exercise
-- [ ] Reorder exercises via drag-and-drop
-- [ ] Swap exercise functionality
-- [ ] Save workout as template
-- [ ] List saved workout templates
-- [ ] Edit existing template
-- [ ] Delete template
-- [ ] Express 30-minute circuit template generator
-
-## Epic 5: Activity Logging
-- [ ] "Start Workout" flow from template
-- [ ] Freestyle workout logging (no template)
-- [ ] Log sets: reps + weight per set
-- [ ] Log cardio: duration, distance, heart rate
-- [ ] RPE input per set (optional)
-- [ ] Notes per exercise (optional)
-- [ ] Rest timer between sets
-- [ ] Auto-track workout duration
-- [ ] Complete workout → save workout log
-- [ ] Discard in-progress workout
-- [ ] Body weight log entry
-- [ ] Workout history list (recent first)
-- [ ] Workout detail view (past workout)
-- [ ] Calendar view of workout history
-
-## Epic 6: Goals & Progress
-- [ ] Set weight goal (target weight + timeline)
-- [ ] Set strength goals (target weight on specific exercises)
-- [ ] Set endurance goals (cardio targets)
-- [ ] Weight trend chart
-- [ ] Volume trend chart (weekly total)
-- [ ] Personal records detection and display
-- [ ] 1RM estimate calculation
+## Motivation layer (in progress)
+- [x] Personal-record detection during active workout (heaviest weight)
+- [x] Epley 1RM estimate on workout detail
+- [x] Progressive overload nudge ("Try +5 lbs") when last session cleared
+      the top of the rep range on all sets at the same weight
+- [ ] Dashboard "Recent PRs" card showing the last 5 weight PRs
+- [ ] Rep PR detection (best reps at a given weight)
 - [ ] Workouts-per-week streak tracker
-- [ ] Goal progress dashboard cards
-- [ ] Milestone detection and display
-- [ ] Progressive overload suggestions
-- [ ] Deload week suggestion logic
+- [ ] Volume trend chart (weekly total lifted)
+- [ ] Deload week suggestion when N consecutive weeks of climbing volume
 
-## Epic 7: Dashboard
-- [ ] Dashboard layout (mobile-first)
-- [ ] Today's workout card (next scheduled or quick-start)
-- [ ] Weekly summary card (workouts completed vs. target)
-- [ ] Weight progress card
-- [ ] Recent PRs card
-- [ ] Streak display
-- [ ] Quick-log body weight from dashboard
+## Goal tracking
+- [ ] Weight goal: target + projected timeline based on actual rate
+- [ ] Strength goals: target 1RM per exercise, progress chart
+- [ ] Endurance goals: cardio duration / distance targets
+- [ ] Milestone celebrations (first workout, 10 workouts, first PR)
 
-## Epic 8: Profile & Settings
-- [ ] Profile page (view/edit all onboarding fields)
-- [ ] Change fitness level
-- [ ] Update goals
-- [ ] Update schedule
-- [ ] Account settings (email, password)
-- [ ] Sign out
-- [ ] Delete account
+## Logging UX
+- [x] Quick Log Strength (set-by-set entry of a session you just finished)
+- [x] Backdating chips (Today / Yesterday / Earlier…) on both Quick Logs
+- [x] Treadmill: time + distance → computed Avg mph + optional incline
+- [x] Outdoor Run: time + distance → computed pace (min/mi)
+- [x] Incline contributes to calorie estimate at walking speeds
+- [ ] Edit a saved workout log (sets and notes — not exercise selection)
+- [ ] Pre-fill new set weights from previous performance
+- [ ] Rest-timer auto-advances to the next exercise when sets are complete
 
-## Epic 9: Polish & Quality
-- [ ] Loading skeletons for all async pages
-- [ ] Error boundaries with user-friendly messages
-- [ ] Empty states for all list views
-- [ ] Responsive design audit (phone, tablet, desktop)
-- [ ] Accessibility audit (keyboard nav, screen reader)
+## Workout builder
+- [x] Add Exercise button in template edit mode
+- [x] Reorder template exercises (up / down)
+- [ ] Drag-and-drop reorder (replace up/down chevrons)
+- [ ] Swap one exercise for another within a template
+
+## Equipment & exercises
+- [x] Free-weight exercise catalog expanded (16 added Apr–May 2026)
+- [ ] Reconcile remaining static-vs-DB muscle-group naming
+      ("quads" vs "quadriceps", "obliques", etc.)
+- [ ] BACKLOG: catalog new equipment we haven't modeled (functional
+      trainer was added but unreferenced by any exercise yet)
+
+## Polish & quality
+- [ ] Drag-and-drop reorder (replace up/down chevrons in template editor)
+- [ ] Accessibility audit (keyboard nav, screen reader, focus states)
 - [ ] Performance audit (Core Web Vitals)
-- [ ] Unit tests for workout generation logic
-- [ ] Unit tests for 1RM and volume calculations
-- [ ] Component tests for key flows (onboarding, logging)
+- [ ] Component tests for active-workout flow and Quick Log dialogs
+- [ ] Offline-capable logging with sync when reconnected (stretch)
 
-## Priority Order (suggested)
-1. Epic 1 — Setup (must be first)
-2. Epic 2 — Auth & Onboarding (gate everything behind auth)
-3. Epic 3 — Equipment & Exercises (data foundation)
-4. Epic 4 — Workout Builder (core feature)
-5. Epic 5 — Activity Logging (core feature)
-6. Epic 7 — Dashboard (ties it together)
-7. Epic 6 — Goals & Progress (motivation layer)
-8. Epic 8 — Profile & Settings
-9. Epic 9 — Polish
+## Out of scope (v1, per PRD)
+- Social features (sharing, leaderboards)
+- Nutrition / diet tracking
+- Wearable integration beyond the existing Oura dashboard
+- Trainer marketplace
+- In-app payments

@@ -16,6 +16,10 @@ import {
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { ExercisePicker } from "@/components/activity/exercise-picker"
+import {
+  BackdateChips,
+  nowLocalDatetimeString,
+} from "@/components/activity/BackdateChips"
 import { Dumbbell, Plus, Trash2 } from "lucide-react"
 
 const supabase = createClient()
@@ -35,12 +39,16 @@ export function QuickLogStrength() {
   const [selected, setSelected] = useState<ExerciseDefinition | null>(null)
   const [sets, setSets] = useState<QuickSet[]>([makeEmptySet()])
   const [durationMins, setDurationMins] = useState("")
+  const [finishedAt, setFinishedAt] = useState<string>(
+    nowLocalDatetimeString()
+  )
   const queryClient = useQueryClient()
 
   function reset() {
     setSelected(null)
     setSets([makeEmptySet()])
     setDurationMins("")
+    setFinishedAt(nowLocalDatetimeString())
   }
 
   function handlePicked(def: ExerciseDefinition) {
@@ -79,11 +87,14 @@ export function QuickLogStrength() {
       const dbExerciseId = idMap.get(selected.id)
       if (!dbExerciseId) throw new Error("Exercise not found in database")
 
-      // Approximate when the session happened: now minus duration (or ~5 min
-      // if user didn't enter duration).
+      // The user can backdate the session; we treat the picked datetime as
+      // when the workout *finished*, and back-fill started_at from duration.
       const mins = parseInt(durationMins, 10) || 5
-      const now = new Date()
-      const startedAt = new Date(now.getTime() - mins * 60_000)
+      const finished = finishedAt ? new Date(finishedAt) : new Date()
+      if (Number.isNaN(finished.getTime())) {
+        throw new Error("Invalid date")
+      }
+      const startedAt = new Date(finished.getTime() - mins * 60_000)
 
       const { data: workoutLog, error: wErr } = await supabase
         .from("workout_logs")
@@ -91,7 +102,7 @@ export function QuickLogStrength() {
           user_id: user.id,
           name: selected.name,
           started_at: startedAt.toISOString(),
-          finished_at: now.toISOString(),
+          finished_at: finished.toISOString(),
           duration_mins: mins,
         })
         .select("id")
@@ -242,6 +253,19 @@ export function QuickLogStrength() {
                   <Plus className="h-3.5 w-3.5" />
                   Add Set
                 </Button>
+              </div>
+            )}
+
+            {/* When did you do it? */}
+            {selected && (
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-500">
+                  When
+                </label>
+                <BackdateChips
+                  value={finishedAt}
+                  onChange={setFinishedAt}
+                />
               </div>
             )}
 

@@ -109,6 +109,16 @@ function isTreadmill(ex: ActiveExercise): boolean {
   return ex.equipmentId === "treadmill"
 }
 
+function isOutdoorRun(ex: ActiveExercise): boolean {
+  return ex.exerciseId === "outdoor-run"
+}
+
+/** Exercises where we compute speed from time + distance instead of taking
+ *  it as input. Treadmill (with incline) and outdoor run (with pace). */
+function isDistanceCardio(ex: ActiveExercise): boolean {
+  return isTreadmill(ex) || isOutdoorRun(ex)
+}
+
 /** Average speed (mph) computed from distance + duration. Returns null when
  *  either input is missing or zero. */
 function computeSpeedMph(
@@ -118,6 +128,19 @@ function computeSpeedMph(
   if (!distanceMiles || !durationMins) return null
   if (distanceMiles <= 0 || durationMins <= 0) return null
   return distanceMiles / (durationMins / 60)
+}
+
+/** Format pace as "M:SS /mi" from distance + duration. */
+function formatPace(
+  distanceMiles: number | null,
+  durationMins: number | null
+): string {
+  if (!distanceMiles || !durationMins) return "—"
+  if (distanceMiles <= 0 || durationMins <= 0) return "—"
+  const minPerMile = durationMins / distanceMiles
+  const mins = Math.floor(minPerMile)
+  const secs = Math.round((minPerMile - mins) * 60)
+  return `${mins}:${secs.toString().padStart(2, "0")}`
 }
 
 function formatTimer(totalSeconds: number): string {
@@ -362,10 +385,10 @@ export default function LogWorkoutPage() {
         (sum, s) => sum + (s.durationMins ?? 0),
         0
       )
-      // For treadmill, compute speed from distance/duration; otherwise use
-      // the manually entered speedMph.
+      // For distance-based cardio (treadmill / outdoor run), compute speed
+      // from distance/duration; otherwise use the manually entered speedMph.
       const speedPerSet = completedSets.map((s) =>
-        isTreadmill(ex)
+        isDistanceCardio(ex)
           ? computeSpeedMph(s.distanceMiles, s.durationMins)
           : s.speedMph
       )
@@ -376,11 +399,21 @@ export default function LogWorkoutPage() {
         validSpeeds.length > 0
           ? validSpeeds.reduce((sum, v) => sum + v, 0) / validSpeeds.length
           : null
+      // Average incline (treadmill only). Skip null/zero entries so they
+      // don't drag the average down for sets where incline wasn't logged.
+      const inclines = completedSets
+        .map((s) => s.inclinePercent)
+        .filter((v): v is number => v != null && v > 0)
+      const avgIncline =
+        inclines.length > 0
+          ? inclines.reduce((sum, v) => sum + v, 0) / inclines.length
+          : null
       return estimateCardioCalories(
         ex.exerciseId,
         totalMins,
         userWeightLbs,
-        avgSpeed
+        avgSpeed,
+        avgIncline
       )
     }
     return estimateStrengthCalories(
@@ -485,6 +518,10 @@ export default function LogWorkoutPage() {
   const isCardio = currentExercise?.exerciseType === "cardio"
   const isTreadmillExercise =
     !!currentExercise && isTreadmill(currentExercise)
+  const isOutdoorRunExercise =
+    !!currentExercise && isOutdoorRun(currentExercise)
+  const isDistanceCardioExercise =
+    !!currentExercise && isDistanceCardio(currentExercise)
 
   // For PR detection during the active workout. Returns the all-time max
   // weight for the current exercise *before* this session.
@@ -627,7 +664,7 @@ export default function LogWorkoutPage() {
                 <div
                   className={cn(
                     "mb-2 grid items-center gap-2 text-xs font-medium uppercase text-gray-400",
-                    isTreadmillExercise
+                    isDistanceCardioExercise
                       ? "grid-cols-[2.5rem_1fr_1fr_3.5rem_3rem]"
                       : isCardio
                       ? "grid-cols-[2.5rem_1fr_1fr_1fr_3rem]"
@@ -635,11 +672,13 @@ export default function LogWorkoutPage() {
                   )}
                 >
                   <span className="text-center">Set</span>
-                  {isTreadmillExercise ? (
+                  {isDistanceCardioExercise ? (
                     <>
                       <span>Time</span>
                       <span>Dist</span>
-                      <span className="text-center text-[10px] tracking-tight">Avg mph</span>
+                      <span className="text-center text-[10px] tracking-tight">
+                        {isOutdoorRunExercise ? "Pace" : "Avg mph"}
+                      </span>
                     </>
                   ) : isCardio ? (
                     <>
@@ -686,7 +725,7 @@ export default function LogWorkoutPage() {
                     key={si}
                     className={cn(
                       "mb-1.5 grid items-center gap-2 rounded-lg px-1 py-1.5 transition-colors",
-                      isTreadmillExercise
+                      isDistanceCardioExercise
                         ? "grid-cols-[2.5rem_1fr_1fr_3.5rem_3rem]"
                         : isCardio
                         ? "grid-cols-[2.5rem_1fr_1fr_1fr_3rem]"
@@ -709,7 +748,7 @@ export default function LogWorkoutPage() {
                       )}
                     </span>
 
-                    {isTreadmillExercise ? (
+                    {isDistanceCardioExercise ? (
                       <>
                         <Input
                           type="number"
@@ -740,13 +779,15 @@ export default function LogWorkoutPage() {
                           className="h-10 text-center text-sm"
                         />
                         <span className="flex h-10 items-center justify-center rounded-md bg-gray-50 text-center text-sm tabular-nums text-gray-600">
-                          {(() => {
-                            const speed = computeSpeedMph(
-                              set.distanceMiles,
-                              set.durationMins
-                            )
-                            return speed != null ? speed.toFixed(1) : "—"
-                          })()}
+                          {isOutdoorRunExercise
+                            ? formatPace(set.distanceMiles, set.durationMins)
+                            : (() => {
+                                const speed = computeSpeedMph(
+                                  set.distanceMiles,
+                                  set.durationMins
+                                )
+                                return speed != null ? speed.toFixed(1) : "—"
+                              })()}
                         </span>
                       </>
                     ) : isCardio ? (
