@@ -46,6 +46,7 @@ import { formatSleepDuration } from "@/lib/oura"
 import { generateInsights } from "@/lib/oura-insights"
 import type { OuraInsight } from "@/lib/oura-insights"
 import { QuickLogExercise } from "@/components/activity/QuickLogExercise"
+import { QuickLogStrength } from "@/components/activity/QuickLogStrength"
 import { QuickLogWeight } from "@/components/activity/QuickLogWeight"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 
@@ -424,16 +425,19 @@ export default function DashboardPage() {
       </div>
 
       {/* Quick Actions */}
-      <div className="flex gap-3">
+      <div className="space-y-2">
         <Link
           href="/activity"
-          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-purple-700"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-purple-700"
         >
           <Plus className="h-4 w-4" />
           Start Workout
         </Link>
-        <QuickLogExercise />
-        <QuickLogWeight />
+        <div className="flex gap-2">
+          <QuickLogStrength />
+          <QuickLogExercise />
+          <QuickLogWeight />
+        </div>
       </div>
 
       {/* This Week */}
