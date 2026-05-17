@@ -143,6 +143,7 @@ reps            integer
 weight          decimal(5,1)
 duration_mins   decimal(5,1) -- for cardio
 distance_miles  decimal(5,2) -- for cardio
+incline_percent decimal(4,1) -- for treadmill (optional)
 heart_rate      integer
 rpe             integer CHECK (rpe BETWEEN 1 AND 10)
 ```
@@ -231,10 +232,20 @@ Input: user profile (goal, fitness_level, workout_days, limitations)
 ```
 
 ### 4. Progressive Overload Logic
-When a user consistently logs reps at the top of their target range for 2+ consecutive sessions on an exercise, the system suggests increasing weight by:
-- 5 lbs for upper body movements
-- 10 lbs for lower body movements
-- Or increasing reps if at PF dumbbell max (75 lbs)
+Implemented in `src/lib/progressive-overload.ts` as pure functions
+(`parseRepRangeTop`, `getOverloadSuggestion`). When the most recent
+session for an exercise had every working set at the top of the
+prescribed rep range with a consistent weight, the active workout page
+shows a "Try +N lbs" banner above the sets table. Defaults to +5 lbs;
+callers may pass a custom increment. Freestyle workouts (no rep target)
+are skipped.
+
+Personal records and Epley 1RM live alongside in
+`src/lib/personal-records.ts`, with the in-workout trophy badge and the
+dashboard Recent PRs card consuming them. Weight-goal projection
+(`src/lib/weight-projection.ts`) and weekly volume / deload detection
+(`src/lib/volume-trend.ts`) are similarly extracted as pure, tested
+helpers consumed by the goals and dashboard pages.
 
 ### 5. Data Flow for Workout Logging
 ```
