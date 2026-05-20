@@ -354,6 +354,36 @@ export interface Database {
         }
         Relationships: []
       }
+      oura_tokens: {
+        Row: {
+          id: string
+          user_id: string
+          access_token: string
+          refresh_token: string
+          expires_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          access_token: string
+          refresh_token: string
+          expires_at: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          access_token?: string
+          refresh_token?: string
+          expires_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -372,3 +402,4 @@ export type ExerciseLog = Database["public"]["Tables"]["exercise_logs"]["Row"]
 export type SetLog = Database["public"]["Tables"]["set_logs"]["Row"]
 export type WeightLog = Database["public"]["Tables"]["weight_logs"]["Row"]
 export type UserGoal = Database["public"]["Tables"]["user_goals"]["Row"]
+export type OuraToken = Database["public"]["Tables"]["oura_tokens"]["Row"]

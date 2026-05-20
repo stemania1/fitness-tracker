@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
   ).toISOString()
 
   // Upsert into oura_tokens table
-  const { error: dbError } = (await (supabase as unknown as { from: (table: string) => { upsert: (values: Record<string, string>, options?: Record<string, string>) => Promise<{ error: { message: string } | null }> } })
+  const { error: dbError } = await supabase
     .from("oura_tokens")
     .upsert(
       {
@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
         expires_at: expiresAt,
       },
       { onConflict: "user_id" }
-    ))
+    )
 
   if (dbError) {
     console.error("[Oura OAuth] Failed to store tokens:", dbError.message)
