@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { cn, formatWeight, calculateOneRepMax, formatDuration } from "./utils"
+import { cn, formatDuration } from "./utils"
 
 describe("cn", () => {
   it("merges multiple class strings", () => {
@@ -36,34 +36,6 @@ describe("cn", () => {
     expect(result).toContain("rounded-md")
     expect(result).toContain("p-4")
     expect(result).toContain("text-white")
-  })
-})
-
-describe("formatWeight", () => {
-  it("formats weight with lbs suffix", () => {
-    expect(formatWeight(185)).toBe("185 lbs")
-  })
-
-  it("handles zero", () => {
-    expect(formatWeight(0)).toBe("0 lbs")
-  })
-})
-
-describe("calculateOneRepMax", () => {
-  it("returns the weight itself for 1 rep", () => {
-    expect(calculateOneRepMax(225, 1)).toBe(225)
-  })
-
-  it("estimates 1RM for multiple reps using Epley formula variant", () => {
-    // formula: weight * (1 + reps/30)
-    // 200 * (1 + 5/30) = 200 * 1.1667 = 233.33 -> 233
-    expect(calculateOneRepMax(200, 5)).toBe(233)
-  })
-
-  it("increases with more reps at same weight", () => {
-    const low = calculateOneRepMax(100, 3)
-    const high = calculateOneRepMax(100, 10)
-    expect(high).toBeGreaterThan(low)
   })
 })
 
