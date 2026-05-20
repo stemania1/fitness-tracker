@@ -20,18 +20,7 @@ export async function GET(request: Request) {
   }
 
   // Get Oura token
-  const { data: tokenRow } = await (supabase as unknown as {
-    from: (table: string) => {
-      select: (columns: string) => {
-        eq: (col: string, val: string) => {
-          single: () => Promise<{
-            data: { access_token: string; refresh_token: string; expires_at: string } | null
-            error: unknown
-          }>
-        }
-      }
-    }
-  })
+  const { data: tokenRow } = await supabase
     .from("oura_tokens")
     .select("access_token, refresh_token, expires_at")
     .eq("user_id", user.id)
@@ -81,13 +70,7 @@ export async function GET(request: Request) {
     ).toISOString()
 
     // Update stored tokens
-    await (supabase as unknown as {
-      from: (table: string) => {
-        update: (values: Record<string, string>) => {
-          eq: (col: string, val: string) => Promise<unknown>
-        }
-      }
-    })
+    await supabase
       .from("oura_tokens")
       .update({
         access_token: newTokens.access_token,

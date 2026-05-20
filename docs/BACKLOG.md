@@ -62,10 +62,9 @@ roughly easiest → hardest; pick off in order.
       `findHeaviestWeight` in `personal-records.ts` — aligned to
       `findHeaviestWeight` (stricter: ignores `reps==null` and
       `weight<=0`).
-- [ ] Replace the `as unknown as { from: ... }` Supabase casts in
-      `src/app/api/oura/route.ts` and
-      `src/app/api/auth/oura/callback/route.ts`. Probably needs the
-      `oura_tokens` table added to the generated `Database` types.
+- [x] Replace the `as unknown as { from: ... }` Supabase casts in
+      the Oura route handlers — added `oura_tokens` to the
+      `Database` types, casts dropped.
 - [ ] Move the 20-odd `const supabase = createClient()` calls from
       module top level into components/hooks. Couples imports to
       runtime state and forces awkward `vi.mock` patterns in tests.
