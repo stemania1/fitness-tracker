@@ -91,6 +91,14 @@ A simple, focused fitness app for Planet Fitness members that builds personalize
 - Equipment availability notes (e.g., "Smith machine — PF has this" vs. standard barbell — PF does not)
 - Express workout option (30-min circuit using PF 30-minute express circuit area)
 
+### 6. Oura Ring Integration
+**Goal**: Surface recovery and readiness signals from the user's wearable so workout intensity can adapt day to day.
+
+- OAuth2 connect/disconnect from the profile page; tokens stored per-user with RLS
+- Daily Oura summary on the dashboard: sleep score, readiness, resting heart rate, SpO2, stress, resilience, VO2 max
+- Threshold-driven insights (e.g. "Great day for a hard workout" at readiness ≥ 85 + restored stress; "Consider a light day" when readiness < 70)
+- Server-side token refresh when the stored access token expires
+
 ## Non-Functional Requirements
 - Mobile-first responsive design (most users will log at the gym on phone)
 - Works offline for logging (sync when back online) — stretch goal
@@ -100,6 +108,6 @@ A simple, focused fitness app for Planet Fitness members that builds personalize
 ## Out of Scope (v1)
 - Social features (sharing, leaderboards)
 - Nutrition/diet tracking
-- Wearable device integration
+- Wearable integration beyond Oura (Apple Watch, Garmin, Fitbit, etc.)
 - Trainer marketplace
 - In-app payments
