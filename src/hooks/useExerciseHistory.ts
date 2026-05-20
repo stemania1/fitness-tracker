@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
 import { exercises as exerciseCatalog } from "@/data/exercises"
+import { findHeaviestWeight } from "@/lib/personal-records"
 
 export interface PreviousSetRow {
   set_number: number
@@ -88,16 +89,12 @@ async function fetchExerciseHistory(
         .in("exercise_log_id", ids)
         .not("weight", "is", null)
 
-      for (const s of (allSets ?? []) as Array<{
-        weight: number | null
-        reps: number | null
-      }>) {
-        if (s.weight == null) continue
-        if (s.reps != null && s.reps < 1) continue
-        if (allTimeMaxWeight == null || s.weight > allTimeMaxWeight) {
-          allTimeMaxWeight = s.weight
-        }
-      }
+      allTimeMaxWeight = findHeaviestWeight(
+        (allSets ?? []) as Array<{
+          weight: number | null
+          reps: number | null
+        }>
+      )
     }
   }
 
