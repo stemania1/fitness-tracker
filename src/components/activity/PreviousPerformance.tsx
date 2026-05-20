@@ -1,32 +1,14 @@
 "use client"
 
-import { useExerciseHistory, type PreviousSetRow } from "@/hooks/useExerciseHistory"
+import { useExerciseHistory } from "@/hooks/useExerciseHistory"
+import {
+  formatCardioSets,
+  formatStrengthSets,
+} from "./previous-performance-format"
 
 interface PreviousPerformanceProps {
   exerciseId: string
   exerciseType: "strength" | "cardio" | "flexibility"
-}
-
-function formatStrengthSets(sets: PreviousSetRow[]): string {
-  return sets
-    .map((s) => {
-      const weight = s.weight != null ? `${s.weight} lbs` : "BW"
-      const reps = s.reps != null ? `${s.reps}` : "?"
-      return `${weight} × ${reps}`
-    })
-    .join(", ")
-}
-
-function formatCardioSets(sets: PreviousSetRow[]): string {
-  const parts: string[] = []
-  const totalMins = sets.reduce((sum, s) => sum + (s.duration_mins ?? 0), 0)
-  const totalDist = sets.reduce(
-    (sum, s) => sum + (s.distance_miles ?? 0),
-    0
-  )
-  if (totalMins > 0) parts.push(`${totalMins} min`)
-  if (totalDist > 0) parts.push(`${totalDist} mi`)
-  return parts.join(", ")
 }
 
 export function PreviousPerformance({
