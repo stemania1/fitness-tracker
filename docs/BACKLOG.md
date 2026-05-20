@@ -55,16 +55,13 @@ roughly easiest → hardest; pick off in order.
 
 - [x] Delete dead code in `src/lib/utils.ts` (`calculateOneRepMax`,
       `formatWeight`) — shipped in #39
-- [ ] Extract `formatStrengthSets` / `formatCardioSets` from
-      `PreviousPerformance.tsx` into a tested sibling helper. They're
-      pure and currently only covered indirectly through the
-      component.
-- [ ] Reconcile `useExerciseHistory`'s inline all-time-max loop with
-      `findHeaviestWeight` in `personal-records.ts`. The hook accepts
-      `reps == null` and doesn't filter `weight <= 0`; the canonical
-      helper excludes both. Behavior change — pick a direction. The
-      current behavior is pinned by a test comment in
-      `src/hooks/useExerciseHistory.test.tsx`.
+- [x] Extract `formatStrengthSets` / `formatCardioSets` from
+      `PreviousPerformance.tsx` into a tested sibling helper —
+      shipped in #39
+- [x] Reconcile `useExerciseHistory`'s inline all-time-max loop with
+      `findHeaviestWeight` in `personal-records.ts` — aligned to
+      `findHeaviestWeight` (stricter: ignores `reps==null` and
+      `weight<=0`).
 - [ ] Replace the `as unknown as { from: ... }` Supabase casts in
       `src/app/api/oura/route.ts` and
       `src/app/api/auth/oura/callback/route.ts`. Probably needs the

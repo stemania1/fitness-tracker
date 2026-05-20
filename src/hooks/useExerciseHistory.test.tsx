@@ -231,12 +231,9 @@ describe("useExerciseHistory", () => {
     expect(result.current.data?.allTimeMaxWeight).toBe(150)
   })
 
-  it("counts sets with reps=null toward the all-time max (current behavior)", async () => {
-    // Note: this differs from findHeaviestWeight in personal-records.ts, which
-    // requires both weight AND reps to be non-null. The hook is more lenient.
-    // If we want consistency, the cleanest fix is to swap the inline loop here
-    // for a call to findHeaviestWeight — that's a behavior change worth a
-    // standalone PR.
+  it("ignores sets with reps=null when computing the all-time max", async () => {
+    // Aligned with findHeaviestWeight in personal-records.ts: incomplete
+    // sets (missing rep count) don't count toward the displayed max.
     mocks.createClient.mockReturnValue(
       createSupabaseStub({
         exercises: { data: { id: "db-1" }, error: null },
@@ -247,7 +244,7 @@ describe("useExerciseHistory", () => {
         workout_logs: { data: [], error: null },
         set_logs: {
           data: [
-            { weight: 175, reps: null }, // counts under current behavior
+            { weight: 175, reps: null }, // incomplete -> ignored
             { weight: 150, reps: 5 },
           ],
           error: null,
@@ -261,7 +258,7 @@ describe("useExerciseHistory", () => {
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true)
     })
-    expect(result.current.data?.allTimeMaxWeight).toBe(175)
+    expect(result.current.data?.allTimeMaxWeight).toBe(150)
   })
 
   it("returns empty previousSets when the latest workout has no matching exercise_log", async () => {
