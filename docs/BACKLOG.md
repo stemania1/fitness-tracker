@@ -46,7 +46,9 @@ still open.
 ## Polish & quality
 - [ ] Accessibility audit (keyboard nav, screen reader, focus states)
 - [ ] Performance audit (Core Web Vitals)
-- [ ] Component tests for active-workout flow and Quick Log dialogs
+- [ ] Component tests for the live active-workout flow
+      (`activity/log/page.tsx`). Quick Log dialogs themselves are
+      covered (#37–#42); the live workout page is still untested.
 - [ ] Offline-capable logging with sync when reconnected (stretch)
 
 ## Refactor & cleanup
@@ -65,9 +67,12 @@ roughly easiest → hardest; pick off in order.
 - [x] Replace the `as unknown as { from: ... }` Supabase casts in
       the Oura route handlers — added `oura_tokens` to the
       `Database` types, casts dropped.
-- [ ] Move the 20-odd `const supabase = createClient()` calls from
-      module top level into components/hooks. Couples imports to
-      runtime state and forces awkward `vi.mock` patterns in tests.
+- [~] Move the 20-odd `const supabase = createClient()` calls from
+      module top level into components/hooks. *Reversed:*
+      `createBrowserClient` is reentrant and cheap; module-level
+      singletons match Supabase's own recommended pattern. The
+      test-side awkwardness is fully handled by `vi.hoisted`.
+      Leaving as-is unless we hit a concrete problem.
 - [ ] Extract business logic from the 1000+ line page files
       (`activity/log/page.tsx`, `dashboard/page.tsx`,
       `goals/page.tsx`) into hooks under `src/hooks/` and pure
@@ -79,9 +84,7 @@ roughly easiest → hardest; pick off in order.
       Real but architectural — weigh against the testing churn.
 
 ## Testing follow-ups
-- [ ] Component tests for `QuickLogExercise` and `exercise-picker`
-      (QuickLogStrength shipped here; patterns established in
-      #37–#38)
+- [x] Component tests for `QuickLogExercise` and `exercise-picker`
 - [ ] Set up ESLint (`next lint` is currently interactive); add a
       lint step to the CI workflow.
 - [x] Ratchet up coverage thresholds in `vitest.config.ts` — now

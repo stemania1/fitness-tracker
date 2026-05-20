@@ -263,15 +263,16 @@ Start Workout → Load template exercises
 
 | Route | Method | Description |
 |-------|--------|-------------|
-| `/api/auth/callback` | GET | Supabase auth callback |
-| No custom API routes needed — use Supabase client directly | | |
+| `/auth/callback` | GET | Supabase auth callback (`exchangeCodeForSession`); redirects to `?next=` or `/dashboard`. |
+| `/api/oura` | GET | Fetches today's Oura summary for the signed-in user. Refreshes the stored access token if expired. |
+| `/api/auth/oura/callback` | GET | Oura OAuth2 callback — exchanges authorization code for tokens and upserts `oura_tokens`. Redirects to `/profile?oura=connected` on success or `/profile?oura=error&oura_reason=...` on failure. |
 
-Direct Supabase client queries replace traditional API routes. TanStack Query manages caching, deduplication, and background refetching.
+Most reads go through the Supabase client directly (TanStack Query handles caching, deduplication, and background refetching). API routes exist where we need server-side secrets (Oura OAuth) or third-party HTTP plumbing.
 
 ## File Naming Conventions
 - Pages: `src/app/(group)/route/page.tsx`
 - Components: `PascalCase.tsx` (e.g., `WorkoutCard.tsx`)
-- Hooks: `camelCase.ts` prefixed with `use` (e.g., `useWorkoutLog.ts`)
-- Utils: `camelCase.ts` (e.g., `calculateOneRepMax.ts`)
-- Types: `camelCase.ts` in `src/types/` (e.g., `workout.ts`)
+- Hooks: `camelCase.ts` prefixed with `use` (e.g., `useExerciseHistory.ts`)
+- Utils: `kebab-case.ts` (e.g., `personal-records.ts`, `workout-generator.ts`)
+- Types: `camelCase.ts` in `src/types/` (e.g., `database.ts`)
 - Tests: `*.test.ts` or `*.test.tsx` beside source file
