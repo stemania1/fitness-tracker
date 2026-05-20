@@ -32,14 +32,14 @@ export default defineConfig({
         // Thin Next.js middleware shim — logic lives in lib/supabase/middleware.ts.
         'src/middleware.ts',
       ],
-      // Thresholds are set slightly below current coverage so noise from a
+      // Thresholds are set ~2 points below current coverage so noise from a
       // single new file doesn't break CI, but a meaningful drop does.
       // Ratchet these up as coverage grows.
       thresholds: {
-        statements: 72,
-        branches: 72,
-        functions: 55,
-        lines: 74,
+        statements: 80,
+        branches: 78,
+        functions: 68,
+        lines: 81,
       },
     },
   },

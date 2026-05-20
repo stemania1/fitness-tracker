@@ -79,12 +79,13 @@ roughly easiest → hardest; pick off in order.
       Real but architectural — weigh against the testing churn.
 
 ## Testing follow-ups
-- [ ] Component tests for `QuickLogStrength`, `QuickLogExercise`,
-      `exercise-picker` (patterns established in #37–#38)
+- [ ] Component tests for `QuickLogExercise` and `exercise-picker`
+      (QuickLogStrength shipped here; patterns established in
+      #37–#38)
 - [ ] Set up ESLint (`next lint` is currently interactive); add a
       lint step to the CI workflow.
-- [ ] Ratchet up coverage thresholds in `vitest.config.ts` as
-      coverage grows.
+- [x] Ratchet up coverage thresholds in `vitest.config.ts` — now
+      80 / 78 / 68 / 81 (was 72 / 72 / 55 / 74).
 
 ## Out of scope (v1, per PRD)
 - Social features (sharing, leaderboards)
