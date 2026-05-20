@@ -49,6 +49,47 @@ still open.
 - [ ] Component tests for active-workout flow and Quick Log dialogs
 - [ ] Offline-capable logging with sync when reconnected (stretch)
 
+## Refactor & cleanup
+Surfaced while building out the test suite (#37, #38, #39). Listed
+roughly easiest → hardest; pick off in order.
+
+- [x] Delete dead code in `src/lib/utils.ts` (`calculateOneRepMax`,
+      `formatWeight`) — shipped in #39
+- [ ] Extract `formatStrengthSets` / `formatCardioSets` from
+      `PreviousPerformance.tsx` into a tested sibling helper. They're
+      pure and currently only covered indirectly through the
+      component.
+- [ ] Reconcile `useExerciseHistory`'s inline all-time-max loop with
+      `findHeaviestWeight` in `personal-records.ts`. The hook accepts
+      `reps == null` and doesn't filter `weight <= 0`; the canonical
+      helper excludes both. Behavior change — pick a direction. The
+      current behavior is pinned by a test comment in
+      `src/hooks/useExerciseHistory.test.tsx`.
+- [ ] Replace the `as unknown as { from: ... }` Supabase casts in
+      `src/app/api/oura/route.ts` and
+      `src/app/api/auth/oura/callback/route.ts`. Probably needs the
+      `oura_tokens` table added to the generated `Database` types.
+- [ ] Move the 20-odd `const supabase = createClient()` calls from
+      module top level into components/hooks. Couples imports to
+      runtime state and forces awkward `vi.mock` patterns in tests.
+- [ ] Extract business logic from the 1000+ line page files
+      (`activity/log/page.tsx`, `dashboard/page.tsx`,
+      `goals/page.tsx`) into hooks under `src/hooks/` and pure
+      helpers under `src/lib/`. Refactor first, then test what
+      comes out.
+- [ ] Consider swapping the custom Dialog component for
+      `@radix-ui/react-dialog`. The current implementation lacks
+      focus trap and scroll restoration that Radix gives for free.
+      Real but architectural — weigh against the testing churn.
+
+## Testing follow-ups
+- [ ] Component tests for `QuickLogStrength`, `QuickLogExercise`,
+      `exercise-picker` (patterns established in #37–#38)
+- [ ] Set up ESLint (`next lint` is currently interactive); add a
+      lint step to the CI workflow.
+- [ ] Ratchet up coverage thresholds in `vitest.config.ts` as
+      coverage grows.
+
 ## Out of scope (v1, per PRD)
 - Social features (sharing, leaderboards)
 - Nutrition / diet tracking
