@@ -729,17 +729,23 @@ export default function DashboardPage() {
                     <ResponsiveContainer width="100%" height={120}>
                       <LineChart
                         data={ouraSummary.heartRateReadings.map((hr) => ({
-                          time: new Date(hr.timestamp).toLocaleTimeString("en-US", {
-                            hour: "numeric",
-                            minute: "2-digit",
-                            hour12: true,
-                          }),
+                          t: new Date(hr.timestamp).getTime(),
                           bpm: hr.bpm,
                         }))}
                       >
                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                         <XAxis
-                          dataKey="time"
+                          dataKey="t"
+                          type="number"
+                          scale="time"
+                          domain={["dataMin", "dataMax"]}
+                          tickFormatter={(t) =>
+                            new Date(t).toLocaleTimeString("en-US", {
+                              hour: "numeric",
+                              minute: "2-digit",
+                              hour12: true,
+                            })
+                          }
                           tick={{ fontSize: 10 }}
                           stroke="#9ca3af"
                           interval="preserveStartEnd"
@@ -754,6 +760,13 @@ export default function DashboardPage() {
                         <Tooltip
                           contentStyle={{ fontSize: 12, borderRadius: 8 }}
                           formatter={(value) => [`${value} bpm`, "Heart Rate"]}
+                          labelFormatter={(t) =>
+                            new Date(t).toLocaleTimeString("en-US", {
+                              hour: "numeric",
+                              minute: "2-digit",
+                              hour12: true,
+                            })
+                          }
                         />
                         <Line
                           type="monotone"
