@@ -164,6 +164,16 @@ export const exercises: ExerciseDefinition[] = [
     defaultReps: "8-10",
   },
   {
+    id: "pull-up",
+    name: "Pull-Up",
+    equipmentId: null,
+    muscleGroups: ["back", "biceps"],
+    exerciseType: "strength",
+    difficulty: "advanced",
+    defaultSets: 3,
+    defaultReps: "5-8",
+  },
+  {
     id: "cable-face-pull",
     name: "Cable Face Pull",
     equipmentId: "cable-machine",

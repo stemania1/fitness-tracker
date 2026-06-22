@@ -25,23 +25,38 @@ import { Timer } from "lucide-react"
 
 const supabase = createClient()
 
-const cardioExercises = exerciseCatalog.filter(
-  (e) => e.exerciseType === "cardio"
-)
+const byName = (a: { name: string }, b: { name: string }) =>
+  a.name.localeCompare(b.name)
+
+const cardioExercises = exerciseCatalog
+  .filter((e) => e.exerciseType === "cardio")
+  .sort(byName)
+const strengthExercises = exerciseCatalog
+  .filter((e) => e.exerciseType === "strength")
+  .sort(byName)
+
+// The picker preselects a cardio exercise, so its mm:ss/distance/incline path
+// stays the default. Anchor on the catalog's first cardio entry.
+const defaultExerciseId =
+  exerciseCatalog.find((e) => e.exerciseType === "cardio")?.id ?? ""
 
 export function QuickLogExercise() {
   const [open, setOpen] = useState(false)
-  const [exerciseId, setExerciseId] = useState(cardioExercises[0]?.id ?? "")
+  const [exerciseId, setExerciseId] = useState(defaultExerciseId)
   const [durationMins, setDurationMins] = useState("")
   const [durationSecs, setDurationSecs] = useState("")
   const [distanceMiles, setDistanceMiles] = useState("")
   const [inclinePercent, setInclinePercent] = useState("")
+  const [sets, setSets] = useState("")
+  const [reps, setReps] = useState("")
+  const [weight, setWeight] = useState("")
   const [finishedAt, setFinishedAt] = useState<string>(
     nowLocalDatetimeString()
   )
   const queryClient = useQueryClient()
 
-  const selectedExercise = cardioExercises.find((e) => e.id === exerciseId)
+  const selectedExercise = exerciseCatalog.find((e) => e.id === exerciseId)
+  const isStrength = selectedExercise?.exerciseType === "strength"
   // Mirror the workout detail page: incline applies to treadmill work, while
   // distance is meaningful for any distance-based cardio.
   const isTreadmill = selectedExercise?.equipmentId === "treadmill"
@@ -56,26 +71,40 @@ export function QuickLogExercise() {
     return Math.round((mins + secs / 60) * 100) / 100
   })()
 
+  const setsCount = parseInt(sets || "0", 10)
+  const repsCount = parseInt(reps || "0", 10)
+
+  // Strength needs at least one set of one rep; cardio needs a duration.
+  const canSubmit = isStrength
+    ? setsCount > 0 && repsCount > 0
+    : totalMins > 0
+
   function resetForm() {
     setDurationMins("")
     setDurationSecs("")
     setDistanceMiles("")
     setInclinePercent("")
-    setExerciseId(cardioExercises[0]?.id ?? "")
+    setSets("")
+    setReps("")
+    setWeight("")
+    setExerciseId(defaultExerciseId)
     setFinishedAt(nowLocalDatetimeString())
   }
 
   const mutation = useMutation({
     mutationFn: async () => {
-      if (!totalMins || totalMins <= 0)
-        throw new Error("Enter a valid duration")
+      if (!canSubmit) {
+        throw new Error(
+          isStrength ? "Enter sets and reps" : "Enter a valid duration"
+        )
+      }
 
       const {
         data: { user },
       } = await supabase.auth.getUser()
       if (!user) throw new Error("Not authenticated")
 
-      const exerciseName = selectedExercise?.name ?? "Cardio"
+      const exerciseName = selectedExercise?.name ?? "Workout"
 
       // Resolve static slug ID to database UUID
       const idMap = await ensureExercisesExist(supabase, [exerciseId])
@@ -86,10 +115,14 @@ export function QuickLogExercise() {
       if (Number.isNaN(finished.getTime())) {
         throw new Error("Invalid date")
       }
-      const startedAt = new Date(finished.getTime() - totalMins * 60_000)
+      // Cardio derives a start time from its duration; a strength set has no
+      // elapsed clock, so it starts and finishes at the same instant.
+      const startedAt = isStrength
+        ? finished
+        : new Date(finished.getTime() - totalMins * 60_000)
 
-      // Create workout log. The workout-level duration is whole minutes; the
-      // precise mm:ss lives on the set below.
+      // Create workout log. Cardio carries a whole-minute duration; strength
+      // leaves it null since reps/weight live on the sets below.
       const { data: workoutLog, error: wErr } = await supabase
         .from("workout_logs")
         .insert({
@@ -97,7 +130,7 @@ export function QuickLogExercise() {
           name: exerciseName,
           started_at: startedAt.toISOString(),
           finished_at: finished.toISOString(),
-          duration_mins: Math.max(1, Math.round(totalMins)),
+          duration_mins: isStrength ? null : Math.max(1, Math.round(totalMins)),
         })
         .select("id")
         .single()
@@ -115,8 +148,29 @@ export function QuickLogExercise() {
         .single()
       if (eErr) throw eErr
 
-      // Create set log with duration, plus distance/incline when provided so
-      // the detail view can derive pace.
+      if (isStrength) {
+        // One row per set, all sharing the entered reps and (optional) weight.
+        const parsedWeight =
+          weight.trim() !== "" ? parseFloat(weight) : undefined
+        const hasWeight =
+          parsedWeight !== undefined &&
+          !Number.isNaN(parsedWeight) &&
+          parsedWeight > 0
+        const rows = Array.from({ length: setsCount }, (_, i) => ({
+          exercise_log_id: exerciseLog.id,
+          set_number: i + 1,
+          reps: repsCount,
+          ...(hasWeight ? { weight: parsedWeight } : {}),
+        }))
+
+        const { error: sErr } = await supabase.from("set_logs").insert(rows)
+        if (sErr) throw sErr
+
+        return workoutLog.id
+      }
+
+      // Cardio: a single set with duration, plus distance/incline when provided
+      // so the detail view can derive pace.
       const setPayload: {
         exercise_log_id: string
         set_number: number
@@ -164,7 +218,7 @@ export function QuickLogExercise() {
         <DialogHeader>
           <DialogTitle>Quick Log Exercise</DialogTitle>
           <DialogDescription>
-            Log a cardio session in seconds.
+            Log a cardio or strength set in seconds.
           </DialogDescription>
         </DialogHeader>
 
@@ -182,47 +236,101 @@ export function QuickLogExercise() {
               value={exerciseId}
               onChange={(e) => setExerciseId(e.target.value)}
             >
-              {cardioExercises.map((ex) => (
-                <SelectOption key={ex.id} value={ex.id}>
-                  {ex.name}
-                </SelectOption>
-              ))}
+              <optgroup label="Cardio">
+                {cardioExercises.map((ex) => (
+                  <SelectOption key={ex.id} value={ex.id}>
+                    {ex.name}
+                  </SelectOption>
+                ))}
+              </optgroup>
+              <optgroup label="Strength">
+                {strengthExercises.map((ex) => (
+                  <SelectOption key={ex.id} value={ex.id}>
+                    {ex.name}
+                  </SelectOption>
+                ))}
+              </optgroup>
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="ql-duration">Duration</Label>
-            <div className="flex items-center gap-2">
-              <div className="flex-1">
+          {isStrength ? (
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-2">
+                <Label htmlFor="ql-sets">Sets</Label>
                 <Input
-                  id="ql-duration"
+                  id="ql-sets"
                   type="number"
-                  min={0}
-                  max={300}
-                  placeholder="min"
-                  aria-label="Minutes"
-                  value={durationMins}
-                  onChange={(e) => setDurationMins(e.target.value)}
+                  min={1}
+                  max={20}
+                  placeholder="3"
+                  aria-label="Sets"
+                  value={sets}
+                  onChange={(e) => setSets(e.target.value)}
                   autoFocus
                 />
               </div>
-              <span className="text-gray-400">:</span>
-              <div className="flex-1">
+              <div className="space-y-2">
+                <Label htmlFor="ql-reps">Reps</Label>
                 <Input
-                  id="ql-duration-secs"
+                  id="ql-reps"
+                  type="number"
+                  min={1}
+                  max={100}
+                  placeholder="10"
+                  aria-label="Reps"
+                  value={reps}
+                  onChange={(e) => setReps(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ql-weight">Weight</Label>
+                <Input
+                  id="ql-weight"
                   type="number"
                   min={0}
-                  max={59}
-                  placeholder="sec"
-                  aria-label="Seconds"
-                  value={durationSecs}
-                  onChange={(e) => setDurationSecs(e.target.value)}
+                  step="0.5"
+                  placeholder="lbs"
+                  aria-label="Weight"
+                  value={weight}
+                  onChange={(e) => setWeight(e.target.value)}
                 />
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="ql-duration">Duration</Label>
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <Input
+                    id="ql-duration"
+                    type="number"
+                    min={0}
+                    max={300}
+                    placeholder="min"
+                    aria-label="Minutes"
+                    value={durationMins}
+                    onChange={(e) => setDurationMins(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+                <span className="text-gray-400">:</span>
+                <div className="flex-1">
+                  <Input
+                    id="ql-duration-secs"
+                    type="number"
+                    min={0}
+                    max={59}
+                    placeholder="sec"
+                    aria-label="Seconds"
+                    value={durationSecs}
+                    onChange={(e) => setDurationSecs(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
-          {isDistanceCardio && (
+          {!isStrength && isDistanceCardio && (
             <div className="space-y-2">
               <Label htmlFor="ql-distance">Distance (miles)</Label>
               <Input
@@ -274,7 +382,7 @@ export function QuickLogExercise() {
             </button>
             <button
               type="submit"
-              disabled={mutation.isPending || totalMins <= 0}
+              disabled={mutation.isPending || !canSubmit}
               className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
             >
               {mutation.isPending ? "Saving…" : "Log It"}

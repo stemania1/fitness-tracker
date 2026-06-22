@@ -54,6 +54,14 @@ const defaultCardio = exerciseCatalog.find(
   (e) => e.exerciseType === "cardio"
 )!
 
+const bicepCurl = exerciseCatalog.find((e) => e.id === "dumbbell-bicep-curl")!
+const pullUp = exerciseCatalog.find((e) => e.id === "pull-up")!
+
+function selectExercise(id: string) {
+  const select = document.getElementById("ql-exercise") as HTMLSelectElement
+  fireEvent.change(select, { target: { value: id } })
+}
+
 beforeEach(() => {
   mocks.getUser.mockReset()
   mocks.workoutLogsInsertSingle
@@ -111,7 +119,9 @@ describe("QuickLogExercise — trigger and dialog", () => {
   it("opens the dialog when the trigger is clicked", async () => {
     renderWithClient(<QuickLogExercise />)
     await openDialog()
-    expect(screen.getByText(/log a cardio session/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/log a cardio or strength set/i)
+    ).toBeInTheDocument()
     expect(getDurationInput()).toBeInTheDocument()
   })
 
@@ -267,6 +277,93 @@ describe("QuickLogExercise — mutation paths", () => {
     expect(mocks.setLogsInsert).not.toHaveBeenCalled()
     // Dialog stays open so the user sees the error.
     expect(screen.queryByRole("dialog")).toBeInTheDocument()
+  })
+})
+
+describe("QuickLogExercise — strength path", () => {
+  it("disables Log It for a strength exercise until both sets and reps are set", async () => {
+    renderWithClient(<QuickLogExercise />)
+    await openDialog()
+    selectExercise(bicepCurl.id)
+
+    const logIt = screen.getByRole("button", { name: /log it/i })
+    expect(logIt).toBeDisabled()
+
+    fireEvent.change(screen.getByLabelText(/^sets$/i), {
+      target: { value: "3" },
+    })
+    expect(logIt).toBeDisabled()
+
+    fireEvent.change(screen.getByLabelText(/^reps$/i), {
+      target: { value: "10" },
+    })
+    expect(logIt).toBeEnabled()
+  })
+
+  it("writes one set_logs row per set with reps and weight", async () => {
+    mocks.getUser.mockResolvedValue({ data: { user: { id: "user-1" } } })
+    mocks.ensureExercisesExist.mockResolvedValue(
+      new Map([[bicepCurl.id, "db-curl-id"]])
+    )
+    renderWithClient(<QuickLogExercise />)
+    await openDialog()
+    selectExercise(bicepCurl.id)
+
+    fireEvent.change(screen.getByLabelText(/^sets$/i), {
+      target: { value: "3" },
+    })
+    fireEvent.change(screen.getByLabelText(/^reps$/i), {
+      target: { value: "10" },
+    })
+    fireEvent.change(screen.getByLabelText(/^weight$/i), {
+      target: { value: "25" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: /log it/i }))
+
+    await waitFor(() => {
+      expect(mocks.setLogsInsert).toHaveBeenCalledTimes(1)
+    })
+
+    expect(mocks.ensureExercisesExist).toHaveBeenCalledWith(
+      expect.anything(),
+      [bicepCurl.id]
+    )
+    // 3 sets of 10 reps at 25 lbs -> one row each, sequential set numbers.
+    expect(mocks.setLogsInsert).toHaveBeenCalledWith([
+      { exercise_log_id: "el-1", set_number: 1, reps: 10, weight: 25 },
+      { exercise_log_id: "el-1", set_number: 2, reps: 10, weight: 25 },
+      { exercise_log_id: "el-1", set_number: 3, reps: 10, weight: 25 },
+    ])
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull()
+    })
+  })
+
+  it("omits weight for a bodyweight set like a pull-up", async () => {
+    mocks.getUser.mockResolvedValue({ data: { user: { id: "user-1" } } })
+    mocks.ensureExercisesExist.mockResolvedValue(
+      new Map([[pullUp.id, "db-pullup-id"]])
+    )
+    renderWithClient(<QuickLogExercise />)
+    await openDialog()
+    selectExercise(pullUp.id)
+
+    fireEvent.change(screen.getByLabelText(/^sets$/i), {
+      target: { value: "1" },
+    })
+    fireEvent.change(screen.getByLabelText(/^reps$/i), {
+      target: { value: "1" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: /log it/i }))
+
+    await waitFor(() => {
+      expect(mocks.setLogsInsert).toHaveBeenCalledTimes(1)
+    })
+
+    expect(mocks.setLogsInsert).toHaveBeenCalledWith([
+      { exercise_log_id: "el-1", set_number: 1, reps: 1 },
+    ])
   })
 })
 
