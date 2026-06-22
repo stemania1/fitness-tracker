@@ -92,7 +92,11 @@ async function openDialog() {
 }
 
 function getDurationInput() {
-  return screen.getByPlaceholderText(/e\.g\. 30/i) as HTMLInputElement
+  return screen.getByLabelText(/^minutes$/i) as HTMLInputElement
+}
+
+function getSecondsInput() {
+  return screen.getByLabelText(/^seconds$/i) as HTMLInputElement
 }
 
 describe("QuickLogExercise — trigger and dialog", () => {
@@ -170,6 +174,55 @@ describe("QuickLogExercise — mutation paths", () => {
     // Dialog closes on success.
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).toBeNull()
+    })
+  })
+
+  it("captures mm:ss duration, distance, and incline for a treadmill run", async () => {
+    mocks.getUser.mockResolvedValue({ data: { user: { id: "user-1" } } })
+    // The default cardio (treadmill-walk) is a treadmill, so the distance and
+    // incline fields are visible without changing the exercise.
+    renderWithClient(<QuickLogExercise />)
+    await openDialog()
+
+    fireEvent.change(getDurationInput(), { target: { value: "10" } })
+    fireEvent.change(getSecondsInput(), { target: { value: "45" } })
+    fireEvent.change(screen.getByLabelText(/distance/i), {
+      target: { value: "1" },
+    })
+    fireEvent.change(screen.getByLabelText(/incline/i), {
+      target: { value: "1" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: /log it/i }))
+
+    await waitFor(() => {
+      expect(mocks.setLogsInsert).toHaveBeenCalledTimes(1)
+    })
+
+    // 10m 45s -> 10.75 decimal minutes, distance + incline carried through.
+    expect(mocks.setLogsInsert).toHaveBeenCalledWith({
+      exercise_log_id: "el-1",
+      set_number: 1,
+      duration_mins: 10.75,
+      distance_miles: 1,
+      incline_percent: 1,
+    })
+  })
+
+  it("omits distance and incline when they are left blank", async () => {
+    mocks.getUser.mockResolvedValue({ data: { user: { id: "user-1" } } })
+    renderWithClient(<QuickLogExercise />)
+    await openDialog()
+    fireEvent.change(getDurationInput(), { target: { value: "30" } })
+    fireEvent.click(screen.getByRole("button", { name: /log it/i }))
+
+    await waitFor(() => {
+      expect(mocks.setLogsInsert).toHaveBeenCalledTimes(1)
+    })
+
+    expect(mocks.setLogsInsert).toHaveBeenCalledWith({
+      exercise_log_id: "el-1",
+      set_number: 1,
+      duration_mins: 30,
     })
   })
 
