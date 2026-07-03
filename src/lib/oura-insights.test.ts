@@ -389,6 +389,94 @@ describe("generateInsights — resilience and VO2 max", () => {
   })
 })
 
+describe("generateInsights — age-aware personalization", () => {
+  function withReadiness(score: number) {
+    const s = emptySummary()
+    s.readiness = {
+      id: "r1",
+      day: "2024-01-01",
+      score,
+      temperature_deviation: 0,
+      contributors: {
+        activity_balance: null,
+        body_temperature: null,
+        hrv_balance: null,
+        previous_day_activity: null,
+        previous_night: null,
+        recovery_index: null,
+        resting_heart_rate: null,
+        sleep_balance: null,
+      },
+    }
+    return s
+  }
+
+  it("adds a Zone 2-3 bpm target to the moderate recommendation when age is known", () => {
+    const workout = generateInsights(withReadiness(75), { age: 51 }).find(
+      (i) => i.type === "workout"
+    )
+    // Age 51 → max HR 172; Zone 2-3 = 103-138 bpm
+    expect(workout?.body).toContain("103-138 bpm")
+    expect(workout?.body).toMatch(/Zone 2-3 for your age/)
+  })
+
+  it("adds a Zone 4-5 range and est. max HR to the hard recommendation", () => {
+    const s = withReadiness(90)
+    s.stress = {
+      id: "st1",
+      day: "2024-01-01",
+      stress_high: null,
+      recovery_high: 3600,
+      day_summary: "restored",
+    }
+    const workout = generateInsights(s, { age: 51 }).find((i) => i.type === "workout")
+    expect(workout?.body).toContain("138-172 bpm")
+    expect(workout?.body).toContain("est. max 172")
+  })
+
+  it("adds a Zone 2 ceiling to the light-day recommendation", () => {
+    const workout = generateInsights(withReadiness(55), { age: 51 }).find(
+      (i) => i.type === "workout"
+    )
+    expect(workout?.body).toContain("stay under 120 bpm")
+  })
+
+  it("keeps the generic wording when no profile is provided", () => {
+    const workout = generateInsights(withReadiness(75)).find(
+      (i) => i.type === "workout"
+    )
+    expect(workout?.body).not.toMatch(/bpm/)
+    expect(workout?.body).toMatch(/Save the PRs/)
+  })
+
+  it("keeps the generic wording when age is implausible", () => {
+    const workout = generateInsights(withReadiness(75), { age: 400 }).find(
+      (i) => i.type === "workout"
+    )
+    expect(workout?.body).not.toMatch(/bpm/)
+  })
+
+  it("rates VO2 max against the user's age/sex bracket", () => {
+    const s = emptySummary()
+    s.vo2Max = 43
+    // 43 is mid-range on absolute cutoffs, but excellent for a 51yo male.
+    const v = generateInsights(s, { age: 51, sex: "male" }).find((i) =>
+      i.title.match(/excellent cardio/i)
+    )
+    expect(v).toBeDefined()
+    expect(v?.body).toMatch(/for your age/)
+  })
+
+  it("does not flag a 51-year-old male's VO2 of 36 as low (it would be under absolute cutoffs)", () => {
+    const s = emptySummary()
+    s.vo2Max = 36
+    const v = generateInsights(s, { age: 51, sex: "male" }).find((i) =>
+      i.body.match(/VO2 Max/)
+    )
+    expect(v).toBeUndefined()
+  })
+})
+
 describe("generateInsights — overall behavior", () => {
   it("returns at most 4 insights, sorted high→low priority", () => {
     // Force many insights to trigger the cap.

@@ -372,8 +372,14 @@ export default function DashboardPage() {
   const ouraConnected = ouraResult?.connected ?? false
 
   const ouraInsights = useMemo(
-    () => (ouraSummary ? generateInsights(ouraSummary) : []),
-    [ouraSummary]
+    () =>
+      ouraSummary
+        ? generateInsights(ouraSummary, {
+            age: profile?.age ?? null,
+            sex: profile?.sex ?? null,
+          })
+        : [],
+    [ouraSummary, profile?.age, profile?.sex]
   )
 
   // All strength sets the user has ever logged. Used to derive both the

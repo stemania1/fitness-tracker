@@ -1,8 +1,20 @@
 import type { OuraSummary } from "./oura"
 import { formatSleepDuration } from "./oura"
+import { estimateMaxHeartRate, zoneRange } from "./heart-rate"
+import { classifyVo2Max, type Sex } from "./vo2max"
 
 export type InsightType = "workout" | "sleep" | "recovery" | "activity" | "health"
 export type InsightPriority = "high" | "medium" | "low"
+
+/**
+ * Optional user context that personalizes insights. Age drives the
+ * estimated max HR / training-zone guidance and, with sex, the VO2 Max
+ * bands. Insights degrade gracefully to the generic wording when absent.
+ */
+export interface InsightProfile {
+  age?: number | null
+  sex?: Sex
+}
 
 export interface OuraInsight {
   type: InsightType
@@ -16,8 +28,15 @@ export interface OuraInsight {
  * Analyze today's Oura data and generate 2-4 actionable insights
  * based on recovery, sleep quality, stress, and activity levels.
  */
-export function generateInsights(summary: OuraSummary): OuraInsight[] {
+export function generateInsights(
+  summary: OuraSummary,
+  profile?: InsightProfile
+): OuraInsight[] {
   const insights: OuraInsight[] = []
+
+  const age = profile?.age ?? null
+  const sex = profile?.sex ?? null
+  const maxHr = estimateMaxHeartRate(age)
 
   const readiness = summary.readiness?.score ?? null
   const sleepScore = summary.sleep?.score ?? null
@@ -30,29 +49,43 @@ export function generateInsights(summary: OuraSummary): OuraInsight[] {
   const vo2Max = summary.vo2Max
 
   // --- Workout intensity recommendation ---
+  // When age is known, each tier gets a concrete heart-rate target so the
+  // advice scales with the user's estimated max HR instead of being generic.
   if (readiness != null) {
     if (readiness >= 85 && (stressSummary === "restored" || stressSummary === "normal")) {
+      const hard = zoneRange(age, 4, 5)
+      const hrNote = hard && maxHr != null
+        ? ` Hard efforts land around ${hard.minBpm}-${hard.maxBpm} bpm for your age (est. max ${maxHr}).`
+        : ""
       insights.push({
         type: "workout",
         priority: "high",
         title: "Great day for a hard workout",
-        body: `Readiness ${readiness} and stress is ${stressSummary ?? "manageable"}. Your body is primed for high-intensity training — push yourself today.`,
+        body: `Readiness ${readiness} and stress is ${stressSummary ?? "manageable"}. Your body is primed for high-intensity training — push yourself today.${hrNote}`,
         icon: "dumbbell",
       })
     } else if (readiness >= 70) {
+      const moderate = zoneRange(age, 2, 3)
+      const hrNote = moderate
+        ? ` Aim to keep your heart rate around ${moderate.minBpm}-${moderate.maxBpm} bpm (Zone 2-3 for your age).`
+        : ""
       insights.push({
         type: "workout",
         priority: "medium",
         title: "Moderate workout recommended",
-        body: `Readiness ${readiness} — solid but not peak. A moderate session is ideal. Save the PRs for a day when you're above 85.`,
+        body: `Readiness ${readiness} — solid but not peak. A moderate session is ideal. Save the PRs for a day when you're above 85.${hrNote}`,
         icon: "dumbbell",
       })
     } else if (readiness < 70) {
+      const easy = zoneRange(age, 1, 2)
+      const hrNote = easy
+        ? ` If you do move, stay under ${easy.maxBpm} bpm (Zone 2 for your age).`
+        : ""
       insights.push({
         type: "workout",
         priority: "high",
         title: "Consider a light day or rest",
-        body: `Readiness is ${readiness} — your body is still recovering. A light walk or stretching session would be better than heavy lifting today.`,
+        body: `Readiness is ${readiness} — your body is still recovering. A light walk or stretching session would be better than heavy lifting today.${hrNote}`,
         icon: "zap",
       })
     }
@@ -202,21 +235,26 @@ export function generateInsights(summary: OuraSummary): OuraInsight[] {
   }
 
   // --- VO2 Max context ---
+  // Rated against age/sex-normalized bands (VO2 Max declines with age, so
+  // absolute cutoffs undersell older users). Falls back to absolute cutoffs
+  // when age is unknown.
   if (vo2Max != null) {
-    if (vo2Max >= 50) {
+    const rating = classifyVo2Max(vo2Max, age, sex)
+    const forAge = age != null ? " for your age" : ""
+    if (rating === "excellent") {
       insights.push({
         type: "health",
         priority: "low",
         title: "Excellent cardio fitness",
-        body: `VO2 Max of ${vo2Max.toFixed(1)} ml/kg/min puts you in the excellent range. Your endurance training is paying off.`,
+        body: `VO2 Max of ${vo2Max.toFixed(1)} ml/kg/min puts you in the excellent range${forAge}. Your endurance training is paying off.`,
         icon: "trending-up",
       })
-    } else if (vo2Max < 35) {
+    } else if (rating === "low") {
       insights.push({
         type: "health",
         priority: "medium",
         title: "Room to improve cardio fitness",
-        body: `VO2 Max is ${vo2Max.toFixed(1)} ml/kg/min. Adding 2-3 sessions of moderate cardio per week (brisk walking, cycling, jogging) can significantly improve this.`,
+        body: `VO2 Max is ${vo2Max.toFixed(1)} ml/kg/min — below average${forAge}. Adding 2-3 sessions of moderate cardio per week (brisk walking, cycling, jogging) can significantly improve this.`,
         icon: "trending-up",
       })
     }
