@@ -5,6 +5,7 @@ import { useExerciseHistory } from "@/hooks/useExerciseHistory"
 import {
   getOverloadSuggestion,
   parseRepRangeTop,
+  suggestedIncrement,
 } from "@/lib/progressive-overload"
 
 interface OverloadSuggestionProps {
@@ -12,11 +13,15 @@ interface OverloadSuggestionProps {
   /** Current exercise's prescribed rep range string, e.g. "8-12". When not
    *  set (freestyle workout), the banner won't render. */
   repsTarget: string | null
+  /** Muscle groups for the exercise; sizes the increment (isolation moves
+   *  get +2.5, lower-body compounds +10). Falls back to +5 when absent. */
+  muscleGroups?: string[]
 }
 
 export function OverloadSuggestion({
   exerciseId,
   repsTarget,
+  muscleGroups,
 }: OverloadSuggestionProps) {
   const { data } = useExerciseHistory(exerciseId)
   const repTop = parseRepRangeTop(repsTarget)
@@ -25,7 +30,8 @@ export function OverloadSuggestion({
       weight: s.weight,
       reps: s.reps,
     })),
-    repTop
+    repTop,
+    muscleGroups ? suggestedIncrement(muscleGroups) : undefined
   )
 
   if (!suggestion) return null

@@ -273,13 +273,18 @@ export default function DashboardPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error("Not authenticated")
 
-      // Get user weight
+      // Get user weight + profile fields for the RMR calorie correction
       const { data: prof } = await supabase
         .from("user_profiles")
-        .select("current_weight")
+        .select("current_weight, age, sex, height_inches")
         .eq("id", user.id)
         .single()
       const weightLbs = prof?.current_weight ?? 170
+      const calorieProfile = {
+        age: prof?.age,
+        sex: prof?.sex,
+        heightInches: prof?.height_inches,
+      }
 
       // Get this week's workout IDs
       const { data: logs } = await supabase
@@ -335,9 +340,21 @@ export default function DashboardPage() {
         const catalogId = def?.id ?? ex.exercise_id
         if (def?.exerciseType === "cardio") {
           const totalMins = sets.reduce((s, set) => s + (set.duration_mins ?? 0), 0)
-          totalCal += estimateCardioCalories(catalogId, totalMins, weightLbs)
+          totalCal += estimateCardioCalories(
+            catalogId,
+            totalMins,
+            weightLbs,
+            null,
+            null,
+            calorieProfile
+          )
         } else {
-          totalCal += estimateStrengthCalories(catalogId, sets.length, weightLbs)
+          totalCal += estimateStrengthCalories(
+            catalogId,
+            sets.length,
+            weightLbs,
+            calorieProfile
+          )
         }
       })
 
@@ -372,8 +389,14 @@ export default function DashboardPage() {
   const ouraConnected = ouraResult?.connected ?? false
 
   const ouraInsights = useMemo(
-    () => (ouraSummary ? generateInsights(ouraSummary) : []),
-    [ouraSummary]
+    () =>
+      ouraSummary
+        ? generateInsights(ouraSummary, {
+            age: profile?.age ?? null,
+            sex: profile?.sex ?? null,
+          })
+        : [],
+    [ouraSummary, profile?.age, profile?.sex]
   )
 
   // All strength sets the user has ever logged. Used to derive both the

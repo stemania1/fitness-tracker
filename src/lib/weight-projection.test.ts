@@ -92,3 +92,47 @@ describe("logsToPoints", () => {
     expect(points[1].day - points[0].day).toBe(2)
   })
 })
+
+describe("projectWeightDate — guardrails", () => {
+  const now = new Date("2026-01-01T00:00:00Z")
+
+  it("labels wrong-direction trends with a reason", () => {
+    // Gaining while trying to lose
+    const fit = { slope: 0.1, intercept: 200 }
+    const result = projectWeightDate(200, 190, fit, now)
+    expect(result?.onTrack).toBe(false)
+    expect(result?.reason).toBe("wrong_direction")
+  })
+
+  it("rejects projections more than 2 years out as too slow", () => {
+    // Losing 0.002 lbs/day → 10 lbs takes ~5000 days
+    const fit = { slope: -0.002, intercept: 200 }
+    const result = projectWeightDate(200, 190, fit, now)
+    expect(result?.onTrack).toBe(false)
+    expect(result?.reason).toBe("too_slow")
+    expect(result?.projectedDate).toBe("")
+  })
+
+  it("accepts projections just inside the 2-year horizon", () => {
+    // 10 lbs at ~0.0143 lbs/day ≈ 700 days
+    const fit = { slope: -10 / 700, intercept: 200 }
+    const result = projectWeightDate(200, 190, fit, now)
+    expect(result?.onTrack).toBe(true)
+    expect(result?.daysToTarget).toBe(700)
+  })
+
+  it("flags rapid loss beyond 2 lbs/week", () => {
+    // 3.5 lbs/week loss
+    const fit = { slope: -0.5, intercept: 200 }
+    const result = projectWeightDate(200, 190, fit, now)
+    expect(result?.onTrack).toBe(true)
+    expect(result?.rapidRate).toBe(true)
+  })
+
+  it("does not flag a sustainable 1 lb/week pace", () => {
+    const fit = { slope: -1 / 7, intercept: 200 }
+    const result = projectWeightDate(200, 190, fit, now)
+    expect(result?.onTrack).toBe(true)
+    expect(result?.rapidRate).toBe(false)
+  })
+})

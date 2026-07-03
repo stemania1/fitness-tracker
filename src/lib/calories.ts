@@ -3,7 +3,48 @@
  *
  * Formula: Calories = MET × body weight (kg) × duration (hours)
  * Body weight is stored in lbs internally, so we convert: kg = lbs × 0.453592
+ *
+ * The base formula assumes 1 MET = 1 kcal/kg/hr, which is calibrated to a
+ * reference adult. Actual resting metabolism declines with age and varies
+ * by sex and size, so when the profile is available we scale by a
+ * Mifflin-St Jeor RMR correction (see rmrCorrectionFactor).
  */
+
+/** Optional user context that refines calorie estimates. */
+export interface CalorieProfile {
+  age?: number | null
+  sex?: "male" | "female" | "other" | null
+  heightInches?: number | null
+}
+
+/**
+ * Ratio of the user's estimated resting metabolic rate (Mifflin-St Jeor)
+ * to the 1 kcal/kg/hr the MET convention assumes. For a 51-year-old this
+ * is typically ~0.85-0.95, i.e. the generic formula overestimates burn.
+ *
+ * Returns 1 (no correction) when age or height is missing/implausible.
+ * Clamped to [0.75, 1.25] so bad profile data can't skew estimates wildly.
+ */
+export function rmrCorrectionFactor(
+  bodyWeightLbs: number,
+  profile?: CalorieProfile
+): number {
+  const age = profile?.age
+  const heightInches = profile?.heightInches
+  if (age == null || !Number.isFinite(age) || age < 13 || age > 100) return 1
+  if (heightInches == null || !Number.isFinite(heightInches) || heightInches <= 0) return 1
+  const weightKg = bodyWeightLbs * 0.453592
+  if (!(weightKg > 0)) return 1
+
+  const heightCm = heightInches * 2.54
+  // Mifflin-St Jeor: sex term is +5 (male) / -161 (female); midpoint for
+  // other/unknown.
+  const sexTerm =
+    profile?.sex === "male" ? 5 : profile?.sex === "female" ? -161 : -78
+  const rmrKcalPerDay = 10 * weightKg + 6.25 * heightCm - 5 * age + sexTerm
+  const factor = rmrKcalPerDay / (weightKg * 24)
+  return Math.min(1.25, Math.max(0.75, factor))
+}
 
 /** MET values for exercises by exercise ID or category */
 const MET_VALUES: Record<string, number> = {
@@ -46,13 +87,15 @@ function getMetValue(exerciseId: string, exerciseType: string): number {
 export function estimateStrengthCalories(
   exerciseId: string,
   completedSets: number,
-  bodyWeightLbs: number
+  bodyWeightLbs: number,
+  profile?: CalorieProfile
 ): number {
   const met = getMetValue(exerciseId, "strength")
   const weightKg = bodyWeightLbs * 0.453592
   const minutesPerSet = 2
   const durationHours = (completedSets * minutesPerSet) / 60
-  return Math.round(met * weightKg * durationHours)
+  const correction = rmrCorrectionFactor(bodyWeightLbs, profile)
+  return Math.round(met * weightKg * durationHours * correction)
 }
 
 /**
@@ -65,7 +108,8 @@ export function estimateCardioCalories(
   durationMins: number,
   bodyWeightLbs: number,
   speedMph?: number | null,
-  inclinePercent?: number | null
+  inclinePercent?: number | null,
+  profile?: CalorieProfile
 ): number {
   let met = getMetValue(exerciseId, "cardio")
 
@@ -97,7 +141,8 @@ export function estimateCardioCalories(
 
   const weightKg = bodyWeightLbs * 0.453592
   const durationHours = durationMins / 60
-  return Math.round(met * weightKg * durationHours)
+  const correction = rmrCorrectionFactor(bodyWeightLbs, profile)
+  return Math.round(met * weightKg * durationHours * correction)
 }
 
 /**
@@ -117,7 +162,8 @@ export interface ExerciseCalorieInput {
 
 export function calculateWorkoutCalories(
   exercises: ExerciseCalorieInput[],
-  bodyWeightLbs: number
+  bodyWeightLbs: number,
+  profile?: CalorieProfile
 ): { perExercise: number[]; total: number } {
   const perExercise = exercises.map((ex) => {
     if (ex.exerciseType === "cardio" && ex.totalDurationMins) {
@@ -126,13 +172,15 @@ export function calculateWorkoutCalories(
         ex.totalDurationMins,
         bodyWeightLbs,
         ex.speedMph,
-        ex.inclinePercent
+        ex.inclinePercent,
+        profile
       )
     }
     return estimateStrengthCalories(
       ex.exerciseId,
       ex.completedSets,
-      bodyWeightLbs
+      bodyWeightLbs,
+      profile
     )
   })
 

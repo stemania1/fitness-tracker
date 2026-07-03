@@ -53,7 +53,17 @@ export interface WeightProjection {
   projectedDate: string
   /** Whether the user is moving toward their target (vs. away). */
   onTrack: boolean
+  /** Why the projection isn't usable, when onTrack is false. */
+  reason?: "wrong_direction" | "too_slow"
+  /** True when the pace exceeds the generally recommended ~2 lbs/week. */
+  rapidRate?: boolean
 }
+
+/** Beyond this horizon a projection is noise, not a plan (2 years). */
+const MAX_PROJECTION_DAYS = 730
+
+/** Sustained loss/gain beyond this is worth a caution flag. */
+const RAPID_LBS_PER_WEEK = 2
 
 /**
  * Project when the user will hit `targetWeight` given a linear fit of recent
@@ -80,19 +90,44 @@ export function projectWeightDate(
     (needed < 0 && fit.slope >= -0.001) ||
     (needed > 0 && fit.slope <= 0.001)
   ) {
-    return { lbsPerWeek: fit.slope * 7, daysToTarget: 0, projectedDate: "", onTrack: false }
+    return {
+      lbsPerWeek: fit.slope * 7,
+      daysToTarget: 0,
+      projectedDate: "",
+      onTrack: false,
+      reason: "wrong_direction",
+    }
   }
   const daysToTarget = needed / fit.slope
   if (!Number.isFinite(daysToTarget) || daysToTarget < 0) {
-    return { lbsPerWeek: fit.slope * 7, daysToTarget: 0, projectedDate: "", onTrack: false }
+    return {
+      lbsPerWeek: fit.slope * 7,
+      daysToTarget: 0,
+      projectedDate: "",
+      onTrack: false,
+      reason: "wrong_direction",
+    }
+  }
+  // A slope that barely clears the flat-trend deadband can project a date
+  // decades out. That's noise — don't present it as a plan.
+  if (daysToTarget > MAX_PROJECTION_DAYS) {
+    return {
+      lbsPerWeek: fit.slope * 7,
+      daysToTarget: 0,
+      projectedDate: "",
+      onTrack: false,
+      reason: "too_slow",
+    }
   }
   const projected = new Date(now)
   projected.setDate(projected.getDate() + Math.round(daysToTarget))
+  const lbsPerWeek = fit.slope * 7
   return {
-    lbsPerWeek: fit.slope * 7,
+    lbsPerWeek,
     daysToTarget: Math.round(daysToTarget),
     projectedDate: projected.toISOString().slice(0, 10),
     onTrack: true,
+    rapidRate: Math.abs(lbsPerWeek) > RAPID_LBS_PER_WEEK,
   }
 }
 

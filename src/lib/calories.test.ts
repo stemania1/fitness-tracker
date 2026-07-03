@@ -4,6 +4,7 @@ import {
   estimateCardioCalories,
   calculateWorkoutCalories,
   ExerciseCalorieInput,
+  rmrCorrectionFactor,
 } from "./calories"
 
 describe("estimateStrengthCalories", () => {
@@ -186,5 +187,79 @@ describe("calculateWorkoutCalories", () => {
     // So it will use DEFAULT_MET.strength = 3.5
     const result = calculateWorkoutCalories(exercises, 180)
     expect(result.perExercise[0]).toBeGreaterThan(0)
+  })
+})
+
+describe("rmrCorrectionFactor", () => {
+  it("returns 1 (no correction) when age or height is missing", () => {
+    expect(rmrCorrectionFactor(180)).toBe(1)
+    expect(rmrCorrectionFactor(180, {})).toBe(1)
+    expect(rmrCorrectionFactor(180, { age: 51 })).toBe(1)
+    expect(rmrCorrectionFactor(180, { heightInches: 70 })).toBe(1)
+  })
+
+  it("returns 1 for implausible inputs", () => {
+    expect(rmrCorrectionFactor(180, { age: 5, heightInches: 70 })).toBe(1)
+    expect(rmrCorrectionFactor(180, { age: 51, heightInches: -3 })).toBe(1)
+    expect(rmrCorrectionFactor(0, { age: 51, heightInches: 70 })).toBe(1)
+  })
+
+  it("reduces estimates for a 51-year-old male vs the generic assumption", () => {
+    // 180 lbs, 5'10", 51yo male: Mifflin RMR ≈ 1678 kcal/day ≈ 0.86 kcal/kg/hr
+    const factor = rmrCorrectionFactor(180, {
+      age: 51,
+      sex: "male",
+      heightInches: 70,
+    })
+    expect(factor).toBeGreaterThan(0.8)
+    expect(factor).toBeLessThan(0.95)
+  })
+
+  it("declines with age, holding everything else equal", () => {
+    const at30 = rmrCorrectionFactor(180, { age: 30, sex: "male", heightInches: 70 })
+    const at51 = rmrCorrectionFactor(180, { age: 51, sex: "male", heightInches: 70 })
+    const at70 = rmrCorrectionFactor(180, { age: 70, sex: "male", heightInches: 70 })
+    expect(at30).toBeGreaterThan(at51)
+    expect(at51).toBeGreaterThan(at70)
+  })
+
+  it("is lower for females than males (Mifflin sex term)", () => {
+    const male = rmrCorrectionFactor(160, { age: 40, sex: "male", heightInches: 66 })
+    const female = rmrCorrectionFactor(160, { age: 40, sex: "female", heightInches: 66 })
+    expect(female).toBeLessThan(male)
+  })
+
+  it("clamps to [0.75, 1.25] on extreme profiles", () => {
+    // Very heavy + old + short female pushes the raw ratio below 0.75
+    const low = rmrCorrectionFactor(400, { age: 95, sex: "female", heightInches: 58 })
+    expect(low).toBe(0.75)
+  })
+
+  it("scales calorie estimates when a profile is provided", () => {
+    const profile = { age: 51, sex: "male" as const, heightInches: 70 }
+    const generic = estimateStrengthCalories("push-ups", 4, 180)
+    const corrected = estimateStrengthCalories("push-ups", 4, 180, profile)
+    expect(corrected).toBeLessThan(generic)
+
+    const genericCardio = estimateCardioCalories("elliptical-exercise", 30, 180)
+    const correctedCardio = estimateCardioCalories(
+      "elliptical-exercise", 30, 180, null, null, profile
+    )
+    expect(correctedCardio).toBeLessThan(genericCardio)
+  })
+
+  it("threads the profile through calculateWorkoutCalories", () => {
+    const profile = { age: 51, sex: "male" as const, heightInches: 70 }
+    const input: ExerciseCalorieInput[] = [
+      {
+        exerciseId: "push-ups",
+        exerciseType: "strength",
+        completedSets: 3,
+        totalDurationMins: null,
+      },
+    ]
+    const generic = calculateWorkoutCalories(input, 180)
+    const corrected = calculateWorkoutCalories(input, 180, profile)
+    expect(corrected.total).toBeLessThan(generic.total)
   })
 })

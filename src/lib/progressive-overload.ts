@@ -25,6 +25,27 @@ export interface PreviousSet {
   reps: number | null
 }
 
+const LOWER_BODY_GROUPS = new Set(["quads", "hamstrings", "glutes"])
+
+/**
+ * Size the weight increment to the exercise instead of a flat +5 lbs.
+ * A +5 jump is trivial on a leg press but a ~30-50% leap on a lateral
+ * raise; small-muscle isolation work needs smaller steps.
+ *
+ *  - Lower-body compound (multi-group with quads/hams/glutes): +10
+ *  - Lower-body isolation (leg curl, leg extension):           +5
+ *  - Upper-body compound (press, row):                         +5
+ *  - Isolation / small-muscle (curls, raises, flys):           +2.5
+ */
+export function suggestedIncrement(muscleGroups: string[]): number {
+  const groups = muscleGroups.filter((g) => g !== "full_body")
+  if (groups.length === 0) return 5
+  const hasLower = groups.some((g) => LOWER_BODY_GROUPS.has(g))
+  const isCompound = groups.length >= 2
+  if (hasLower) return isCompound ? 10 : 5
+  return isCompound ? 5 : 2.5
+}
+
 export interface OverloadSuggestion {
   /** The weight you used last session (and should beat this time). */
   previousWeight: number

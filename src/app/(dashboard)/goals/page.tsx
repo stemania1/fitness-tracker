@@ -663,6 +663,20 @@ export default function GoalsPage() {
                       At {Math.abs(projection.lbsPerWeek).toFixed(1)} lbs/week.
                       Target by {projection.projectedDate}.
                     </p>
+                    {projection.rapidRate && (
+                      <p className="mt-1 text-amber-700">
+                        That pace is faster than the generally recommended
+                        1-2 lbs/week — make sure it&apos;s intentional and
+                        sustainable.
+                      </p>
+                    )}
+                  </div>
+                ) : projection?.reason === "too_slow" ? (
+                  <div className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                    Your weight trend is heading the right way, but at the
+                    current rate the target is more than two years out.
+                    Small, consistent changes to diet or activity will move
+                    the date closer.
                   </div>
                 ) : projection && !projection.onTrack ? (
                   <div className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">
