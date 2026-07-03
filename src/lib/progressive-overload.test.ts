@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest"
 import {
   parseRepRangeTop,
   getOverloadSuggestion,
+  suggestedIncrement,
 } from "./progressive-overload"
 
 describe("parseRepRangeTop", () => {
@@ -101,5 +102,44 @@ describe("getOverloadSuggestion", () => {
     )
     expect(result?.suggestedWeight).toBe(110)
     expect(result?.increment).toBe(10)
+  })
+})
+
+describe("suggestedIncrement", () => {
+  it("suggests +10 for lower-body compounds", () => {
+    expect(suggestedIncrement(["quads", "hamstrings", "glutes"])).toBe(10) // leg press
+    expect(suggestedIncrement(["quads", "glutes"])).toBe(10) // goblet squat
+  })
+
+  it("suggests +5 for lower-body isolation", () => {
+    expect(suggestedIncrement(["hamstrings"])).toBe(5) // leg curl
+    expect(suggestedIncrement(["quads"])).toBe(5) // leg extension
+  })
+
+  it("suggests +5 for upper-body compounds", () => {
+    expect(suggestedIncrement(["chest", "triceps", "shoulders"])).toBe(5) // chest press
+    expect(suggestedIncrement(["back", "biceps"])).toBe(5) // row
+  })
+
+  it("suggests +2.5 for isolation / small-muscle work", () => {
+    expect(suggestedIncrement(["shoulders"])).toBe(2.5) // lateral raise
+    expect(suggestedIncrement(["biceps"])).toBe(2.5) // curl
+    expect(suggestedIncrement(["chest"])).toBe(2.5) // fly
+    expect(suggestedIncrement(["core"])).toBe(2.5)
+  })
+
+  it("ignores the full_body tag and falls back to +5 when nothing remains", () => {
+    expect(suggestedIncrement(["full_body"])).toBe(5)
+    expect(suggestedIncrement([])).toBe(5)
+  })
+
+  it("feeds through getOverloadSuggestion", () => {
+    const sets = [
+      { weight: 15, reps: 15 },
+      { weight: 15, reps: 15 },
+    ]
+    const result = getOverloadSuggestion(sets, 15, suggestedIncrement(["shoulders"]))
+    expect(result?.increment).toBe(2.5)
+    expect(result?.suggestedWeight).toBe(17.5)
   })
 })
