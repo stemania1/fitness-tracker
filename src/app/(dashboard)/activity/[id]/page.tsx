@@ -26,6 +26,7 @@ import { exercises as exerciseCatalog } from "@/data/exercises"
 import {
   estimateStrengthCalories,
   estimateCardioCalories,
+  type CalorieProfile,
 } from "@/lib/calories"
 import { estimateOneRepMax } from "@/lib/personal-records"
 
@@ -87,6 +88,7 @@ export default function WorkoutDetailPage() {
   const [deleting, setDeleting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [userWeightLbs, setUserWeightLbs] = useState<number>(170)
+  const [calorieProfile, setCalorieProfile] = useState<CalorieProfile>({})
   const [editing, setEditing] = useState<WorkoutDetail | null>(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -247,10 +249,17 @@ export default function WorkoutDetailPage() {
       if (user) {
         const { data: profile } = await supabase
           .from("user_profiles")
-          .select("current_weight")
+          .select("current_weight, age, sex, height_inches")
           .eq("id", user.id)
           .single()
         if (profile?.current_weight) setUserWeightLbs(profile.current_weight)
+        if (profile) {
+          setCalorieProfile({
+            age: profile.age,
+            sex: profile.sex,
+            heightInches: profile.height_inches,
+          })
+        }
       }
 
       setLoading(false)
@@ -317,13 +326,14 @@ export default function WorkoutDetailPage() {
             totalMins,
             userWeightLbs,
             avgSpeed,
-            avgIncline
+            avgIncline,
+            calorieProfile
           )
         )
       }
-      return sum + estimateStrengthCalories(ex.exercise_id, ex.sets.length, userWeightLbs)
+      return sum + estimateStrengthCalories(ex.exercise_id, ex.sets.length, userWeightLbs, calorieProfile)
     }, 0)
-  }, [workout, userWeightLbs, exerciseMap])
+  }, [workout, userWeightLbs, calorieProfile, exerciseMap])
 
   const handleDelete = async () => {
     setDeleting(true)

@@ -36,6 +36,7 @@ import { isNewPersonalRecord } from "@/lib/personal-records"
 import {
   estimateStrengthCalories,
   estimateCardioCalories,
+  type CalorieProfile,
 } from "@/lib/calories"
 import { ensureExercisesExist } from "@/lib/supabase/exercises"
 
@@ -171,6 +172,7 @@ export default function LogWorkoutPage() {
   const [restTimer, setRestTimer] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [userWeightLbs, setUserWeightLbs] = useState<number>(170)
+  const [calorieProfile, setCalorieProfile] = useState<CalorieProfile>({})
   const startRef = useRef<Date | null>(null)
   /** Exercises we've already pre-filled this session, so we don't clobber
    *  user edits if they tab back to the exercise. */
@@ -262,10 +264,17 @@ export default function LogWorkoutPage() {
       if (!user) return
       const { data: profile } = await supabase
         .from("user_profiles")
-        .select("current_weight")
+        .select("current_weight, age, sex, height_inches")
         .eq("id", user.id)
         .single()
       if (profile?.current_weight) setUserWeightLbs(profile.current_weight)
+      if (profile) {
+        setCalorieProfile({
+          age: profile.age,
+          sex: profile.sex,
+          heightInches: profile.height_inches,
+        })
+      }
     }
     fetchWeight()
   }, [])
@@ -416,13 +425,15 @@ export default function LogWorkoutPage() {
         totalMins,
         userWeightLbs,
         avgSpeed,
-        avgIncline
+        avgIncline,
+        calorieProfile
       )
     }
     return estimateStrengthCalories(
       ex.exerciseId,
       completedSets.length,
-      userWeightLbs
+      userWeightLbs,
+      calorieProfile
     )
   }
 
@@ -700,6 +711,7 @@ export default function LogWorkoutPage() {
                   <OverloadSuggestion
                     exerciseId={currentExercise.exerciseId}
                     repsTarget={currentExercise.repsTarget}
+                    muscleGroups={currentExercise.muscleGroups}
                   />
                 )}
 
