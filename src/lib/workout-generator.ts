@@ -1,11 +1,19 @@
 import { exercises, type ExerciseDefinition } from "@/data/exercises"
+import {
+  affectsLowerBody,
+  excludedExerciseIds,
+  parseLimitations,
+} from "@/lib/limitations"
 
 export interface GenerateWorkoutInput {
   goal: "lose_weight" | "build_muscle" | "improve_endurance" | "general_fitness"
   fitnessLevel: "beginner" | "intermediate" | "advanced"
   workoutDays: number
   splitType?: string
+  /** Free-text injury notes, parsed into exercise exclusions. */
   limitations?: string
+  /** Steers cardio toward low impact for users 60+. */
+  age?: number | null
 }
 
 export interface GeneratedExercise {
@@ -201,18 +209,42 @@ function shuffle<T>(arr: T[]): T[] {
   return [...arr].sort(() => Math.random() - 0.5)
 }
 
+/** How exercise selection is constrained for this generation run. */
+interface SelectionConstraints {
+  /** Catalog IDs excluded because of the user's limitations. */
+  excluded: ReadonlySet<string>
+  /** Prefer walking/elliptical/bike over running/stairs for cardio. */
+  lowImpactCardio: boolean
+}
+
+const NO_CONSTRAINTS: SelectionConstraints = {
+  excluded: new Set(),
+  lowImpactCardio: false,
+}
+
+/** Joint-friendly cardio kept when lowImpactCardio is set. */
+const LOW_IMPACT_CARDIO_IDS = new Set([
+  "treadmill-walk",
+  "incline-treadmill-walk",
+  "elliptical-exercise",
+  "stationary-bike-exercise",
+  "rowing-exercise",
+])
+
 function pickExercises(
   muscleTargets: string[],
   fitnessLevel: string,
   count: number,
-  alreadyPicked: Set<string>
+  alreadyPicked: Set<string>,
+  constraints: SelectionConstraints
 ): ExerciseDefinition[] {
   const pool = filterByDifficulty(
     exercises.filter(
       (e) =>
         e.exerciseType === "strength" &&
         e.muscleGroups.some((mg) => muscleTargets.includes(mg)) &&
-        !alreadyPicked.has(e.id)
+        !alreadyPicked.has(e.id) &&
+        !constraints.excluded.has(e.id)
     ),
     fitnessLevel
   )
@@ -222,14 +254,23 @@ function pickExercises(
 
 function pickCardio(
   fitnessLevel: string,
-  alreadyPicked: Set<string>
+  alreadyPicked: Set<string>,
+  constraints: SelectionConstraints
 ): ExerciseDefinition | null {
-  const pool = filterByDifficulty(
+  let pool = filterByDifficulty(
     exercises.filter(
-      (e) => e.exerciseType === "cardio" && !alreadyPicked.has(e.id)
+      (e) =>
+        e.exerciseType === "cardio" &&
+        !alreadyPicked.has(e.id) &&
+        !constraints.excluded.has(e.id)
     ),
     fitnessLevel
   )
+  if (constraints.lowImpactCardio) {
+    const lowImpact = pool.filter((e) => LOW_IMPACT_CARDIO_IDS.has(e.id))
+    // Only narrow when something joint-friendly remains.
+    if (lowImpact.length > 0) pool = lowImpact
+  }
   if (pool.length === 0) return null
   return pool[Math.floor(Math.random() * pool.length)]
 }
@@ -238,7 +279,8 @@ function pickCalisthenics(
   muscleTargets: string[],
   fitnessLevel: string,
   count: number,
-  alreadyPicked: Set<string>
+  alreadyPicked: Set<string>,
+  constraints: SelectionConstraints
 ): ExerciseDefinition[] {
   const bodyweightIds = [
     "push-ups",
@@ -252,6 +294,7 @@ function pickCalisthenics(
       (e) =>
         bodyweightIds.includes(e.id) &&
         !alreadyPicked.has(e.id) &&
+        !constraints.excluded.has(e.id) &&
         e.muscleGroups.some((mg) => muscleTargets.includes(mg))
     ),
     fitnessLevel
@@ -261,7 +304,8 @@ function pickCalisthenics(
 }
 
 function generateExpressWorkout(
-  fitnessLevel: string
+  fitnessLevel: string,
+  constraints: SelectionConstraints
 ): GeneratedWorkout {
   const picked: Set<string> = new Set()
   const generatedExercises: GeneratedExercise[] = []
@@ -283,7 +327,8 @@ function generateExpressWorkout(
         (e) =>
           e.exerciseType === "strength" &&
           e.muscleGroups.some((mg) => targets.includes(mg)) &&
-          !picked.has(e.id)
+          !picked.has(e.id) &&
+          !constraints.excluded.has(e.id)
       ),
       fitnessLevel
     )
@@ -312,7 +357,7 @@ function generateExpressWorkout(
   }
 
   // Add one cardio finisher (short burst, not a long session)
-  const cardio = pickCardio(fitnessLevel, picked)
+  const cardio = pickCardio(fitnessLevel, picked, constraints)
   if (cardio) {
     picked.add(cardio.id)
     generatedExercises.push({
@@ -336,11 +381,23 @@ function generateExpressWorkout(
 export function generateWorkout(
   input: GenerateWorkoutInput
 ): GeneratedWorkout[] {
-  const { goal, fitnessLevel, workoutDays, splitType } = input
+  const { goal, fitnessLevel, workoutDays, splitType, limitations, age } = input
+
+  // Turn free-text limitations into exercise exclusions, and steer cardio
+  // toward low impact when joints are involved or the user is 60+.
+  const limitationAreas = parseLimitations(limitations)
+  const constraints: SelectionConstraints =
+    limitationAreas.length === 0 && (age == null || age < 60)
+      ? NO_CONSTRAINTS
+      : {
+          excluded: excludedExerciseIds(limitationAreas),
+          lowImpactCardio:
+            affectsLowerBody(limitationAreas) || (age != null && age >= 60),
+        }
 
   // Handle express circuit as a standalone workout
   if (splitType === "express") {
-    return [generateExpressWorkout(fitnessLevel)]
+    return [generateExpressWorkout(fitnessLevel, constraints)]
   }
 
   const scheme = GOAL_SCHEME[goal]
@@ -358,7 +415,13 @@ export function generateWorkout(
     )
 
     for (const targets of day.muscleGroups) {
-      const selected = pickExercises(targets, fitnessLevel, perGroup, picked)
+      const selected = pickExercises(
+        targets,
+        fitnessLevel,
+        perGroup,
+        picked,
+        constraints
+      )
       for (const ex of selected) {
         picked.add(ex.id)
         generatedExercises.push({
@@ -386,7 +449,8 @@ export function generateWorkout(
       calisthenicsMuscles,
       fitnessLevel,
       calisthenicsCount,
-      picked
+      picked,
+      constraints
     )
     for (const ex of calisthenics) {
       picked.add(ex.id)
@@ -400,8 +464,8 @@ export function generateWorkout(
       })
     }
 
-    // Always add cardio (running/treadmill preferred)
-    const cardio = pickCardio(fitnessLevel, picked)
+    // Always add cardio (low impact when limitations/age call for it)
+    const cardio = pickCardio(fitnessLevel, picked, constraints)
     if (cardio) {
       picked.add(cardio.id)
       const cardioDuration =

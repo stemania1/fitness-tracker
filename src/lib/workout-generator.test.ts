@@ -232,3 +232,86 @@ describe("generateWorkout — express circuit", () => {
     }
   })
 })
+
+describe("generateWorkout — limitations and age", () => {
+  const KNEE_UNSAFE = [
+    "smith-machine-squat",
+    "dumbbell-goblet-squat",
+    "dumbbell-lunge",
+    "smith-machine-lunge",
+    "bulgarian-split-squat",
+    "dumbbell-step-up",
+    "leg-extension-exercise",
+    "treadmill-jog",
+    "treadmill-run",
+    "outdoor-run",
+    "stairmaster-exercise",
+  ]
+
+  it("excludes knee-loading exercises when limitations mention a knee", () => {
+    const out = generateWorkout(
+      baseInput({ workoutDays: 4, limitations: "bad knee" })
+    )
+    const pickedIds = out.flatMap((w) => w.exercises.map((e) => e.exerciseId))
+    for (const id of KNEE_UNSAFE) {
+      expect(pickedIds, `should exclude ${id}`).not.toContain(id)
+    }
+    // Leg days still have work to do — machine-supported options remain.
+    const lower = out.find((w) => w.splitType === "lower")!
+    expect(lower.exercises.length).toBeGreaterThan(0)
+  })
+
+  it("excludes overhead pressing when limitations mention a shoulder", () => {
+    const out = generateWorkout(
+      baseInput({ workoutDays: 5, limitations: "rotator cuff issues" })
+    )
+    const pickedIds = out.flatMap((w) => w.exercises.map((e) => e.exerciseId))
+    expect(pickedIds).not.toContain("dumbbell-shoulder-press")
+    expect(pickedIds).not.toContain("shoulder-press-machine-exercise")
+    expect(pickedIds).not.toContain("smith-machine-overhead-press")
+  })
+
+  it("applies exclusions to the express circuit too", () => {
+    const out = generateWorkout(
+      baseInput({ splitType: "express", limitations: "bad knees" })
+    )
+    const pickedIds = out[0].exercises.map((e) => e.exerciseId)
+    for (const id of KNEE_UNSAFE) {
+      expect(pickedIds).not.toContain(id)
+    }
+  })
+
+  it("picks low-impact cardio for users 60+", () => {
+    const lowImpact = new Set([
+      "treadmill-walk",
+      "incline-treadmill-walk",
+      "elliptical-exercise",
+      "stationary-bike-exercise",
+      "rowing-exercise",
+    ])
+    const out = generateWorkout(baseInput({ workoutDays: 6, age: 65 }))
+    const cardio = out
+      .flatMap((w) => w.exercises)
+      .filter((e) => e.restSeconds === 0)
+    expect(cardio.length).toBeGreaterThan(0)
+    for (const c of cardio) {
+      expect(lowImpact.has(c.exerciseId), c.exerciseId).toBe(true)
+    }
+  })
+
+  it("does not constrain younger users without limitations", () => {
+    // With the same pinned seed, a 30-year-old and an unspecified-age user
+    // get identical output.
+    const young = generateWorkout(baseInput({ workoutDays: 3, age: 30 }))
+    const unspecified = generateWorkout(baseInput({ workoutDays: 3 }))
+    expect(young).toEqual(unspecified)
+  })
+
+  it("ignores unrecognized limitation text", () => {
+    const out = generateWorkout(
+      baseInput({ workoutDays: 3, limitations: "prefer mornings" })
+    )
+    const plain = generateWorkout(baseInput({ workoutDays: 3 }))
+    expect(out).toEqual(plain)
+  })
+})

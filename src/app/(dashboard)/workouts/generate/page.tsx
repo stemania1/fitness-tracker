@@ -75,6 +75,7 @@ export default function GenerateWorkoutPage() {
         workoutDays: profile.workout_days ?? 3,
         splitType: "express",
         limitations: profile.limitations ?? undefined,
+        age: profile.age,
       })
       setGeneratedWorkouts(expressWorkout)
       return
@@ -85,6 +86,7 @@ export default function GenerateWorkoutPage() {
       fitnessLevel: profile.fitness_level ?? "beginner",
       workoutDays: profile.workout_days ?? 3,
       limitations: profile.limitations ?? undefined,
+      age: profile.age,
     })
     setGeneratedWorkouts(workouts)
   }
