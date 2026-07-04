@@ -6,15 +6,22 @@
 
 const OURA_API_BASE = "https://api.ouraring.com/v2/usercollection"
 
+/** Shift a YYYY-MM-DD date string by whole days (UTC-safe). */
+function shiftDate(date: string, days: number): string {
+  const d = new Date(`${date}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
+/**
+ * The daily_sleep document contains ONLY the score and contributor
+ * sub-scores (0-100 each) — no durations. Durations live on sleep
+ * periods (OuraSleepPeriod, from the /sleep endpoint).
+ */
 export interface OuraDailySleep {
   id: string
   day: string
   score: number | null
-  total_sleep_duration: number | null // seconds
-  deep_sleep_duration: number | null
-  rem_sleep_duration: number | null
-  light_sleep_duration: number | null
-  efficiency: number | null
 }
 
 export interface OuraSleepPeriod {
@@ -194,9 +201,13 @@ export async function getOuraDailySummary(
       start_date: today,
       end_date: today,
     }),
+    // Sleep periods are keyed by wake-up day, but the /sleep endpoint's
+    // date filtering is unreliable with a single-day window (Oura's own
+    // client defaults to a two-day range). Query a padded window and pick
+    // today's period client-side below.
     ouraFetch<{ data: OuraSleepPeriod[] }>("sleep", accessToken, {
-      start_date: today,
-      end_date: today,
+      start_date: shiftDate(today, -1),
+      end_date: shiftDate(today, 1),
     }),
     ouraFetch<{ data: OuraDailyActivity[] }>(
       "daily_activity",
@@ -244,9 +255,12 @@ export async function getOuraDailySummary(
     )
   }
 
-  // Use the primary (long_sleep) period for detailed sleep data
-  const primarySleep = sleepPeriods?.data?.find((p) => p.type === "long_sleep")
-    ?? sleepPeriods?.data?.[0]
+  // Use the primary (long_sleep) period for detailed sleep data. Only
+  // consider periods whose wake-up day is `today` — the padded query
+  // window can also return yesterday's sleep, which would be stale.
+  const todaysPeriods = (sleepPeriods?.data ?? []).filter((p) => p.day === today)
+  const primarySleep = todaysPeriods.find((p) => p.type === "long_sleep")
+    ?? todaysPeriods[0]
     ?? null
 
   return {

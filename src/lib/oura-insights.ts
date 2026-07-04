@@ -93,10 +93,11 @@ export function generateInsights(
 
   // --- Sleep quality insight ---
   if (sleepScore != null || sleepPeriod) {
-    const duration = summary.sleep?.total_sleep_duration ?? sleepPeriod?.total_sleep_duration
+    // Durations only exist on the sleep period; daily_sleep is score-only.
+    const duration = sleepPeriod?.total_sleep_duration
     const hrv = sleepPeriod?.average_hrv
-    const deepSleep = sleepPeriod?.deep_sleep_duration ?? summary.sleep?.deep_sleep_duration
-    const remSleep = sleepPeriod?.rem_sleep_duration ?? summary.sleep?.rem_sleep_duration
+    const deepSleep = sleepPeriod?.deep_sleep_duration
+    const remSleep = sleepPeriod?.rem_sleep_duration
 
     if (sleepScore != null && sleepScore < 65) {
       const parts: string[] = []

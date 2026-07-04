@@ -75,3 +75,40 @@ describe("shouldSuggestDeload", () => {
     expect(shouldSuggestDeload(volumes)).toBeNull()
   })
 })
+
+describe("shouldSuggestDeload — readiness-aware window", () => {
+  it("keeps the 4-week window when readiness is fine", () => {
+    // First complete week dips, so only 3 of the 4 weeks climb — not
+    // enough at readiness 82.
+    const threeClimbs = [11_000, 10_000, 10_600, 11_236, 5_000]
+    expect(shouldSuggestDeload(threeClimbs, 82)).toBeNull()
+    // A genuine 4-week climb still triggers, unchanged.
+    const four = shouldSuggestDeload([10_000, 10_600, 11_236, 11_910, 5_000], 82)
+    expect(four).not.toBeNull()
+    expect(four!.weeks).toBe(4)
+    expect(four!.lowReadiness).toBe(false)
+  })
+
+  it("shortens to 3 climbing weeks when readiness < 70", () => {
+    // 3 climbing complete weeks + partial. Not enough normally…
+    const volumes = [10_000, 10_600, 11_236, 5_000]
+    expect(shouldSuggestDeload(volumes)).toBeNull()
+    expect(shouldSuggestDeload(volumes, 75)).toBeNull()
+    // …but triggers when recovery is flagging.
+    const result = shouldSuggestDeload(volumes, 65)
+    expect(result).not.toBeNull()
+    expect(result!.weeks).toBe(3)
+    expect(result!.lowReadiness).toBe(true)
+    expect(result!.climbPercent).toBeGreaterThan(10)
+  })
+
+  it("still requires every week in the shortened window to climb", () => {
+    const volumes = [10_000, 9_900, 11_000, 5_000]
+    expect(shouldSuggestDeload(volumes, 60)).toBeNull()
+  })
+
+  it("treats null readiness like no readiness data", () => {
+    const volumes = [10_000, 10_600, 11_236, 5_000]
+    expect(shouldSuggestDeload(volumes, null)).toBeNull()
+  })
+})

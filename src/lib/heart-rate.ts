@@ -58,6 +58,22 @@ export function heartRateZones(age: number | null | undefined): HeartRateZone[] 
 }
 
 /**
+ * The training zone a heart-rate reading falls in for a given age.
+ * Returns null when max HR can't be estimated, the bpm is invalid, or
+ * the reading is below Zone 1 (i.e. resting, not training).
+ * Readings above the estimated max still classify as Zone 5.
+ */
+export function classifyHeartRate(
+  bpm: number,
+  age: number | null | undefined
+): HeartRateZone | null {
+  const zones = heartRateZones(age)
+  if (zones == null || !Number.isFinite(bpm) || bpm <= 0) return null
+  if (bpm < zones[0].minBpm) return null
+  return zones.find((z) => bpm <= z.maxBpm) ?? zones[zones.length - 1]
+}
+
+/**
  * The bpm range for a span of zones (e.g. zones 2-3 for a moderate day).
  * Returns null when max HR can't be estimated.
  */

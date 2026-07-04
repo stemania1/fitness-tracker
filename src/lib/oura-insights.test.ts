@@ -108,16 +108,7 @@ describe("generateInsights — workout/readiness", () => {
 describe("generateInsights — sleep", () => {
   it("flags poor sleep with HRV detail when both are low", () => {
     const s = emptySummary()
-    s.sleep = {
-      id: "s1",
-      day: "2024-01-01",
-      score: 50,
-      total_sleep_duration: 5 * 3600,
-      deep_sleep_duration: 60 * 60,
-      rem_sleep_duration: 60 * 60,
-      light_sleep_duration: 3 * 3600,
-      efficiency: 80,
-    }
+    s.sleep = { id: "s1", day: "2024-01-01", score: 50 }
     s.sleepPeriod = {
       id: "sp1",
       day: "2024-01-01",
@@ -141,16 +132,7 @@ describe("generateInsights — sleep", () => {
 
   it("celebrates excellent sleep when score >= 85", () => {
     const s = emptySummary()
-    s.sleep = {
-      id: "s1",
-      day: "2024-01-01",
-      score: 90,
-      total_sleep_duration: 8 * 3600,
-      deep_sleep_duration: 90 * 60,
-      rem_sleep_duration: 90 * 60,
-      light_sleep_duration: 5 * 3600,
-      efficiency: 92,
-    }
+    s.sleep = { id: "s1", day: "2024-01-01", score: 90 }
     const sleep = generateInsights(s).find((i) => i.type === "sleep")
     expect(sleep?.title).toMatch(/excellent sleep/i)
     expect(sleep?.priority).toBe("low")
@@ -159,15 +141,20 @@ describe("generateInsights — sleep", () => {
   it("flags low deep sleep percentage when score is in the middle band", () => {
     const s = emptySummary()
     const total = 8 * 3600
-    s.sleep = {
-      id: "s1",
+    s.sleep = { id: "s1", day: "2024-01-01", score: 75 } // not poor, not excellent
+    s.sleepPeriod = {
+      id: "sp1",
       day: "2024-01-01",
-      score: 75, // not poor, not excellent — fall through to deep/REM check
+      type: "long_sleep",
       total_sleep_duration: total,
       deep_sleep_duration: Math.floor(total * 0.1), // 10% — below 15% threshold
       rem_sleep_duration: Math.floor(total * 0.25),
       light_sleep_duration: Math.floor(total * 0.65),
+      time_in_bed: total,
       efficiency: 90,
+      average_heart_rate: 60,
+      lowest_heart_rate: 50,
+      average_hrv: 45,
     }
     const sleep = generateInsights(s).find((i) => i.type === "sleep")
     expect(sleep?.title).toMatch(/low deep sleep/i)
@@ -510,16 +497,7 @@ describe("generateInsights — overall behavior", () => {
       spo2_percentage: { average: 93 }, // high
       breathing_disturbance_index: null,
     }
-    s.sleep = {
-      id: "s1",
-      day: "2024-01-01",
-      score: 90, // low priority
-      total_sleep_duration: 8 * 3600,
-      deep_sleep_duration: 90 * 60,
-      rem_sleep_duration: 90 * 60,
-      light_sleep_duration: 5 * 3600,
-      efficiency: 92,
-    }
+    s.sleep = { id: "s1", day: "2024-01-01", score: 90 } // low priority
     s.activity = {
       id: "a1",
       day: "2024-01-01",

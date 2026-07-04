@@ -48,26 +48,43 @@ export function buildWeeklyVolumeTrend(
   return buckets.map(({ weekLabel, volume }) => ({ weekLabel, volume }))
 }
 
+export interface DeloadSuggestion {
+  /** Percentage volume climb across the window that triggered this. */
+  climbPercent: number
+  /** Number of complete climbing weeks in the window (3 or 4). */
+  weeks: number
+  /** True when low recovery (readiness < 70) shortened the window. */
+  lowReadiness: boolean
+}
+
 /**
- * Suggest a deload week when the last 4 *complete* weeks have each
- * climbed at least 5% over the prior week. The current week is the
- * partial in-progress week and is excluded.
+ * Suggest a deload week when recent *complete* weeks have each climbed
+ * at least 5% over the prior week. The current week is the partial
+ * in-progress week and is excluded.
  *
- * Returns the percentage climb across the 4-week window when triggered,
- * or null when no deload is warranted.
+ * The default window is 4 weeks. When the user's Oura readiness is low
+ * (< 70), rising volume is already outpacing recovery, so 3 climbing
+ * weeks are enough to suggest backing off.
+ *
+ * Returns the climb details when triggered, or null when no deload is
+ * warranted.
  */
 export function shouldSuggestDeload(
-  volumes: number[]
-): { climbPercent: number } | null {
-  // Need the current partial week + at least 4 complete weeks before it.
-  if (volumes.length < 5) return null
-  const lastFour = volumes.slice(-5, -1)
-  if (lastFour.some((v) => v <= 0)) return null
-  for (let i = 1; i < lastFour.length; i++) {
-    if (lastFour[i] < lastFour[i - 1] * 1.05) return null
+  volumes: number[],
+  recentReadiness?: number | null
+): DeloadSuggestion | null {
+  const lowReadiness = recentReadiness != null && recentReadiness < 70
+  const windowWeeks = lowReadiness ? 3 : 4
+
+  // Need the current partial week + the complete window before it.
+  if (volumes.length < windowWeeks + 1) return null
+  const window = volumes.slice(-(windowWeeks + 1), -1)
+  if (window.some((v) => v <= 0)) return null
+  for (let i = 1; i < window.length; i++) {
+    if (window[i] < window[i - 1] * 1.05) return null
   }
   const climbPercent = Math.round(
-    ((lastFour[lastFour.length - 1] - lastFour[0]) / lastFour[0]) * 100
+    ((window[window.length - 1] - window[0]) / window[0]) * 100
   )
-  return { climbPercent }
+  return { climbPercent, weeks: windowWeeks, lowReadiness }
 }
