@@ -244,3 +244,51 @@ describe("getOuraDailySummary — heart rate fallbacks", () => {
     expect(summary.sleepPeriod?.id).toBe("p2")
   })
 })
+
+describe("getOuraDailySummary — sleep period window", () => {
+  it("queries the sleep endpoint with a padded ±1 day window", async () => {
+    const fn = mockFetch({})
+    await getOuraDailySummary("token", "2024-05-01")
+    const sleepCall = fn.mock.calls
+      .map((c) => new URL(c[0] as string))
+      .find((u) => u.pathname.endsWith("/sleep"))
+    expect(sleepCall?.searchParams.get("start_date")).toBe("2024-04-30")
+    expect(sleepCall?.searchParams.get("end_date")).toBe("2024-05-02")
+  })
+
+  it("pads correctly across month boundaries", async () => {
+    const fn = mockFetch({})
+    await getOuraDailySummary("token", "2024-06-01")
+    const sleepCall = fn.mock.calls
+      .map((c) => new URL(c[0] as string))
+      .find((u) => u.pathname.endsWith("/sleep"))
+    expect(sleepCall?.searchParams.get("start_date")).toBe("2024-05-31")
+    expect(sleepCall?.searchParams.get("end_date")).toBe("2024-06-02")
+  })
+
+  it("ignores periods from other days returned by the padded window", async () => {
+    mockFetch({
+      sleep: () => ({
+        data: [
+          // Yesterday's sleep — must not be shown as today's.
+          { id: "stale", day: "2024-04-30", type: "long_sleep", total_sleep_duration: 6 * 3600 },
+          { id: "fresh", day: "2024-05-01", type: "long_sleep", total_sleep_duration: 8 * 3600 },
+        ],
+      }),
+    })
+    const summary = await getOuraDailySummary("token", "2024-05-01")
+    expect(summary.sleepPeriod?.id).toBe("fresh")
+  })
+
+  it("returns null when only stale periods exist (ring not yet synced)", async () => {
+    mockFetch({
+      sleep: () => ({
+        data: [
+          { id: "stale", day: "2024-04-30", type: "long_sleep", total_sleep_duration: 6 * 3600 },
+        ],
+      }),
+    })
+    const summary = await getOuraDailySummary("token", "2024-05-01")
+    expect(summary.sleepPeriod).toBeNull()
+  })
+})

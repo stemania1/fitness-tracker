@@ -37,6 +37,7 @@ import {
   CartesianGrid,
   Tooltip,
   ReferenceLine,
+  ReferenceArea,
   ResponsiveContainer,
 } from "recharts"
 import { exercises as exerciseCatalog } from "@/data/exercises"
@@ -54,6 +55,7 @@ import {
 import type { OuraSummary } from "@/lib/oura"
 import { formatSleepDuration } from "@/lib/oura"
 import { generateInsights } from "@/lib/oura-insights"
+import { zoneRange, classifyHeartRate } from "@/lib/heart-rate"
 import type { OuraInsight } from "@/lib/oura-insights"
 import { QuickLogExercise } from "@/components/activity/QuickLogExercise"
 import { QuickLogStrength } from "@/components/activity/QuickLogStrength"
@@ -388,6 +390,12 @@ export default function DashboardPage() {
   const ouraSummary = ouraResult?.summary ?? null
   const ouraConnected = ouraResult?.connected ?? false
 
+  // Zone 2-3 band for the heart-rate chart (moderate-effort target).
+  const moderateZone = useMemo(
+    () => zoneRange(profile?.age ?? null, 2, 3),
+    [profile?.age]
+  )
+
   const ouraInsights = useMemo(
     () =>
       ouraSummary
@@ -464,8 +472,12 @@ export default function DashboardPage() {
   )
 
   const deloadSuggestion = useMemo(
-    () => shouldSuggestDeload(volumeTrend.map((v) => v.volume)),
-    [volumeTrend]
+    () =>
+      shouldSuggestDeload(
+        volumeTrend.map((v) => v.volume),
+        ouraSummary?.readiness?.score
+      ),
+    [volumeTrend, ouraSummary?.readiness?.score]
   )
 
   const weeklyStreak = useMemo(
@@ -617,8 +629,8 @@ export default function DashboardPage() {
                         {ouraSummary.sleep?.score ?? "--"}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {(ouraSummary.sleep?.total_sleep_duration ?? ouraSummary.sleepPeriod?.total_sleep_duration)
-                          ? formatSleepDuration(ouraSummary.sleep?.total_sleep_duration ?? ouraSummary.sleepPeriod!.total_sleep_duration!)
+                        {ouraSummary.sleepPeriod?.total_sleep_duration
+                          ? formatSleepDuration(ouraSummary.sleepPeriod.total_sleep_duration)
                           : "No duration data"}
                       </p>
                       {ouraSummary.sleepPeriod && (
@@ -748,6 +760,11 @@ export default function DashboardPage() {
                     <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-gray-600">
                       <Heart className="h-3.5 w-3.5 text-red-400" />
                       Heart Rate Today
+                      {moderateZone && (
+                        <span className="ml-auto font-normal text-gray-400">
+                          Zone 2-3 for you: {moderateZone.minBpm}-{moderateZone.maxBpm} bpm
+                        </span>
+                      )}
                     </p>
                     <ResponsiveContainer width="100%" height={120}>
                       <LineChart
@@ -757,6 +774,15 @@ export default function DashboardPage() {
                         }))}
                       >
                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        {moderateZone && (
+                          <ReferenceArea
+                            y1={moderateZone.minBpm}
+                            y2={moderateZone.maxBpm}
+                            fill="#10b981"
+                            fillOpacity={0.08}
+                            ifOverflow="hidden"
+                          />
+                        )}
                         <XAxis
                           dataKey="t"
                           type="number"
@@ -782,7 +808,13 @@ export default function DashboardPage() {
                         />
                         <Tooltip
                           contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                          formatter={(value) => [`${value} bpm`, "Heart Rate"]}
+                          formatter={(value) => {
+                            const zone = classifyHeartRate(Number(value), profile?.age)
+                            return [
+                              `${value} bpm${zone ? ` · Zone ${zone.zone} (${zone.name})` : ""}`,
+                              "Heart Rate",
+                            ]
+                          }}
                           labelFormatter={(t) =>
                             new Date(t).toLocaleTimeString("en-US", {
                               hour: "numeric",
@@ -1005,8 +1037,10 @@ export default function DashboardPage() {
               <p className="font-medium">Consider a deload week</p>
               <p className="text-amber-700">
                 Volume has climbed ~{deloadSuggestion.climbPercent}% over the
-                last 4 weeks. A lighter week now helps recovery and sets up
-                the next push.
+                last {deloadSuggestion.weeks} weeks
+                {deloadSuggestion.lowReadiness &&
+                  " while your Oura readiness is running low"}
+                . A lighter week now helps recovery and sets up the next push.
               </p>
             </div>
           )}

@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest"
-import { estimateMaxHeartRate, heartRateZones, zoneRange } from "./heart-rate"
+import {
+  estimateMaxHeartRate,
+  heartRateZones,
+  zoneRange,
+  classifyHeartRate,
+} from "./heart-rate"
 
 describe("estimateMaxHeartRate", () => {
   it("uses the Tanaka formula (208 - 0.7 x age)", () => {
@@ -61,5 +66,37 @@ describe("zoneRange", () => {
 
   it("returns null when age is unknown", () => {
     expect(zoneRange(null, 2, 3)).toBeNull()
+  })
+})
+
+describe("classifyHeartRate", () => {
+  // Age 51: max HR 172; zones start at 86 bpm.
+  it("classifies readings into the right zone", () => {
+    expect(classifyHeartRate(95, 51)?.zone).toBe(1) // the morning spike from the chart
+    expect(classifyHeartRate(120, 51)?.zone).toBe(2)
+    expect(classifyHeartRate(135, 51)?.zone).toBe(3)
+    expect(classifyHeartRate(150, 51)?.zone).toBe(4)
+    expect(classifyHeartRate(165, 51)?.zone).toBe(5)
+  })
+
+  it("returns null for resting-range readings below Zone 1", () => {
+    expect(classifyHeartRate(52, 51)).toBeNull()
+    expect(classifyHeartRate(85, 51)).toBeNull()
+  })
+
+  it("clamps readings above estimated max to Zone 5", () => {
+    expect(classifyHeartRate(180, 51)?.zone).toBe(5)
+  })
+
+  it("returns null for invalid bpm or unknown age", () => {
+    expect(classifyHeartRate(0, 51)).toBeNull()
+    expect(classifyHeartRate(NaN, 51)).toBeNull()
+    expect(classifyHeartRate(120, null)).toBeNull()
+  })
+
+  it("boundary readings belong to the lower zone (inclusive max)", () => {
+    // Zone 1 ends at 103 for age 51; 103 is Zone 1, 104 is Zone 2.
+    expect(classifyHeartRate(103, 51)?.zone).toBe(1)
+    expect(classifyHeartRate(104, 51)?.zone).toBe(2)
   })
 })
