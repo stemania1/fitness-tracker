@@ -384,6 +384,39 @@ export interface Database {
         }
         Relationships: []
       }
+      fitness_tests: {
+        Row: {
+          id: string
+          user_id: string
+          test_type: "cooper_run" | "pullup_max"
+          result: number
+          tested_at: string
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          test_type: "cooper_run" | "pullup_max"
+          result: number
+          tested_at?: string
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          test_type?: "cooper_run" | "pullup_max"
+          result?: number
+          tested_at?: string
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>

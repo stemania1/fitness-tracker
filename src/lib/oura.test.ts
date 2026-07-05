@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
-import { formatSleepDuration, getOuraDailySummary } from "./oura"
+import {
+  formatSleepDuration,
+  getOuraDailySummary,
+  getOuraVo2MaxHistory,
+} from "./oura"
 
 const realFetch = globalThis.fetch
 const realConsoleError = console.error
@@ -290,5 +294,70 @@ describe("getOuraDailySummary — sleep period window", () => {
     })
     const summary = await getOuraDailySummary("token", "2024-05-01")
     expect(summary.sleepPeriod).toBeNull()
+  })
+})
+
+describe("getOuraVo2MaxHistory", () => {
+  it("passes the date range through and returns day-sorted samples", async () => {
+    const fn = mockFetch({
+      vo2_max: () => ({
+        data: [
+          { id: "b", day: "2024-05-02", vo2_max: 42.1 },
+          { id: "a", day: "2024-05-01", vo2_max: 41.8 },
+        ],
+      }),
+    })
+
+    const history = await getOuraVo2MaxHistory("token", "2024-05-01", "2024-05-02")
+    expect(history.map((h) => h.day)).toEqual(["2024-05-01", "2024-05-02"])
+
+    const call = fn.mock.calls
+      .map((c) => new URL(c[0] as string))
+      .find((u) => u.pathname.endsWith("/vo2_max"))
+    expect(call?.searchParams.get("start_date")).toBe("2024-05-01")
+    expect(call?.searchParams.get("end_date")).toBe("2024-05-02")
+  })
+
+  it("drops days where Oura produced no estimate", async () => {
+    mockFetch({
+      vo2_max: () => ({
+        data: [
+          { id: "a", day: "2024-05-01", vo2_max: null },
+          { id: "b", day: "2024-05-02", vo2_max: 42.1 },
+        ],
+      }),
+    })
+
+    const history = await getOuraVo2MaxHistory("token", "2024-05-01", "2024-05-02")
+    expect(history).toEqual([{ id: "b", day: "2024-05-02", vo2_max: 42.1 }])
+  })
+
+  it("combines paginated responses", async () => {
+    let page = 0
+    mockFetch({
+      vo2_max: () => {
+        page++
+        return page === 1
+          ? {
+              data: [{ id: "a", day: "2024-05-01", vo2_max: 41.0 }],
+              next_token: "page-2",
+            }
+          : { data: [{ id: "b", day: "2024-05-02", vo2_max: 41.5 }] }
+      },
+    })
+
+    const history = await getOuraVo2MaxHistory("token", "2024-05-01", "2024-05-02")
+    expect(history).toHaveLength(2)
+  })
+
+  it("returns an empty array when the endpoint errors", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      text: async () => "server error",
+    }) as unknown as typeof fetch
+
+    const history = await getOuraVo2MaxHistory("token", "2024-05-01", "2024-05-02")
+    expect(history).toEqual([])
   })
 })

@@ -148,3 +148,7 @@ and it's the fastest known route from 0–3 pull-ups to 10+.
    Cooper-test distance by week 12.
 4. Retest weeks: 6 and 12 — pull-up max replaces Saturday's first exercise,
    Cooper test replaces Sunday's intervals.
+5. Log every test via **Log test** on the dashboard's VO2 Max Trend card
+   (Cooper distance in meters, or strict pull-up reps). The card converts
+   Cooper distances to VO2 Max, plots them against Oura's daily estimates,
+   and shows your latest pull-up max.
