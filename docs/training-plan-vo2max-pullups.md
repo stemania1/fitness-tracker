@@ -48,6 +48,11 @@ The workday runs 7:30 AM to 7:00 PM door-to-door, so weekdays get exactly
   Best for performance — you're warmer and fed — but first thing to die when
   you get home wiped.
 
+**Chosen: AM lane.** Tue/Thu 5:45–6:30 AM. A ready-to-import calendar file
+with all sessions, baseline/retest weekends, and the deload week lives at
+`docs/training-plan-calendar.ics` (Google Calendar → Settings → Import &
+export → Import).
+
 | Day | Session | Duration |
 |---|---|---|
 | **Mon** | Rest (optional: grease-the-groove sets at home) | — |
