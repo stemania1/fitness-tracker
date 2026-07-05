@@ -1,0 +1,136 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//fitness-tracker//training-plan-vo2max-pullups//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VTIMEZONE
+TZID:America/New_York
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+TZNAME:EDT
+DTSTART:19700308T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+TZNAME:EST
+DTSTART:19701101T020000
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:vo2max-tue-4x4@fitness-tracker-plan
+DTSTAMP:20260705T120000Z
+DTSTART;TZID=America/New_York:20260707T054500
+DTEND;TZID=America/New_York:20260707T063000
+RRULE:FREQ=WEEKLY;BYDAY=TU;COUNT=12
+SUMMARY:VO2Max intervals — 4×4 (Planet Fitness)
+DESCRIPTION:10-min warm-up\, then 4 min @ ~90-95% max HR / 3 min easy reco
+ very. Weeks 1-2: 3 rounds. Weeks 3-6: 4 rounds. Weeks 8-12: 4-5 rounds. T
+ readmill or StairMaster. If Oura readiness is red\, swap for easy Zone 2
+ and slide intervals to tomorrow. Home by ~6:45\, out the door at 7:30. Fu
+ ll plan: docs/training-plan-vo2max-pullups.md
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Gym — VO2Max intervals
+TRIGGER:-PT30M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:pull-b-thu@fitness-tracker-plan
+DTSTAMP:20260705T120000Z
+DTSTART;TZID=America/New_York:20260709T054500
+DTEND;TZID=America/New_York:20260709T063000
+RRULE:FREQ=WEEKLY;BYDAY=TH;COUNT=12
+SUMMARY:Pull B — strength (Planet Fitness)
+DESCRIPTION:Assisted pull-ups 5×4-6 (10-15 lb less assistance than Saturd
+ ay) · scapular pulls 3×8 · single-arm DB row 3×8-10/side · cable fac
+ e pull 3×12-15 · farmer hold 3×30s. Every week all reps are hit\, drop
+  assistance 5-10 lb the next week. Full plan: docs/training-plan-vo2max-p
+ ullups.md
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Gym — Pull B
+TRIGGER:-PT30M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:pull-a-sat@fitness-tracker-plan
+DTSTAMP:20260705T120000Z
+DTSTART;TZID=America/New_York:20260711T080000
+DTEND;TZID=America/New_York:20260711T091500
+RRULE:FREQ=WEEKLY;BYDAY=SA;COUNT=12
+SUMMARY:Pull A + Zone 2 finisher (Planet Fitness)
+DESCRIPTION:Assisted pull-ups 4×6-8 · slow negatives 3×3-5 (5-sec lower
+ ing) · lat pulldown 3×8-12 · seated row 3×10-12 · hollow hold 3×20
+ -30s. Finish with 15-20 min easy Zone 2 (bike/elliptical). Week 1 (Jul 11
+ ): run the baseline pull-up max + assisted 8RM tests first. Full plan: do
+ cs/training-plan-vo2max-pullups.md
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Gym — Pull A
+TRIGGER:-PT30M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:intervals-3030-sun@fitness-tracker-plan
+DTSTAMP:20260705T120000Z
+DTSTART;TZID=America/New_York:20260712T080000
+DTEND;TZID=America/New_York:20260712T091500
+RRULE:FREQ=WEEKLY;BYDAY=SU;COUNT=12
+SUMMARY:30/30 intervals + Zone 2 (Planet Fitness)
+DESCRIPTION:10-min warm-up\, then 30s hard / 30s easy. Weeks 1-2: 2×8 rep
+ s (3 min between sets)\, build to 3×10 by week 6. Stationary bike ideal.
+  Finish with 30 min Zone 2 cool-down. Week 1 (Jul 12): run the Cooper 12-
+ min baseline test instead of intervals. Full plan: docs/training-plan-vo2
+ max-pullups.md
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Gym — 30/30 intervals
+TRIGGER:-PT30M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:baseline-tests-wk1@fitness-tracker-plan
+DTSTAMP:20260705T120000Z
+DTSTART;VALUE=DATE:20260711
+DTEND;VALUE=DATE:20260713
+SUMMARY:Baseline tests — pull-up max (Sat) + Cooper 12-min (Sun)
+TRANSP:TRANSPARENT
+DESCRIPTION:Week 1 baselines. Sat: max strict pull-ups (or timed negative)
+  + find assisted 8RM. Sun: Cooper 12-min treadmill test\, 1% incline. Log
+  both in the app.
+END:VEVENT
+BEGIN:VEVENT
+UID:retest-wk6@fitness-tracker-plan
+DTSTAMP:20260705T120000Z
+DTSTART;VALUE=DATE:20260815
+DTEND;VALUE=DATE:20260817
+SUMMARY:Week 6 retests — pull-up max (Sat) + Cooper test (Sun)
+TRANSP:TRANSPARENT
+DESCRIPTION:Pull-up max replaces Saturday's first exercise\; Cooper test r
+ eplaces Sunday's intervals. Compare against week 1 baselines in the app.
+END:VEVENT
+BEGIN:VEVENT
+UID:deload-wk7@fitness-tracker-plan
+DTSTAMP:20260705T120000Z
+DTSTART;VALUE=DATE:20260817
+DTEND;VALUE=DATE:20260824
+SUMMARY:Deload week — halve interval rounds, drop a set everywhere
+TRANSP:TRANSPARENT
+DESCRIPTION:Week 7: halve interval rounds\, drop one set from every pull e
+ xercise\, keep Zone 2 as-is. No testing\, just recovery.
+END:VEVENT
+BEGIN:VEVENT
+UID:retest-wk12@fitness-tracker-plan
+DTSTAMP:20260705T120000Z
+DTSTART;VALUE=DATE:20260926
+DTEND;VALUE=DATE:20260928
+SUMMARY:Week 12 final tests — pull-up max (Sat) + Cooper test (Sun)
+TRANSP:TRANSPARENT
+DESCRIPTION:Final retest. Expect +5-10% VO2Max and 0→3-5 or 5→10-12 pul
+ l-ups vs. week 1. Log results and set the next 12-week block's goals.
+END:VEVENT
+END:VCALENDAR
