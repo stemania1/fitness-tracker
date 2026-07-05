@@ -1,8 +1,10 @@
 # 12-Week Plan: Raise VO2Max + Pull-Up Count
 
-Personal training plan for Curtis. Built around a Mon–Fri 9:00–5:00 work
-schedule (America/New_York), Planet Fitness equipment (see
-`src/data/equipment.ts`), and Florida summer heat (indoor cardio by default).
+Personal training plan for Curtis. Built around the real workday — out the
+door at 7:30 AM, home at 7:00 PM (America/New_York) — Planet Fitness
+equipment (see `src/data/equipment.ts`), and Florida summer heat (indoor
+cardio by default). Weekdays carry only two short sessions; the two longer
+sessions live on weekend mornings.
 
 Log everything in the tracker — both goals map cleanly onto features that
 already exist: progressive-overload suggestions for the assisted pull-up
@@ -36,22 +38,29 @@ end of weeks 6 and 12.
 
 ## Weekly template
 
-All gym slots fit before the 9:00 work block (PF is 24 hr — in the door by
-6:45, out by 7:45, at the desk by 9:00). Lunch-hour slots are marked as
-fallbacks since midday calls sometimes land there.
+The workday runs 7:30 AM to 7:00 PM door-to-door, so weekdays get exactly
+**two** gym sessions, each ≤45 min, and each has an AM and a PM option (PF is
+24 hr). Pick one lane and keep it for at least two weeks:
 
-| Day | Time | Session |
+- **AM lane: 5:45–6:30.** Home by ~6:45, out the door at 7:30. Best for
+  consistency — nothing at 6 AM ever gets cancelled by work running late.
+- **PM lane: 7:30–8:15** (drop bag, straight to the gym, dinner after).
+  Best for performance — you're warmer and fed — but first thing to die when
+  you get home wiped.
+
+| Day | Session | Duration |
 |---|---|---|
-| **Mon** | 6:45–7:45 AM | **Pull A** (strength) |
-| **Tue** | 6:45–7:30 AM | **VO2Max intervals — 4×4** (treadmill or StairMaster) |
-| **Wed** | flexible (lunch walk or 5:30 PM) | **Zone 2, 30–40 min easy** (bike/elliptical) — skippable if life happens |
-| **Thu** | 6:45–7:45 AM | **Pull B** (strength) |
-| **Fri** | 6:45–7:30 AM | **Short intervals — 30/30s** (bike or treadmill) |
-| **Sat** | morning, before the heat | **Long Zone 2, 45–60 min** + optional easy pull volume |
-| **Sun** | — | Full rest |
+| **Mon** | Rest (optional: grease-the-groove sets at home) | — |
+| **Tue** | **VO2Max intervals — 4×4** (treadmill or StairMaster) | 40 min |
+| **Wed** | Rest / optional 20–30 min walk after dinner | — |
+| **Thu** | **Pull B** (strength) | 45 min |
+| **Fri** | Rest | — |
+| **Sat** | 8:00–9:15 AM — **Pull A** + 15–20 min Zone 2 finisher (bike/elliptical) | 75 min |
+| **Sun** | 8:00–9:15 AM — **30/30 intervals** + 30 min Zone 2 cool-down | 75 min |
 
-If a morning gets blown up, the session moves to 5:15–6:15 PM the same day —
-don't stack two missed sessions into one.
+Weekend sessions go early morning — beats the Florida heat and the
+post-church/brunch PF rush. If a weekday session dies, move it to the next
+rest day; never stack two sessions into one evening.
 
 ## VO2Max sessions
 
@@ -61,14 +70,15 @@ Weeks 1–2: 3 rounds. Weeks 3–6: 4 rounds. Weeks 8–12: 4–5 rounds, nudgin
 up. Treadmill (speed or incline) or StairMaster both work; rotate to keep it
 fresh.
 
-**Fri — 30/30s.** 10-min warm-up, then 30 sec hard / 30 sec easy. Weeks 1–2:
+**Sun — 30/30s.** 10-min warm-up, then 30 sec hard / 30 sec easy. Weeks 1–2:
 2 sets of 8 reps with 3 min between sets. Build to 3 sets of 10 by week 6.
-Stationary bike is ideal (no ballistic pounding the day before a weekend long
-session).
+Stationary bike is ideal the day after a pull session — no impact, no grip
+demand.
 
-**Zone 2 (Wed + Sat).** Conversational pace — you can talk in full sentences.
-This is the base that makes the interval days productive; don't turn it into a
-tempo run.
+**Zone 2 (weekend finishers + optional Wed walk).** Conversational pace — you
+can talk in full sentences. This is the base that makes the interval days
+productive; don't turn it into a tempo run. It's deliberately attached to the
+weekend sessions so it doesn't cost a separate weekday trip.
 
 **Oura check (already wired into the app):** on interval mornings, if
 readiness is in the red, swap the interval session for Zone 2 and slide
@@ -80,7 +90,7 @@ Uses only PF equipment: assisted pull-up/dip machine, lat pulldown, seated
 row, cable crossover, dumbbells. Strict pull-ups are done on the assisted
 machine's handles (kneel/stand past the pad) once assistance hits zero.
 
-**Pull A (Mon)**
+**Pull A (Sat)**
 
 | Exercise | Sets × Reps | Notes |
 |---|---|---|
@@ -94,7 +104,7 @@ machine's handles (kneel/stand past the pad) once assistance hits zero.
 
 | Exercise | Sets × Reps | Notes |
 |---|---|---|
-| Assisted pull-ups | 5 × 4–6 | 10–15 lb *less* assistance than Monday (heavier day) |
+| Assisted pull-ups | 5 × 4–6 | 10–15 lb *less* assistance than Saturday (heavier day) |
 | Scapular pulls | 3 × 8 | Dead hang, shrug shoulder blades down — no arm bend |
 | Single-arm dumbbell row | 3 × 8–10/side | |
 | Cable face pull | 3 × 12–15 | Shoulder health insurance for all this pulling |
@@ -106,10 +116,12 @@ applies in reverse here — log assistance as the weight and work it *down*).
 When assistance reaches 0, switch to bodyweight sets of max-minus-one and
 start adding a rep per week.
 
-**Optional accelerator:** a $25 doorway bar at home turns work-from-home days
-into "grease the groove" days — one easy set (about half your max, or one slow
-negative) a few times a day, never to failure. This is the single fastest
-known route from 0–3 pull-ups to 10+.
+**Optional accelerator:** a $25 doorway bar at home is the highest-leverage
+purchase in this plan given the 11.5-hour workday — "grease the groove": one
+easy set (about half your max, or one slow negative) before leaving at 7:30
+and one or two after getting home at 7:00, never to failure. It converts the
+three weekday rest days into free pull-up volume without a single gym trip,
+and it's the fastest known route from 0–3 pull-ups to 10+.
 
 ## Deload + milestones
 
@@ -129,4 +141,5 @@ known route from 0–3 pull-ups to 10+.
    and volume-trend math stays honest.
 3. Set two goals in the goals page: target pull-up reps by week 12, and target
    Cooper-test distance by week 12.
-4. Retest weeks: 6 and 12 (replace that week's Friday session with the tests).
+4. Retest weeks: 6 and 12 — pull-up max replaces Saturday's first exercise,
+   Cooper test replaces Sunday's intervals.
