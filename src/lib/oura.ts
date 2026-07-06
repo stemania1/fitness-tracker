@@ -278,6 +278,24 @@ export async function getOuraDailySummary(
 }
 
 /**
+ * Fetch the user's Oura VO2 Max estimates for a date range (inclusive),
+ * oldest first, skipping days where Oura produced no estimate.
+ */
+export async function getOuraVo2MaxHistory(
+  accessToken: string,
+  startDate: string,
+  endDate: string
+): Promise<OuraVo2Max[]> {
+  const items = await ouraFetchAll<OuraVo2Max>("vo2_max", accessToken, {
+    start_date: startDate,
+    end_date: endDate,
+  })
+  return items
+    .filter((item) => item.vo2_max != null)
+    .sort((a, b) => a.day.localeCompare(b.day))
+}
+
+/**
  * Format seconds into hours and minutes string.
  */
 export function formatSleepDuration(seconds: number): string {

@@ -1,15 +1,17 @@
 import { NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
-import { getOuraDailySummary } from "@/lib/oura"
+import { getOuraVo2MaxHistory } from "@/lib/oura"
 import { resolveOuraAccessToken } from "@/lib/oura-token"
 
+const DEFAULT_WINDOW_DAYS = 180
+
 /**
- * GET /api/oura — Fetch today's Oura summary for the authenticated user.
+ * GET /api/oura/vo2max — Oura VO2 Max history for the authenticated user.
+ * Optional ?start=YYYY-MM-DD&end=YYYY-MM-DD (inclusive); defaults to the
+ * last 180 days ending today (UTC).
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
-  const clientDate = searchParams.get("date")
-  const clientTzOffset = searchParams.get("tz_offset") // e.g. "-04:00"
 
   const supabase = await createServerSupabaseClient()
   const {
@@ -30,8 +32,15 @@ export async function GET(request: Request) {
         )
   }
 
-  // Use the client's local date if provided, so timezone differences
-  // between the server (UTC) and the user don't cause empty results.
-  const summary = await getOuraDailySummary(token.accessToken, clientDate ?? undefined, clientTzOffset ?? undefined)
-  return NextResponse.json(summary)
+  const end = searchParams.get("end") ?? new Date().toISOString().slice(0, 10)
+  const start =
+    searchParams.get("start") ??
+    (() => {
+      const d = new Date(`${end}T00:00:00Z`)
+      d.setUTCDate(d.getUTCDate() - DEFAULT_WINDOW_DAYS)
+      return d.toISOString().slice(0, 10)
+    })()
+
+  const data = await getOuraVo2MaxHistory(token.accessToken, start, end)
+  return NextResponse.json({ data })
 }
