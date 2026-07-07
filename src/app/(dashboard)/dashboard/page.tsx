@@ -61,6 +61,7 @@ import { QuickLogExercise } from "@/components/activity/QuickLogExercise"
 import { QuickLogStrength } from "@/components/activity/QuickLogStrength"
 import { QuickLogWeight } from "@/components/activity/QuickLogWeight"
 import { Vo2MaxTrendCard } from "@/components/activity/Vo2MaxTrendCard"
+import { TrainingPlanTodayCard } from "@/components/activity/TrainingPlanTodayCard"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 
 const supabase = createClient()
@@ -525,6 +526,11 @@ export default function DashboardPage() {
           <QuickLogWeight />
         </div>
       </div>
+
+      {/* Today's prescribed session from the 12-week training plan */}
+      <ErrorBoundary>
+        <TrainingPlanTodayCard />
+      </ErrorBoundary>
 
       {/* This Week */}
       <ErrorBoundary>

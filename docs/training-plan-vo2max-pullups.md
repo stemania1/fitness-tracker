@@ -141,7 +141,11 @@ and it's the fastest known route from 0–3 pull-ups to 10+.
 
 ## Fitting it into the app
 
-1. Create two workout templates (`Pull A`, `Pull B`) from the exercises above.
+1. Open the **Plan** tab — this whole document lives there as an in-app page,
+   with today's session highlighted and a one-tap button that creates the
+   `Pull A` / `Pull B` templates. The dashboard also shows a "Today's Plan"
+   card with the current week, phase-adjusted prescription, and test-week
+   reminders.
 2. Log interval days as cardio activity with duration + effort so the calorie
    and volume-trend math stays honest.
 3. Set two goals in the goals page: target pull-up reps by week 12, and target
