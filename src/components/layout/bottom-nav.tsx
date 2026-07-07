@@ -2,11 +2,18 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Dumbbell, ClipboardList, Target } from "lucide-react"
+import {
+  LayoutDashboard,
+  Dumbbell,
+  ClipboardList,
+  Target,
+  CalendarCheck,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const tabs = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/plan", label: "Plan", icon: CalendarCheck },
   { href: "/workouts", label: "Workouts", icon: Dumbbell },
   { href: "/activity", label: "Log", icon: ClipboardList },
   { href: "/goals", label: "Goals", icon: Target },
