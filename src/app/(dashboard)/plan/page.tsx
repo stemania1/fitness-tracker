@@ -8,7 +8,13 @@ import {
   CardContent,
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { CalendarCheck, ClipboardCheck, Dumbbell, Flame } from "lucide-react"
+import {
+  CalendarCheck,
+  ClipboardCheck,
+  Dumbbell,
+  Flame,
+  BarChart3,
+} from "lucide-react"
 import {
   PLAN_PHASES,
   PLAN_TESTS,
@@ -18,6 +24,7 @@ import {
 } from "@/data/training-plan"
 import { planWeekNumber } from "@/lib/training-plan"
 import { AddPlanTemplates } from "@/components/workouts/AddPlanTemplates"
+import { findNorm } from "@/data/vo2max-norms"
 
 /** Display order Monday → Sunday, as Date.getDay() indices. */
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]
@@ -195,6 +202,66 @@ export default function PlanPage() {
           </p>
         </CardContent>
       </Card>
+
+      {/* VO2 Max percentile reference (FRIEND treadmill norms) */}
+      {(() => {
+        const norm = findNorm(51, "male")
+        if (!norm) return null
+        return (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <BarChart3 className="h-5 w-5 text-cyan-500" />
+                VO2 Max Reference — men {norm.minAge}-{norm.maxAge}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs text-gray-500">
+                      <th className="pb-2 font-medium">Percentile</th>
+                      <th className="pb-2 font-medium">VO2 Max</th>
+                      <th className="pb-2 font-medium">Cooper 12-min</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...norm.breakpoints]
+                      .reverse()
+                      .map(({ percentile, vo2 }) => {
+                        // Invert the Cooper formula: dist = vo2 * 44.73 + 504.9
+                        const meters = Math.round(vo2 * 44.73 + 504.9)
+                        const miles = (meters / 1609.34).toFixed(2)
+                        return (
+                          <tr
+                            key={percentile}
+                            className="border-t border-gray-100"
+                          >
+                            <td className="py-1.5 text-gray-900">
+                              {percentile}th
+                            </td>
+                            <td className="py-1.5 text-gray-600">
+                              {vo2.toFixed(1)}
+                            </td>
+                            <td className="py-1.5 text-gray-600">
+                              {meters.toLocaleString()} m ({miles} mi)
+                            </td>
+                          </tr>
+                        )
+                      })}
+                  </tbody>
+                </table>
+              </div>
+              <p className="mt-3 text-xs text-gray-500">
+                FRIEND registry, directly-measured treadmill tests (Kaminsky et
+                al., 2015). The Cooper column is the distance that maps to each
+                VO2 Max — read your test result straight off it. Your logged
+                value shows its percentile on the dashboard&apos;s VO2 Max card.
+              </p>
+            </CardContent>
+          </Card>
+        )
+      })()}
     </div>
   )
 }
