@@ -71,6 +71,34 @@ describe("Vo2MaxTrendCard", () => {
     expect(screen.getByText(/average/i)).toBeInTheDocument()
   })
 
+  it("shows a FRIEND percentile for a bracket with reference data", async () => {
+    // 2600 m Cooper → 46.8 ml/kg/min. FRIEND men 50-59: 90th=45.6, 95th=50.7
+    // → 91st percentile → "top 9%".
+    mocks.order.mockResolvedValue({
+      data: [
+        { test_type: "cooper_run", result: 2600, tested_at: "2026-07-12" },
+      ],
+      error: null,
+    })
+
+    renderWithClient(<Vo2MaxTrendCard age={51} sex="male" />)
+    expect(await screen.findByText("46.8")).toBeInTheDocument()
+    expect(screen.getByText(/top 9% for your age & sex/i)).toBeInTheDocument()
+  })
+
+  it("omits the percentile line for brackets without reference data", async () => {
+    mocks.order.mockResolvedValue({
+      data: [
+        { test_type: "cooper_run", result: 2400, tested_at: "2026-07-12" },
+      ],
+      error: null,
+    })
+
+    renderWithClient(<Vo2MaxTrendCard age={51} sex="female" />)
+    expect(await screen.findByText("42.4")).toBeInTheDocument()
+    expect(screen.queryByText(/for your age & sex/i)).toBeNull()
+  })
+
   it("prefers the most recent value across sources for the headline stat", async () => {
     mocks.order.mockResolvedValue({
       data: [

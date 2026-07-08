@@ -29,6 +29,7 @@ import {
   type OuraVo2Sample,
 } from "@/lib/fitness-tests"
 import { classifyVo2Max, type Sex } from "@/lib/vo2max"
+import { vo2MaxPercentile, percentileLabel } from "@/lib/vo2max-percentile"
 import { QuickLogFitnessTest } from "./QuickLogFitnessTest"
 
 const supabase = createClient()
@@ -100,6 +101,8 @@ export function Vo2MaxTrendCard({ age, sex }: Vo2MaxTrendCardProps) {
   }, [trend])
 
   const rating = latestVo2 != null ? classifyVo2Max(latestVo2, age, sex) : null
+  const percentile =
+    latestVo2 != null ? vo2MaxPercentile(latestVo2, age, sex) : null
 
   const hasCooper = trend.some((p) => p.cooper != null)
   const hasOura = trend.some((p) => p.oura != null)
@@ -153,6 +156,12 @@ export function Vo2MaxTrendCard({ age, sex }: Vo2MaxTrendCardProps) {
                         ml/kg/min
                       </span>
                     </p>
+                    {percentile != null && (
+                      <p className="text-xs text-gray-500">
+                        {percentileLabel(percentile)}{" "}
+                        <span className="text-gray-400">· FRIEND</span>
+                      </p>
+                    )}
                   </div>
                   {rating && (
                     <Badge className={ratingBadge[rating].className}>
