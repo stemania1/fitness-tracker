@@ -14,6 +14,7 @@ import {
   Dumbbell,
   Flame,
   BarChart3,
+  Stethoscope,
 } from "lucide-react"
 import {
   PLAN_PHASES,
@@ -25,6 +26,7 @@ import {
 import { planWeekNumber } from "@/lib/training-plan"
 import { AddPlanTemplates } from "@/components/workouts/AddPlanTemplates"
 import { findNorm } from "@/data/vo2max-norms"
+import { EMERGENCY_NOTE, SEEK_CARE_SIGNALS } from "@/data/seek-care"
 
 /** Display order Monday → Sunday, as Date.getDay() indices. */
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]
@@ -262,6 +264,43 @@ export default function PlanPage() {
           </Card>
         )
       })()}
+
+      {/* When to seek care — non-diagnostic guidance */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Stethoscope className="h-5 w-5 text-red-500" />
+            When to See a Doctor
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+            <p className="text-xs font-medium text-red-700">{EMERGENCY_NOTE}</p>
+          </div>
+          <p className="text-xs text-gray-500">
+            Your ring and this app track trends — they can prompt a check-up,
+            but they can&apos;t diagnose anything. These patterns are worth
+            raising with a clinician:
+          </p>
+          <ul className="space-y-2">
+            {SEEK_CARE_SIGNALS.map((signal) => (
+              <li
+                key={signal.pattern}
+                className="rounded-lg border border-gray-100 p-2.5"
+              >
+                <p className="text-sm font-medium text-gray-900">
+                  {signal.pattern}
+                </p>
+                <p className="mt-0.5 text-xs text-gray-500">{signal.note}</p>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-gray-400">
+            Before starting intense intervals, a quick clearance from your
+            doctor is smart — especially over 40 or with any cardiac history.
+          </p>
+        </CardContent>
+      </Card>
     </div>
   )
 }

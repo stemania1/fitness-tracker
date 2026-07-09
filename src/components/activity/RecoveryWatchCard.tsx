@@ -10,9 +10,10 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Activity, TrendingDown, TrendingUp } from "lucide-react"
+import { Activity, TrendingDown, TrendingUp, Stethoscope } from "lucide-react"
 import { hrvBaseline, type HrvStatus } from "@/lib/recovery"
 import type { DailyMetrics } from "@/lib/sleep-insights"
+import { EMERGENCY_NOTE, shouldSuggestClinician } from "@/data/seek-care"
 
 const statusBadge: Record<HrvStatus, { label: string; className: string }> = {
   normal: { label: "On track", className: "bg-emerald-100 text-emerald-700" },
@@ -123,8 +124,25 @@ export function RecoveryWatchCard() {
             >
               {baseline.message}
             </p>
+
+            {shouldSuggestClinician(baseline.status) && (
+              <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+                <Stethoscope className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+                <p className="text-xs text-red-700">
+                  If your HRV stays this far below baseline for a week or more
+                  even with easy days and good sleep, it&apos;s worth a doctor
+                  visit — sustained suppression can reflect more than training
+                  fatigue. This is a screening cue, not a diagnosis.
+                </p>
+              </div>
+            )}
           </div>
         )}
+
+        {/* Always-present, non-diagnostic emergency reminder. */}
+        <p className="mt-3 border-t border-gray-100 pt-2 text-[11px] leading-relaxed text-gray-400">
+          {EMERGENCY_NOTE}
+        </p>
       </CardContent>
     </Card>
   )
