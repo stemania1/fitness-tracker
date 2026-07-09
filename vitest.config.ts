@@ -31,6 +31,8 @@ export default defineConfig({
         'src/data/**',
         // Thin Next.js middleware shim — logic lives in lib/supabase/middleware.ts.
         'src/middleware.ts',
+        // Browser-only canvas glue — exercised via the mocked component test.
+        'src/lib/image-resize.ts',
       ],
       // Thresholds are set ~2 points below current coverage so noise from a
       // single new file doesn't break CI, but a meaningful drop does.

@@ -417,6 +417,57 @@ export interface Database {
         }
         Relationships: []
       }
+      food_logs: {
+        Row: {
+          id: string
+          user_id: string
+          description: string
+          meal_type: "breakfast" | "lunch" | "dinner" | "snack" | "meal"
+          calories: number
+          protein_g: number
+          carbs_g: number
+          fat_g: number
+          image_path: string | null
+          confidence: "low" | "medium" | "high" | null
+          edited: boolean
+          logged_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          description: string
+          meal_type?: "breakfast" | "lunch" | "dinner" | "snack" | "meal"
+          calories: number
+          protein_g?: number
+          carbs_g?: number
+          fat_g?: number
+          image_path?: string | null
+          confidence?: "low" | "medium" | "high" | null
+          edited?: boolean
+          logged_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          description?: string
+          meal_type?: "breakfast" | "lunch" | "dinner" | "snack" | "meal"
+          calories?: number
+          protein_g?: number
+          carbs_g?: number
+          fat_g?: number
+          image_path?: string | null
+          confidence?: "low" | "medium" | "high" | null
+          edited?: boolean
+          logged_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
