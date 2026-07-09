@@ -70,6 +70,18 @@ describe("RecoveryWatchCard", () => {
     // "overreaching" appears in both the badge and the message.
     expect((await screen.findAllByText(/overreaching/i)).length).toBeGreaterThan(0)
     expect(screen.getByText(/-15%/)).toBeInTheDocument()
+    // Sustained low HRV surfaces the non-diagnostic see-a-doctor cue.
+    expect(screen.getByText(/worth a doctor visit/i)).toBeInTheDocument()
+    expect(screen.getByText(/not a diagnosis/i)).toBeInTheDocument()
+  })
+
+  it("does not show the clinician cue at normal HRV, but always shows the emergency note", async () => {
+    mockResponse(hrvNights([...Array(21).fill(60), ...Array(7).fill(60)]))
+    renderWithClient(<RecoveryWatchCard />)
+    await screen.findAllByText(/on track/i)
+    expect(screen.queryByText(/worth a doctor visit/i)).toBeNull()
+    // Emergency reminder is always present.
+    expect(screen.getByText(/call 911/i)).toBeInTheDocument()
   })
 
   it("shows the building-baseline badge with too little history", async () => {
