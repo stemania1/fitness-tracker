@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { CalendarCheck, ChevronRight, Moon, Timer } from "lucide-react"
 import { PLAN_WEEKS } from "@/data/training-plan"
 import { todayPlan } from "@/lib/training-plan"
+import { readinessGate, type GateAction } from "@/lib/recovery"
 
 const typeStyles: Record<string, string> = {
   cardio: "bg-cyan-100 text-cyan-700",
@@ -19,12 +20,30 @@ const typeStyles: Record<string, string> = {
   rest: "bg-gray-100 text-gray-600",
 }
 
+const gateStyles: Record<Exclude<GateAction, "none">, string> = {
+  go: "bg-emerald-50 text-emerald-700",
+  moderate: "bg-blue-50 text-blue-700",
+  downshift: "bg-amber-50 text-amber-700",
+}
+
+interface TrainingPlanTodayCardProps {
+  /** Today's Oura readiness score (0-100), when available. */
+  readinessScore?: number | null
+}
+
 /**
  * Dashboard card showing today's prescribed session from the 12-week
- * VO2 Max + pull-up plan, with week/phase context.
+ * VO2 Max + pull-up plan, with week/phase context and — when Oura
+ * readiness is available — a keep/moderate/downshift recommendation.
  */
-export function TrainingPlanTodayCard() {
+export function TrainingPlanTodayCard({
+  readinessScore,
+}: TrainingPlanTodayCardProps = {}) {
   const plan = useMemo(() => todayPlan(new Date()), [])
+  const gate = useMemo(
+    () => readinessGate(plan.session, readinessScore),
+    [plan.session, readinessScore]
+  )
 
   return (
     <Card>
@@ -71,6 +90,13 @@ export function TrainingPlanTodayCard() {
             </ul>
           </div>
         </div>
+
+        {gate.action !== "none" && (
+          <div className={`rounded-lg px-3 py-2 ${gateStyles[gate.action]}`}>
+            <p className="text-xs font-semibold">{gate.headline}</p>
+            <p className="mt-0.5 text-xs">{gate.detail}</p>
+          </div>
+        )}
 
         {plan.sessionNote && (
           <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">
