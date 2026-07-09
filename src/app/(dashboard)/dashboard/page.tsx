@@ -64,6 +64,8 @@ import { Vo2MaxTrendCard } from "@/components/activity/Vo2MaxTrendCard"
 import { TrainingPlanTodayCard } from "@/components/activity/TrainingPlanTodayCard"
 import { RemInsightsCard } from "@/components/activity/RemInsightsCard"
 import { RecoveryWatchCard } from "@/components/activity/RecoveryWatchCard"
+import { QuickLogFood } from "@/components/activity/QuickLogFood"
+import { NutritionCard } from "@/components/activity/NutritionCard"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 
 const supabase = createClient()
@@ -527,12 +529,22 @@ export default function DashboardPage() {
           <QuickLogExercise />
           <QuickLogWeight />
         </div>
+        <div className="flex gap-2">
+          <QuickLogFood />
+        </div>
       </div>
 
       {/* Today's prescribed session from the 12-week training plan,
           readiness-gated when Oura data is available */}
       <ErrorBoundary>
         <TrainingPlanTodayCard readinessScore={ouraSummary?.readiness?.score} />
+      </ErrorBoundary>
+
+      {/* Photo-logged meals: calories in, macros, net vs Oura calories out */}
+      <ErrorBoundary>
+        <NutritionCard
+          caloriesBurnedToday={ouraSummary?.activity?.total_calories}
+        />
       </ErrorBoundary>
 
       {/* This Week */}
