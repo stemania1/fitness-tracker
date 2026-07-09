@@ -277,6 +277,106 @@ export async function getOuraDailySummary(
   }
 }
 
+export interface OuraDailyMetrics {
+  day: string
+  remMinutes: number | null
+  remFraction: number | null
+  totalSleepMinutes: number | null
+  stressHighSeconds: number | null
+  activityScore: number | null
+  highActivityMinutes: number | null
+  readinessScore: number | null
+  averageHrv: number | null
+}
+
+/** Shift a YYYY-MM-DD date string by whole days (UTC-safe). */
+function dayKey(day: string): string {
+  return day.slice(0, 10)
+}
+
+/**
+ * Fetch a window of daily sleep/stress/activity/readiness metrics and merge
+ * them by wake-up day for correlation analysis. Previous-day activity is
+ * lagged onto each night, so a night's REM lines up with the activity that
+ * preceded it. Nights with no sleep record are omitted.
+ */
+export async function getOuraMetricsHistory(
+  accessToken: string,
+  startDate: string,
+  endDate: string
+): Promise<OuraDailyMetrics[]> {
+  // Pull activity from one day earlier so the first night has a prior day.
+  const activityStart = shiftDate(startDate, -1)
+
+  const [sleepPeriods, activity, stress, readiness] = await Promise.all([
+    ouraFetchAll<OuraSleepPeriod>("sleep", accessToken, {
+      start_date: startDate,
+      end_date: endDate,
+    }),
+    ouraFetchAll<OuraDailyActivity>("daily_activity", accessToken, {
+      start_date: activityStart,
+      end_date: endDate,
+    }),
+    ouraFetchAll<OuraDailyStress>("daily_stress", accessToken, {
+      start_date: startDate,
+      end_date: endDate,
+    }),
+    ouraFetchAll<OuraDailyReadiness>("daily_readiness", accessToken, {
+      start_date: startDate,
+      end_date: endDate,
+    }),
+  ])
+
+  const activityByDay = new Map<string, OuraDailyActivity>()
+  for (const a of activity) activityByDay.set(dayKey(a.day), a)
+  const stressByDay = new Map<string, OuraDailyStress>()
+  for (const s of stress) stressByDay.set(dayKey(s.day), s)
+  const readinessByDay = new Map<string, OuraDailyReadiness>()
+  for (const r of readiness) readinessByDay.set(dayKey(r.day), r)
+
+  // Prefer the main long_sleep period per day; fall back to the first.
+  const sleepByDay = new Map<string, OuraSleepPeriod>()
+  for (const p of sleepPeriods) {
+    const key = dayKey(p.day)
+    const existing = sleepByDay.get(key)
+    if (!existing || (p.type === "long_sleep" && existing.type !== "long_sleep")) {
+      sleepByDay.set(key, p)
+    }
+  }
+
+  const out: OuraDailyMetrics[] = []
+  for (const [day, sleep] of [...sleepByDay.entries()].sort((a, b) =>
+    a[0].localeCompare(b[0])
+  )) {
+    const totalSec = sleep.total_sleep_duration
+    const remSec = sleep.rem_sleep_duration
+    const prevDay = shiftDate(day, -1)
+    const prevActivity = activityByDay.get(prevDay)
+    const stressToday = stressByDay.get(day)
+    const readinessToday = readinessByDay.get(day)
+
+    out.push({
+      day,
+      remMinutes: remSec != null ? Math.round(remSec / 60) : null,
+      remFraction:
+        remSec != null && totalSec != null && totalSec > 0
+          ? remSec / totalSec
+          : null,
+      totalSleepMinutes: totalSec != null ? Math.round(totalSec / 60) : null,
+      stressHighSeconds: stressToday?.stress_high ?? null,
+      activityScore: prevActivity?.score ?? null,
+      highActivityMinutes:
+        prevActivity?.high_activity_time != null
+          ? Math.round(prevActivity.high_activity_time / 60)
+          : null,
+      readinessScore: readinessToday?.score ?? null,
+      averageHrv: sleep.average_hrv ?? null,
+    })
+  }
+
+  return out
+}
+
 /**
  * Fetch the user's Oura VO2 Max estimates for a date range (inclusive),
  * oldest first, skipping days where Oura produced no estimate.

@@ -3,6 +3,7 @@ import {
   formatSleepDuration,
   getOuraDailySummary,
   getOuraVo2MaxHistory,
+  getOuraMetricsHistory,
 } from "./oura"
 
 const realFetch = globalThis.fetch
@@ -359,5 +360,87 @@ describe("getOuraVo2MaxHistory", () => {
 
     const history = await getOuraVo2MaxHistory("token", "2024-05-01", "2024-05-02")
     expect(history).toEqual([])
+  })
+})
+
+describe("getOuraMetricsHistory", () => {
+  it("merges sleep, stress, readiness and lags previous-day activity", async () => {
+    mockFetch({
+      sleep: () => ({
+        data: [
+          {
+            id: "s1",
+            day: "2024-05-02",
+            type: "long_sleep",
+            total_sleep_duration: 28800, // 480 min
+            rem_sleep_duration: 5760, // 96 min → 20%
+            average_hrv: 55,
+          },
+        ],
+      }),
+      daily_activity: () => ({
+        data: [
+          // Previous day (2024-05-01) — should lag onto the 05-02 night.
+          { id: "a1", day: "2024-05-01", score: 82, high_activity_time: 1200 },
+          { id: "a2", day: "2024-05-02", score: 70, high_activity_time: 600 },
+        ],
+      }),
+      daily_stress: () => ({
+        data: [{ id: "st1", day: "2024-05-02", stress_high: 3600 }],
+      }),
+      daily_readiness: () => ({
+        data: [{ id: "r1", day: "2024-05-02", score: 88 }],
+      }),
+    })
+
+    const history = await getOuraMetricsHistory("token", "2024-05-02", "2024-05-02")
+    expect(history).toHaveLength(1)
+    const night = history[0]
+    expect(night.day).toBe("2024-05-02")
+    expect(night.remMinutes).toBe(96)
+    expect(night.remFraction).toBeCloseTo(0.2, 5)
+    expect(night.totalSleepMinutes).toBe(480)
+    expect(night.stressHighSeconds).toBe(3600)
+    // Activity is the PREVIOUS day's (05-01), not the same day's.
+    expect(night.activityScore).toBe(82)
+    expect(night.highActivityMinutes).toBe(20)
+    expect(night.readinessScore).toBe(88)
+    expect(night.averageHrv).toBe(55)
+  })
+
+  it("nulls REM fraction when total sleep is missing and omits no-sleep days", async () => {
+    mockFetch({
+      sleep: () => ({
+        data: [
+          {
+            id: "s1",
+            day: "2024-05-03",
+            type: "long_sleep",
+            total_sleep_duration: null,
+            rem_sleep_duration: 5000,
+          },
+        ],
+      }),
+    })
+
+    const history = await getOuraMetricsHistory("token", "2024-05-03", "2024-05-03")
+    expect(history).toHaveLength(1)
+    expect(history[0].remFraction).toBeNull()
+    expect(history[0].activityScore).toBeNull()
+  })
+
+  it("prefers the long_sleep period when multiple exist for a day", async () => {
+    mockFetch({
+      sleep: () => ({
+        data: [
+          { id: "nap", day: "2024-05-04", type: "late_nap", total_sleep_duration: 1800, rem_sleep_duration: 200 },
+          { id: "main", day: "2024-05-04", type: "long_sleep", total_sleep_duration: 27000, rem_sleep_duration: 5400 },
+        ],
+      }),
+    })
+
+    const history = await getOuraMetricsHistory("token", "2024-05-04", "2024-05-04")
+    expect(history).toHaveLength(1)
+    expect(history[0].totalSleepMinutes).toBe(450)
   })
 })
