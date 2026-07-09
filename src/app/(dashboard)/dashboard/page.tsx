@@ -62,6 +62,7 @@ import { QuickLogStrength } from "@/components/activity/QuickLogStrength"
 import { QuickLogWeight } from "@/components/activity/QuickLogWeight"
 import { Vo2MaxTrendCard } from "@/components/activity/Vo2MaxTrendCard"
 import { TrainingPlanTodayCard } from "@/components/activity/TrainingPlanTodayCard"
+import { RemInsightsCard } from "@/components/activity/RemInsightsCard"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 
 const supabase = createClient()
@@ -862,6 +863,11 @@ export default function DashboardPage() {
       {/* VO2 Max trend: Cooper-test results + Oura estimates over time */}
       <ErrorBoundary>
         <Vo2MaxTrendCard age={profile?.age} sex={profile?.sex} />
+      </ErrorBoundary>
+
+      {/* REM sleep trend + correlations with activity/stress/sleep/readiness */}
+      <ErrorBoundary>
+        <RemInsightsCard />
       </ErrorBoundary>
 
       {/* Oura Insights */}
