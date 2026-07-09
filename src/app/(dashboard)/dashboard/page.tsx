@@ -63,6 +63,7 @@ import { QuickLogWeight } from "@/components/activity/QuickLogWeight"
 import { Vo2MaxTrendCard } from "@/components/activity/Vo2MaxTrendCard"
 import { TrainingPlanTodayCard } from "@/components/activity/TrainingPlanTodayCard"
 import { RemInsightsCard } from "@/components/activity/RemInsightsCard"
+import { RecoveryWatchCard } from "@/components/activity/RecoveryWatchCard"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 
 const supabase = createClient()
@@ -528,9 +529,10 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Today's prescribed session from the 12-week training plan */}
+      {/* Today's prescribed session from the 12-week training plan,
+          readiness-gated when Oura data is available */}
       <ErrorBoundary>
-        <TrainingPlanTodayCard />
+        <TrainingPlanTodayCard readinessScore={ouraSummary?.readiness?.score} />
       </ErrorBoundary>
 
       {/* This Week */}
@@ -868,6 +870,11 @@ export default function DashboardPage() {
       {/* REM sleep trend + correlations with activity/stress/sleep/readiness */}
       <ErrorBoundary>
         <RemInsightsCard />
+      </ErrorBoundary>
+
+      {/* HRV baseline vs recent — early overreaching signal */}
+      <ErrorBoundary>
+        <RecoveryWatchCard />
       </ErrorBoundary>
 
       {/* Oura Insights */}

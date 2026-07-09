@@ -3,10 +3,10 @@ import { describe, it, expect, vi, afterEach } from "vitest"
 import { render, screen, cleanup } from "@testing-library/react"
 import { TrainingPlanTodayCard } from "./TrainingPlanTodayCard"
 
-function renderAt(dateIso: string) {
+function renderAt(dateIso: string, readinessScore?: number | null) {
   vi.useFakeTimers()
   vi.setSystemTime(new Date(dateIso))
-  return render(<TrainingPlanTodayCard />)
+  return render(<TrainingPlanTodayCard readinessScore={readinessScore} />)
 }
 
 afterEach(() => {
@@ -47,5 +47,28 @@ describe("TrainingPlanTodayCard", () => {
     renderAt("2026-07-07T08:00:00")
     const link = screen.getByRole("link", { name: /view full plan/i })
     expect(link).toHaveAttribute("href", "/plan")
+  })
+
+  it("green-lights an interval day at high readiness", () => {
+    renderAt("2026-07-07T08:00:00", 90) // Tuesday intervals, week 1
+    expect(screen.getByText(/green light/i)).toBeInTheDocument()
+  })
+
+  it("downshifts an interval day at low readiness", () => {
+    renderAt("2026-07-07T08:00:00", 60)
+    expect(screen.getByText(/downshift, don't skip/i)).toBeInTheDocument()
+    // "Zone 2" also appears in the session's own details, hence getAllByText.
+    expect(screen.getAllByText(/zone 2/i).length).toBeGreaterThan(0)
+  })
+
+  it("shows no readiness gate when the score is unavailable", () => {
+    renderAt("2026-07-07T08:00:00", null)
+    expect(screen.queryByText(/green light/i)).toBeNull()
+    expect(screen.queryByText(/downshift/i)).toBeNull()
+  })
+
+  it("never gates a rest day even at low readiness", () => {
+    renderAt("2026-07-24T08:00:00", 40) // Friday rest, week 3
+    expect(screen.queryByText(/downshift/i)).toBeNull()
   })
 })
