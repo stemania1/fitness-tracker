@@ -66,6 +66,7 @@ import { RemInsightsCard } from "@/components/activity/RemInsightsCard"
 import { RecoveryWatchCard } from "@/components/activity/RecoveryWatchCard"
 import { QuickLogFood } from "@/components/activity/QuickLogFood"
 import { NutritionCard } from "@/components/activity/NutritionCard"
+import { RingBatteryIndicator } from "@/components/activity/RingBatteryIndicator"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 
 const supabase = createClient()
@@ -611,10 +612,13 @@ export default function DashboardPage() {
       {!ouraLoading && ouraConnected && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Activity className="h-5 w-5 text-teal-500" />
-              Today&apos;s Oura Summary
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Activity className="h-5 w-5 text-teal-500" />
+                Today&apos;s Oura Summary
+              </CardTitle>
+              <RingBatteryIndicator battery={ouraSummary?.ringBattery ?? null} />
+            </div>
           </CardHeader>
           <CardContent>
             {ouraResult?.error === "token_expired" ? (

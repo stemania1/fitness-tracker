@@ -15,6 +15,7 @@ function emptySummary(): OuraSummary {
     stress: null,
     resilience: null,
     vo2Max: null,
+    ringBattery: null,
   }
 }
 

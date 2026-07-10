@@ -109,6 +109,16 @@ export interface OuraVo2Max {
   vo2_max: number | null
 }
 
+/** A single ring_battery_level sample. */
+export interface OuraRingBattery {
+  /** Battery percentage, 0-100. */
+  level: number | null
+  charging: boolean | null
+  in_charger: boolean | null
+  /** ISO timestamp of the sample. */
+  timestamp: string
+}
+
 export interface OuraSummary {
   sleep: OuraDailySleep | null
   sleepPeriod: OuraSleepPeriod | null
@@ -120,6 +130,33 @@ export interface OuraSummary {
   stress: OuraDailyStress | null
   resilience: OuraDailyResilience | null
   vo2Max: number | null
+  /** Most recent ring battery reading, or null if unavailable. */
+  ringBattery: OuraRingBattery | null
+}
+
+/**
+ * Pick the most recent battery sample from a ring_battery_level response.
+ * Tolerates both list (`{data: [...]}`) and single-object shapes, and an
+ * empty/absent response (returns null). Exported for testing.
+ */
+export function latestBatterySample(
+  raw: { data?: OuraRingBattery[] } | OuraRingBattery | null
+): OuraRingBattery | null {
+  if (!raw) return null
+  const samples: OuraRingBattery[] = Array.isArray(
+    (raw as { data?: OuraRingBattery[] }).data
+  )
+    ? (raw as { data: OuraRingBattery[] }).data
+    : "level" in raw
+      ? [raw as OuraRingBattery]
+      : []
+  const valid = samples.filter(
+    (s) => s && typeof s.timestamp === "string" && s.level != null
+  )
+  if (valid.length === 0) return null
+  return valid.reduce((latest, s) =>
+    s.timestamp > latest.timestamp ? s : latest
+  )
 }
 
 async function ouraFetch<T>(
@@ -193,9 +230,15 @@ export async function getOuraDailySummary(
   const hrStart = `${today}T00:00:00${offset}`
   const hrEnd = `${today}T23:59:59${offset}`
 
+  // Battery samples are timestamped like heart rate; widen to a couple of
+  // days so a recent reading survives even if the ring hasn't synced today.
+  const batteryStart = `${shiftDate(today, -2)}T00:00:00${offset}`
+  const batteryEnd = `${today}T23:59:59${offset}`
+
   const [
     sleepData, sleepPeriods, activityData, readinessData,
     heartRateData, spo2Data, stressData, resilienceData, vo2Data,
+    batteryData,
   ] = await Promise.all([
     ouraFetch<{ data: OuraDailySleep[] }>("daily_sleep", accessToken, {
       start_date: today,
@@ -239,6 +282,13 @@ export async function getOuraDailySummary(
       start_date: today,
       end_date: today,
     }),
+    // ring_battery_level is a newer endpoint and may not be available for
+    // every token/scope — ouraFetch returns null on a non-2xx, so the
+    // battery indicator simply hides rather than breaking the summary.
+    ouraFetch<{ data: OuraRingBattery[] }>("ring_battery_level", accessToken, {
+      start_datetime: batteryStart,
+      end_datetime: batteryEnd,
+    }),
   ])
 
   // Calculate resting heart rate from the data.
@@ -274,6 +324,7 @@ export async function getOuraDailySummary(
     stress: stressData?.data?.[0] ?? null,
     resilience: resilienceData?.data?.[0] ?? null,
     vo2Max: vo2Data?.data?.[0]?.vo2_max ?? null,
+    ringBattery: latestBatterySample(batteryData),
   }
 }
 

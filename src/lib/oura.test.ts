@@ -4,6 +4,7 @@ import {
   getOuraDailySummary,
   getOuraVo2MaxHistory,
   getOuraMetricsHistory,
+  latestBatterySample,
 } from "./oura"
 
 const realFetch = globalThis.fetch
@@ -125,6 +126,20 @@ describe("getOuraDailySummary — happy path", () => {
     expect(summary.vo2Max).toBe(48.2)
     expect(summary.heartRateReadings.length).toBe(2)
     expect(summary.restingHeartRate).toBe(61) // mean of 60 and 62
+    expect(summary.ringBattery).toBeNull() // no battery endpoint mocked here
+  })
+
+  it("surfaces the most recent ring battery sample when available", async () => {
+    mockFetch({
+      ring_battery_level: () => ({
+        data: [
+          { level: 55, charging: false, in_charger: false, timestamp: "2024-05-01T06:00:00+00:00" },
+          { level: 62, charging: false, in_charger: false, timestamp: "2024-05-01T18:00:00+00:00" },
+        ],
+      }),
+    })
+    const summary = await getOuraDailySummary("token", "2024-05-01")
+    expect(summary.ringBattery?.level).toBe(62)
   })
 
   it("sends the access token as a Bearer auth header", async () => {
@@ -360,6 +375,42 @@ describe("getOuraVo2MaxHistory", () => {
 
     const history = await getOuraVo2MaxHistory("token", "2024-05-01", "2024-05-02")
     expect(history).toEqual([])
+  })
+})
+
+describe("latestBatterySample", () => {
+  it("returns null for null / empty / no-level input", () => {
+    expect(latestBatterySample(null)).toBeNull()
+    expect(latestBatterySample({ data: [] })).toBeNull()
+    expect(
+      latestBatterySample({
+        data: [
+          { level: null, charging: false, in_charger: false, timestamp: "2024-05-01T00:00:00Z" },
+        ],
+      })
+    ).toBeNull()
+  })
+
+  it("picks the newest sample from a list by timestamp", () => {
+    const s = latestBatterySample({
+      data: [
+        { level: 40, charging: false, in_charger: false, timestamp: "2024-05-01T02:00:00Z" },
+        { level: 90, charging: true, in_charger: true, timestamp: "2024-05-01T09:00:00Z" },
+        { level: 70, charging: false, in_charger: false, timestamp: "2024-05-01T05:00:00Z" },
+      ],
+    })
+    expect(s?.level).toBe(90)
+    expect(s?.charging).toBe(true)
+  })
+
+  it("accepts a single-object (non-list) response shape", () => {
+    const s = latestBatterySample({
+      level: 33,
+      charging: false,
+      in_charger: false,
+      timestamp: "2024-05-01T00:00:00Z",
+    })
+    expect(s?.level).toBe(33)
   })
 })
 
