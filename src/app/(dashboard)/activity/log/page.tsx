@@ -163,6 +163,9 @@ export default function LogWorkoutPage() {
   const templateId = searchParams.get("template")
   // "?plan=today" pre-loads the day's prescribed session from the training plan.
   const planParam = searchParams.get("plan")
+  // "?append=<workoutLogId>" adds exercises to an already-saved workout instead
+  // of creating a new one (e.g. logging sets you forgot to check off).
+  const appendId = searchParams.get("append")
 
   const [workout, setWorkout] = useState<ActiveWorkout | null>(null)
   const [currentIdx, setCurrentIdx] = useState(0)
@@ -177,6 +180,9 @@ export default function LogWorkoutPage() {
   const [userWeightLbs, setUserWeightLbs] = useState<number>(170)
   const [calorieProfile, setCalorieProfile] = useState<CalorieProfile>({})
   const startRef = useRef<Date | null>(null)
+  /** When appending to a saved workout: its id and how many exercises it
+   *  already has (so new order_index values continue after them). */
+  const appendInfo = useRef<{ logId: string; orderOffset: number } | null>(null)
   /** Exercises we've already pre-filled this session, so we don't clobber
    *  user edits if they tab back to the exercise. */
   const prefilledExercises = useRef<Set<string>>(new Set())
@@ -184,6 +190,39 @@ export default function LogWorkoutPage() {
   // Load template or start freestyle
   useEffect(() => {
     async function init() {
+      if (appendId) {
+        // Add exercises to an existing saved workout. Load its name + current
+        // exercise count, then start with an empty picker; finishWorkout()
+        // inserts the new exercises into that workout instead of a new one.
+        const supabase = createClient()
+        const { data: log } = await supabase
+          .from("workout_logs")
+          .select("id, name, started_at")
+          .eq("id", appendId)
+          .single()
+
+        if (!log) {
+          router.push("/activity")
+          return
+        }
+
+        const { count } = await supabase
+          .from("exercise_logs")
+          .select("id", { count: "exact", head: true })
+          .eq("workout_log_id", appendId)
+
+        appendInfo.current = { logId: appendId, orderOffset: count ?? 0 }
+        const now = new Date()
+        startRef.current = now
+        setWorkout({
+          name: log.name,
+          templateId: null,
+          startedAt: new Date(log.started_at),
+          exercises: [],
+        })
+        return
+      }
+
       if (templateId) {
         const supabase = createClient()
         const { data: template } = await supabase
@@ -289,7 +328,8 @@ export default function LogWorkoutPage() {
       }
     }
     init()
-  }, [templateId, planParam])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templateId, planParam, appendId])
 
   // Fetch user weight for calorie calculations
   useEffect(() => {
@@ -492,23 +532,29 @@ export default function LogWorkoutPage() {
       (finishedAt.getTime() - workout.startedAt.getTime()) / 60000
     )
 
-    // Insert workout log
-    const { data: logRow, error: logErr } = await supabase
-      .from("workout_logs")
-      .insert({
-        user_id: user.id,
-        template_id: workout.templateId,
-        name: workout.name,
-        started_at: workout.startedAt.toISOString(),
-        finished_at: finishedAt.toISOString(),
-        duration_mins: durationMins,
-      })
-      .select("id")
-      .single()
-
-    if (logErr || !logRow) {
-      setSaving(false)
-      return
+    let logRow: { id: string } | null
+    if (appendInfo.current) {
+      // Appending to an existing workout — reuse its id, don't create a new log.
+      logRow = { id: appendInfo.current.logId }
+    } else {
+      // Insert workout log
+      const { data, error: logErr } = await supabase
+        .from("workout_logs")
+        .insert({
+          user_id: user.id,
+          template_id: workout.templateId,
+          name: workout.name,
+          started_at: workout.startedAt.toISOString(),
+          finished_at: finishedAt.toISOString(),
+          duration_mins: durationMins,
+        })
+        .select("id")
+        .single()
+      logRow = data
+      if (logErr || !logRow) {
+        setSaving(false)
+        return
+      }
     }
 
     // Map static exercise IDs to database UUIDs
@@ -529,7 +575,7 @@ export default function LogWorkoutPage() {
         .insert({
           workout_log_id: logRow.id,
           exercise_id: dbExerciseId,
-          order_index: ei,
+          order_index: (appendInfo.current?.orderOffset ?? 0) + ei,
           notes: ex.notes || null,
         })
         .select("id")
@@ -631,6 +677,11 @@ export default function LogWorkoutPage() {
       {/* Top bar */}
       <div className="mb-4 flex items-center justify-between">
         <div className="min-w-0 flex-1">
+          {appendId && (
+            <p className="text-xs font-medium text-purple-600">
+              Adding to saved workout
+            </p>
+          )}
           <h1 className="truncate text-lg font-bold text-gray-900">
             {workout.name}
           </h1>
@@ -653,7 +704,7 @@ export default function LogWorkoutPage() {
           disabled={saving || workout.exercises.length === 0}
           className="ml-3 shrink-0"
         >
-          {saving ? "Saving..." : "Finish"}
+          {saving ? "Saving..." : appendId ? "Add" : "Finish"}
         </Button>
       </div>
 
