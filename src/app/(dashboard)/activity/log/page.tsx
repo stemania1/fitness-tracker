@@ -177,6 +177,9 @@ export default function LogWorkoutPage() {
   const [showIncline, setShowIncline] = useState(false)
   const [restTimer, setRestTimer] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
+  // Set when Finish is tapped while some exercises have no checked sets — those
+  // won't be saved, so confirm before dropping them silently.
+  const [pendingFinish, setPendingFinish] = useState(false)
   const [userWeightLbs, setUserWeightLbs] = useState<number>(170)
   const [calorieProfile, setCalorieProfile] = useState<CalorieProfile>({})
   const startRef = useRef<Date | null>(null)
@@ -600,6 +603,21 @@ export default function LogWorkoutPage() {
     router.push(`/activity/${logRow.id}`)
   }
 
+  // Exercises with no checked-off set — these get dropped on save.
+  const uncheckedExercises = workout
+    ? workout.exercises.filter((ex) => ex.sets.every((s) => !s.completed))
+    : []
+
+  // Finish handler: warn first if any exercise has no completed set.
+  const handleFinishClick = () => {
+    if (!workout || workout.exercises.length === 0) return
+    if (uncheckedExercises.length > 0) {
+      setPendingFinish(true)
+      return
+    }
+    finishWorkout()
+  }
+
   // ── Derived state + hooks ───────────────────────────────────
   // NOTE: every hook below must run before the `if (!workout)` early return.
   // `workout` starts null and is set by init(); if these hooks lived after
@@ -700,7 +718,7 @@ export default function LogWorkoutPage() {
           </div>
         </div>
         <Button
-          onClick={finishWorkout}
+          onClick={handleFinishClick}
           disabled={saving || workout.exercises.length === 0}
           className="ml-3 shrink-0"
         >
@@ -1271,6 +1289,51 @@ export default function LogWorkoutPage() {
           onSelect={addExercise}
           onClose={() => setShowPicker(false)}
         />
+      )}
+
+      {/* Unchecked-exercises confirmation before saving */}
+      {pendingFinish && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
+            <h3 className="text-base font-semibold text-gray-900">
+              Save without these?
+            </h3>
+            <p className="mt-2 text-sm text-gray-600">
+              {uncheckedExercises.length}{" "}
+              {uncheckedExercises.length === 1 ? "exercise has" : "exercises have"}{" "}
+              no checked-off sets and won&apos;t be saved. Tap the checkmark on a
+              set to include it.
+            </p>
+            {uncheckedExercises.length > 0 && (
+              <ul className="mt-3 max-h-32 space-y-1 overflow-y-auto text-sm text-gray-500">
+                {uncheckedExercises.map((ex) => (
+                  <li key={ex.exerciseId} className="truncate">
+                    • {ex.name}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="mt-5 flex gap-2">
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={() => setPendingFinish(false)}
+              >
+                Keep logging
+              </Button>
+              <Button
+                className="flex-1"
+                disabled={saving}
+                onClick={() => {
+                  setPendingFinish(false)
+                  finishWorkout()
+                }}
+              >
+                Save anyway
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Rest timer */}
