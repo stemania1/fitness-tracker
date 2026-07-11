@@ -14,6 +14,8 @@ export interface FoodItem {
 
 export interface FoodEstimate {
   description: string
+  /** The portion the estimate assumes, e.g. "about 1.5 cups (350g)". */
+  portion: string
   items: FoodItem[]
   calories: number
   protein_g: number
@@ -33,6 +35,11 @@ export const FOOD_ESTIMATE_SCHEMA = {
     description: {
       type: "string",
       description: "Short natural description of the meal, e.g. 'Grilled chicken salad with avocado'.",
+    },
+    portion: {
+      type: "string",
+      description:
+        "The portion size this estimate assumes, in everyday terms with an approximate weight, e.g. 'about 1.5 cups (350g)' or 'one medium plate (~400g)'.",
     },
     items: {
       type: "array",
@@ -59,6 +66,7 @@ export const FOOD_ESTIMATE_SCHEMA = {
   },
   required: [
     "description",
+    "portion",
     "items",
     "calories",
     "protein_g",
@@ -75,8 +83,9 @@ Guidelines:
 - Estimate total calories, protein, carbohydrates, and fat in grams.
 - Account for likely cooking oils, dressings, and sauces even when not obviously visible.
 - Judge portion sizes from visual cues (plate size, utensils, hand if present).
+- State the portion you assumed in everyday terms with an approximate weight (e.g. "about 1.5 cups (350g)"). All your numbers must correspond to that stated portion.
 - Portion size is the biggest source of error — when the portion is ambiguous, set confidence to "low" and lean toward a typical serving.
-- If the image does not show food, return an empty items array, zero for every number, and confidence "low".
+- If the image does not show food, return an empty items array, zero for every number, an empty portion, and confidence "low".
 
 Be realistic, not optimistic. A typical restaurant plate is larger and more calorie-dense than a home portion.`
 
@@ -116,14 +125,37 @@ export function sanitizeEstimate(raw: unknown): FoodEstimate {
       ? obj.description.trim()
       : "Unrecognized meal"
 
+  const portion =
+    typeof obj.portion === "string" ? obj.portion.trim() : ""
+
   return {
     description,
+    portion,
     items,
     calories: nonNegInt(obj.calories),
     protein_g: nonNegInt(obj.protein_g),
     carbs_g: nonNegInt(obj.carbs_g),
     fat_g: nonNegInt(obj.fat_g),
     confidence,
+  }
+}
+
+/**
+ * Scale an estimate's calories and macros by a portion multiplier, rounding
+ * each to a whole number. Description, portion text, items, and confidence
+ * are unchanged. A non-finite or non-positive factor is treated as 1.
+ */
+export function scaleEstimate(
+  estimate: FoodEstimate,
+  factor: number
+): FoodEstimate {
+  const f = Number.isFinite(factor) && factor > 0 ? factor : 1
+  return {
+    ...estimate,
+    calories: Math.round(estimate.calories * f),
+    protein_g: Math.round(estimate.protein_g * f),
+    carbs_g: Math.round(estimate.carbs_g * f),
+    fat_g: Math.round(estimate.fat_g * f),
   }
 }
 

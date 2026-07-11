@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest"
 import {
   sanitizeEstimate,
+  scaleEstimate,
   caloriesFromMacros,
   macroConsistency,
   type FoodEstimate,
@@ -10,6 +11,7 @@ describe("sanitizeEstimate", () => {
   it("passes through a well-formed estimate", () => {
     const raw = {
       description: "Grilled chicken salad",
+      portion: "about 1 large bowl (400g)",
       items: [
         { name: "Grilled chicken", calories: 220 },
         { name: "Mixed greens", calories: 40 },
@@ -21,6 +23,12 @@ describe("sanitizeEstimate", () => {
       confidence: "medium",
     }
     expect(sanitizeEstimate(raw)).toEqual(raw)
+  })
+
+  it("defaults portion to an empty string when missing or non-string", () => {
+    expect(sanitizeEstimate({ description: "x" }).portion).toBe("")
+    expect(sanitizeEstimate({ portion: 42 }).portion).toBe("")
+    expect(sanitizeEstimate({ portion: "  2 cups  " }).portion).toBe("2 cups")
   })
 
   it("clamps negative and non-numeric numbers to zero, rounding floats", () => {
@@ -64,6 +72,48 @@ describe("sanitizeEstimate", () => {
   })
 })
 
+describe("scaleEstimate", () => {
+  const base: FoodEstimate = {
+    description: "Oatmeal",
+    portion: "1 cup",
+    items: [{ name: "Oats", calories: 150 }],
+    calories: 290,
+    protein_g: 10,
+    carbs_g: 35,
+    fat_g: 12,
+    confidence: "low",
+  }
+
+  it("scales calories and macros, rounding each", () => {
+    const doubled = scaleEstimate(base, 2)
+    expect(doubled.calories).toBe(580)
+    expect(doubled.protein_g).toBe(20)
+    expect(doubled.carbs_g).toBe(70)
+    expect(doubled.fat_g).toBe(24)
+  })
+
+  it("rounds fractional results (0.5×)", () => {
+    const half = scaleEstimate(base, 0.5)
+    expect(half.calories).toBe(145)
+    expect(half.protein_g).toBe(5)
+    expect(half.fat_g).toBe(6)
+  })
+
+  it("leaves description, portion, items, and confidence untouched", () => {
+    const s = scaleEstimate(base, 1.5)
+    expect(s.description).toBe("Oatmeal")
+    expect(s.portion).toBe("1 cup")
+    expect(s.items).toEqual(base.items)
+    expect(s.confidence).toBe("low")
+  })
+
+  it("treats a non-positive or non-finite factor as 1×", () => {
+    expect(scaleEstimate(base, 0).calories).toBe(290)
+    expect(scaleEstimate(base, -2).calories).toBe(290)
+    expect(scaleEstimate(base, NaN).calories).toBe(290)
+  })
+})
+
 describe("caloriesFromMacros", () => {
   it("applies the 4/4/9 rule", () => {
     // 30*4 + 40*4 + 10*9 = 120 + 160 + 90 = 370
@@ -74,6 +124,7 @@ describe("caloriesFromMacros", () => {
 describe("macroConsistency", () => {
   const base: FoodEstimate = {
     description: "x",
+    portion: "",
     items: [],
     calories: 400,
     protein_g: 30,

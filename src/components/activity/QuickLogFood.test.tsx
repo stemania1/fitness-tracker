@@ -35,6 +35,7 @@ const realFetch = globalThis.fetch
 
 const ESTIMATE = {
   description: "Chicken bowl",
+  portion: "about 1 bowl (400g)",
   items: [{ name: "Chicken", calories: 300 }],
   calories: 550,
   protein_g: 40,
@@ -106,10 +107,30 @@ describe("QuickLogFood", () => {
     await openAndEstimate()
     expect(screen.getByDisplayValue("550")).toBeInTheDocument() // calories
     expect(screen.getByDisplayValue("40")).toBeInTheDocument() // protein
+    // Shows the assumed portion.
+    expect(screen.getByText(/about 1 bowl \(400g\)/i)).toBeInTheDocument()
     // Posted the processed image to the estimate endpoint.
     const call = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
     expect(call[0]).toBe("/api/estimate-food")
     expect(JSON.parse(call[1].body).mediaType).toBe("image/jpeg")
+  })
+
+  it("scales calories and macros when a portion multiplier is tapped", async () => {
+    renderWithClient(<QuickLogFood />)
+    await openAndEstimate()
+
+    fireEvent.click(screen.getByRole("button", { name: "2×" }))
+    // 550→1100, 40→80, 45→90, 18→36
+    expect(screen.getByDisplayValue("1100")).toBeInTheDocument()
+    expect(screen.getByDisplayValue("80")).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: /save meal/i }))
+    await waitFor(() => expect(mocks.insert).toHaveBeenCalledTimes(1))
+    const row = mocks.insert.mock.calls[0][0]
+    expect(row.calories).toBe(1100)
+    expect(row.protein_g).toBe(80)
+    // Scaling the portion counts as an edit.
+    expect(row.edited).toBe(true)
   })
 
   it("saves an unedited estimate with edited=false and uploads the photo", async () => {

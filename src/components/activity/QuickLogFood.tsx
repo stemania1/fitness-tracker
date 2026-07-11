@@ -15,7 +15,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Camera, Loader2 } from "lucide-react"
 import { fileToProcessedImage, type ProcessedImage } from "@/lib/image-resize"
-import { macroConsistency, type FoodEstimate } from "@/lib/food-estimate"
+import {
+  macroConsistency,
+  scaleEstimate,
+  type FoodEstimate,
+} from "@/lib/food-estimate"
 
 const supabase = createClient()
 
@@ -36,6 +40,7 @@ export function QuickLogFood() {
   const [original, setOriginal] = useState<FoodEstimate | null>(null)
   const [mealType, setMealType] = useState<MealType>("meal")
   const [image, setImage] = useState<ProcessedImage | null>(null)
+  const [factor, setFactor] = useState(1)
   const fileRef = useRef<HTMLInputElement>(null)
   const queryClient = useQueryClient()
 
@@ -46,6 +51,14 @@ export function QuickLogFood() {
     setOriginal(null)
     setImage(null)
     setMealType("meal")
+    setFactor(1)
+  }
+
+  /** Scale the original estimate by a portion multiplier. */
+  function applyFactor(f: number) {
+    if (!original) return
+    setFactor(f)
+    setEstimate(scaleEstimate(original, f))
   }
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -87,6 +100,8 @@ export function QuickLogFood() {
       field === "protein_g" ||
       field === "carbs_g" ||
       field === "fat_g"
+    // A manual edit means the numbers no longer match a clean multiplier.
+    if (numeric) setFactor(0)
     setEstimate({
       ...estimate,
       [field]: numeric ? Math.max(0, Math.round(Number(value) || 0)) : value,
@@ -213,11 +228,40 @@ export function QuickLogFood() {
               />
               {estimate.confidence === "low" && (
                 <p className="text-xs text-amber-600">
-                  Low confidence — portion size was hard to judge. Adjust if you
-                  know better.
+                  Low confidence — portion size was hard to judge. Use the
+                  buttons below or edit the numbers if you know better.
                 </p>
               )}
             </div>
+
+            {/* Assumed portion + one-tap multiplier to correct it */}
+            {original && (
+              <div className="space-y-2 rounded-lg bg-gray-50 p-3">
+                <p className="text-xs text-gray-600">
+                  Estimated for{" "}
+                  <span className="font-medium text-gray-900">
+                    {original.portion || "a typical serving"}
+                  </span>
+                  . Wrong portion? Scale it:
+                </p>
+                <div className="flex gap-1.5">
+                  {[0.5, 1, 1.5, 2].map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => applyFactor(f)}
+                      className={`flex-1 rounded-md px-2 py-1.5 text-sm font-medium transition-colors ${
+                        factor === f
+                          ? "bg-purple-600 text-white"
+                          : "bg-white text-gray-700 ring-1 ring-gray-200 hover:bg-gray-100"
+                      }`}
+                    >
+                      {f === 1 ? "1×" : `${f}×`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="qlf-cal">Calories</Label>
