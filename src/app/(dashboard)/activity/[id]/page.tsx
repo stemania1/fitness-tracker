@@ -19,6 +19,7 @@ import {
   MessageSquare,
   Flame,
   X,
+  Plus,
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { formatDuration } from "@/lib/utils"
@@ -44,6 +45,9 @@ interface SetLogRow {
 interface ExerciseLogRow {
   id: string
   exercise_id: string
+  /** Exercise name from the DB `exercises` row (joined). exercise_id is a DB
+   *  UUID, so the static catalog is resolved by name, not by that id. */
+  name: string | null
   order_index: number
   notes: string | null
   sets: SetLogRow[]
@@ -195,8 +199,10 @@ export default function WorkoutDetailPage() {
     }
   }
 
-  const exerciseMap = useMemo(
-    () => new Map(exerciseCatalog.map((e) => [e.id, e])),
+  // Saved workouts store a DB UUID in exercise_id, so resolve the static
+  // catalog entry by the joined exercise name (the two catalogs share names).
+  const exerciseByName = useMemo(
+    () => new Map(exerciseCatalog.map((e) => [e.name, e])),
     []
   )
 
@@ -217,11 +223,21 @@ export default function WorkoutDetailPage() {
 
       const { data: exerciseLogs } = await supabase
         .from("exercise_logs")
-        .select("id, exercise_id, order_index, notes")
+        .select("id, exercise_id, order_index, notes, exercises(name)")
         .eq("workout_log_id", id)
         .order("order_index", { ascending: true })
 
-      const exIds = (exerciseLogs ?? []).map((el) => el.id)
+      // The embedded exercises(name) relation isn't in the generated types, so
+      // the row type widens to `never` — cast to the shape we selected.
+      const rawExerciseLogs = (exerciseLogs ?? []) as Array<{
+        id: string
+        exercise_id: string
+        order_index: number
+        notes: string | null
+        exercises: { name: string } | { name: string }[] | null
+      }>
+
+      const exIds = rawExerciseLogs.map((el) => el.id)
       const { data: setLogs } = await supabase
         .from("set_logs")
         .select(
@@ -237,10 +253,19 @@ export default function WorkoutDetailPage() {
         setsByExercise.set(s.exercise_log_id, list)
       })
 
-      const exercises: ExerciseLogRow[] = (exerciseLogs ?? []).map((el) => ({
-        ...el,
-        sets: setsByExercise.get(el.id) ?? [],
-      }))
+      const exercises: ExerciseLogRow[] = rawExerciseLogs.map((el) => {
+        const exRow = Array.isArray(el.exercises)
+          ? el.exercises[0]
+          : el.exercises
+        return {
+          id: el.id,
+          exercise_id: el.exercise_id,
+          name: exRow?.name ?? null,
+          order_index: el.order_index,
+          notes: el.notes,
+          sets: setsByExercise.get(el.id) ?? [],
+        }
+      })
 
       setWorkout({ ...log, exercises })
 
@@ -281,7 +306,8 @@ export default function WorkoutDetailPage() {
   const totalCalories = useMemo(() => {
     if (!workout) return 0
     return workout.exercises.reduce((sum, ex) => {
-      const def = exerciseMap.get(ex.exercise_id)
+      const def = exerciseByName.get(ex.name ?? "")
+      const calorieId = def?.id ?? ex.exercise_id
       const isCardio = def?.exerciseType === "cardio"
       const isTreadmill = def?.equipmentId === "treadmill"
       const isOutdoorRun = def?.id === "outdoor-run"
@@ -322,7 +348,7 @@ export default function WorkoutDetailPage() {
         return (
           sum +
           estimateCardioCalories(
-            ex.exercise_id,
+            calorieId,
             totalMins,
             userWeightLbs,
             avgSpeed,
@@ -331,9 +357,9 @@ export default function WorkoutDetailPage() {
           )
         )
       }
-      return sum + estimateStrengthCalories(ex.exercise_id, ex.sets.length, userWeightLbs, calorieProfile)
+      return sum + estimateStrengthCalories(calorieId, ex.sets.length, userWeightLbs, calorieProfile)
     }, 0)
-  }, [workout, userWeightLbs, calorieProfile, exerciseMap])
+  }, [workout, userWeightLbs, calorieProfile, exerciseByName])
 
   const handleDelete = async () => {
     setDeleting(true)
@@ -450,7 +476,7 @@ export default function WorkoutDetailPage() {
       {/* Exercises */}
       <div className="space-y-4">
         {(editing ?? workout).exercises.map((ex) => {
-          const def = exerciseMap.get(ex.exercise_id)
+          const def = exerciseByName.get(ex.name ?? "")
           const isCardio = def?.exerciseType === "cardio"
           const isTreadmill = def?.equipmentId === "treadmill"
           const isOutdoorRun = def?.id === "outdoor-run"
@@ -461,7 +487,7 @@ export default function WorkoutDetailPage() {
               <CardContent className="p-4">
                 <div className="mb-3">
                   <h3 className="font-semibold text-gray-900">
-                    {def?.name ?? ex.exercise_id}
+                    {def?.name ?? ex.name ?? "Exercise"}
                   </h3>
                   {def && (
                     <div className="mt-1 flex flex-wrap gap-1">
@@ -733,7 +759,14 @@ export default function WorkoutDetailPage() {
             </div>
           </div>
         ) : (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={() => router.push(`/activity/log?append=${workout.id}`)}
+              className="gap-1.5"
+            >
+              <Plus className="h-4 w-4" />
+              Add exercises
+            </Button>
             <Button
               variant="secondary"
               onClick={startEditing}
