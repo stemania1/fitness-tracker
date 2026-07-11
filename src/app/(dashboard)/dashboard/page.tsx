@@ -62,6 +62,7 @@ import { QuickLogStrength } from "@/components/activity/QuickLogStrength"
 import { QuickLogWeight } from "@/components/activity/QuickLogWeight"
 import { Vo2MaxTrendCard } from "@/components/activity/Vo2MaxTrendCard"
 import { TrainingPlanTodayCard } from "@/components/activity/TrainingPlanTodayCard"
+import { todaysWorkout } from "@/lib/todays-workout"
 import { RemInsightsCard } from "@/components/activity/RemInsightsCard"
 import { RecoveryWatchCard } from "@/components/activity/RecoveryWatchCard"
 import { QuickLogFood } from "@/components/activity/QuickLogFood"
@@ -170,6 +171,16 @@ export default function DashboardPage() {
   })
 
   const weekStart = useMemo(() => getStartOfWeek(), [])
+
+  // Start Workout opens the day's session in the logger (weights + previous
+  // performance) on training days; rest days go to the lightweight rest screen.
+  const startWorkoutHref = useMemo(
+    () =>
+      todaysWorkout(new Date()).isRest
+        ? "/activity/today"
+        : "/activity/log?plan=today",
+    []
+  )
 
   const { data: weeklyWorkouts, isLoading: weeklyLoading } = useQuery({
     queryKey: ["weekly-workouts", weekStart],
@@ -519,7 +530,7 @@ export default function DashboardPage() {
       {/* Quick Actions */}
       <div className="space-y-2">
         <Link
-          href="/activity/today"
+          href={startWorkoutHref}
           className="flex w-full items-center justify-center gap-2 rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-purple-700"
         >
           <Plus className="h-4 w-4" />

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { todaysWorkout } from "./todays-workout"
+import { todaysWorkout, plannedSession } from "./todays-workout"
 
 // Plan starts Monday 2026-07-06. Local noon to avoid TZ edges.
 const d = (y: number, m: number, day: number) => new Date(y, m - 1, day, 12)
@@ -54,5 +54,60 @@ describe("todaysWorkout", () => {
     const w = todaysWorkout(d(2026, 10, 6)) // after week 12
     expect(w.week).toBeNull()
     expect(w.type).toBe("cardio") // Tuesday rhythm persists
+  })
+})
+
+describe("plannedSession", () => {
+  it("pre-loads Pull A lifts plus the Zone 2 bike finisher", () => {
+    const s = plannedSession(d(2026, 7, 11)) // Saturday = Pull A
+    expect(s.isRest).toBe(false)
+    expect(s.name).toMatch(/pull a/i)
+    // First lift is the assisted pull-up with its rep target and rest.
+    expect(s.exercises[0].exerciseId).toBe("assisted-pull-up")
+    expect(s.exercises[0].reps).toBe("6-8")
+    expect(s.exercises[0].sets).toBe(4)
+    // Last entry is the Zone 2 cardio finisher on the bike.
+    const last = s.exercises[s.exercises.length - 1]
+    expect(last.exerciseId).toBe("stationary-bike-exercise")
+    expect(last.reps).toMatch(/min/)
+  })
+
+  it("pre-loads Pull B lifts with no cardio finisher", () => {
+    const s = plannedSession(d(2026, 7, 9)) // Thursday = Pull B
+    expect(s.name).toMatch(/pull b/i)
+    expect(s.exercises.length).toBe(5)
+    expect(
+      s.exercises.some((e) => e.exerciseId === "stationary-bike-exercise")
+    ).toBe(false)
+  })
+
+  it("pre-loads one running entry for the 4×4 interval day", () => {
+    const s = plannedSession(d(2026, 7, 7)) // Tuesday = 4×4 intervals
+    expect(s.isRest).toBe(false)
+    expect(s.exercises).toHaveLength(1)
+    expect(s.exercises[0].exerciseId).toBe("treadmill-run")
+    expect(s.exercises[0].reps).toMatch(/min/)
+  })
+
+  it("pre-loads one bike entry for the 30/30 interval day", () => {
+    const s = plannedSession(d(2026, 7, 12)) // Sunday = 30/30 + Zone 2
+    expect(s.exercises).toHaveLength(1)
+    expect(s.exercises[0].exerciseId).toBe("stationary-bike-exercise")
+  })
+
+  it("returns no exercises on a rest day", () => {
+    const s = plannedSession(d(2026, 7, 10)) // Friday = rest
+    expect(s.isRest).toBe(true)
+    expect(s.exercises).toEqual([])
+  })
+
+  it("maps every planned exercise to a real catalog id", async () => {
+    const { exercises } = await import("@/data/exercises")
+    const ids = new Set(exercises.map((e) => e.id))
+    for (const day of [7, 9, 11, 12]) {
+      for (const ex of plannedSession(d(2026, 7, day)).exercises) {
+        expect(ids.has(ex.exerciseId)).toBe(true)
+      }
+    }
   })
 })
