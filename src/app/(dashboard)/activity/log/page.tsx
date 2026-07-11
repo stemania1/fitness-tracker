@@ -39,6 +39,7 @@ import {
   type CalorieProfile,
 } from "@/lib/calories"
 import { ensureExercisesExist } from "@/lib/supabase/exercises"
+import { plannedSession } from "@/lib/todays-workout"
 
 // ── Types ─────────────────────────────────────────────────────
 interface ActiveSet {
@@ -160,6 +161,8 @@ export default function LogWorkoutPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const templateId = searchParams.get("template")
+  // "?plan=today" pre-loads the day's prescribed session from the training plan.
+  const planParam = searchParams.get("plan")
 
   const [workout, setWorkout] = useState<ActiveWorkout | null>(null)
   const [currentIdx, setCurrentIdx] = useState(0)
@@ -242,6 +245,38 @@ export default function LogWorkoutPage() {
           startedAt: now,
           exercises: activeExercises,
         })
+      } else if (planParam === "today") {
+        // Pre-load today's prescribed session (lifts + Zone 2 finisher) from
+        // the training plan — no DB round-trip, exercises come from the static
+        // catalog so previous-performance + progressive-overload work as usual.
+        const planned = plannedSession(new Date())
+        const defById = new Map(exerciseCatalog.map((e) => [e.id, e]))
+        const activeExercises: ActiveExercise[] = planned.exercises
+          .map((p) => {
+            const def = defById.get(p.exerciseId)
+            if (!def) return null
+            return {
+              exerciseId: def.id,
+              name: def.name,
+              muscleGroups: def.muscleGroups,
+              exerciseType: def.exerciseType,
+              equipmentId: def.equipmentId,
+              repsTarget: p.reps,
+              sets: Array.from({ length: p.sets }, () => makeSet()),
+              notes: p.notes ?? "",
+              restSeconds: p.restSeconds,
+            } satisfies ActiveExercise
+          })
+          .filter(Boolean) as ActiveExercise[]
+
+        const now = new Date()
+        startRef.current = now
+        setWorkout({
+          name: planned.name,
+          templateId: null,
+          startedAt: now,
+          exercises: activeExercises,
+        })
       } else {
         const now = new Date()
         startRef.current = now
@@ -254,7 +289,7 @@ export default function LogWorkoutPage() {
       }
     }
     init()
-  }, [templateId])
+  }, [templateId, planParam])
 
   // Fetch user weight for calorie calculations
   useEffect(() => {
