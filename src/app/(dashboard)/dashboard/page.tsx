@@ -519,7 +519,7 @@ export default function DashboardPage() {
       {/* Quick Actions */}
       <div className="space-y-2">
         <Link
-          href="/activity"
+          href="/activity/today"
           className="flex w-full items-center justify-center gap-2 rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-purple-700"
         >
           <Plus className="h-4 w-4" />
