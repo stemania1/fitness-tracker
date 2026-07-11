@@ -33,6 +33,8 @@ export default defineConfig({
         'src/middleware.ts',
         // Browser-only canvas glue — exercised via the mocked component test.
         'src/lib/image-resize.ts',
+        // Static PWA manifest route — no logic to test.
+        'src/app/manifest.ts',
       ],
       // Thresholds are set ~2 points below current coverage so noise from a
       // single new file doesn't break CI, but a meaningful drop does.
