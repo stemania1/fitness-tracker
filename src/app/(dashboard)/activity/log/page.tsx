@@ -194,9 +194,10 @@ export default function LogWorkoutPage() {
   useEffect(() => {
     async function init() {
       if (appendId) {
-        // Add exercises to an existing saved workout. Load its name + current
-        // exercise count, then start with an empty picker; finishWorkout()
-        // inserts the new exercises into that workout instead of a new one.
+        // Add exercises to an existing saved workout. finishWorkout() inserts
+        // into that workout instead of creating a new one. When the workout is
+        // a plan session, pre-load the plan's remaining exercises (the ones not
+        // already logged) so the user just fills in weights.
         const supabase = createClient()
         const { data: log } = await supabase
           .from("workout_logs")
@@ -209,19 +210,56 @@ export default function LogWorkoutPage() {
           return
         }
 
-        const { count } = await supabase
+        // Names already logged in this workout (join exercises(name)).
+        const { data: existingRows } = await supabase
           .from("exercise_logs")
-          .select("id", { count: "exact", head: true })
+          .select("id, exercises(name)")
           .eq("workout_log_id", appendId)
+        const existing = (existingRows ?? []) as Array<{
+          id: string
+          exercises: { name: string } | { name: string }[] | null
+        }>
+        const loggedNames = new Set(
+          existing
+            .map((r) =>
+              Array.isArray(r.exercises) ? r.exercises[0]?.name : r.exercises?.name
+            )
+            .filter((n): n is string => !!n)
+        )
 
-        appendInfo.current = { logId: appendId, orderOffset: count ?? 0 }
+        // If this workout matches the plan session for its day, pre-load the
+        // still-missing prescribed exercises; otherwise start empty.
+        const planned = plannedSession(new Date(log.started_at))
+        const defById = new Map(exerciseCatalog.map((e) => [e.id, e]))
+        let preloaded: ActiveExercise[] = []
+        if (planned.name === log.name) {
+          preloaded = planned.exercises
+            .map((p) => {
+              const def = defById.get(p.exerciseId)
+              if (!def || loggedNames.has(def.name)) return null
+              return {
+                exerciseId: def.id,
+                name: def.name,
+                muscleGroups: def.muscleGroups,
+                exerciseType: def.exerciseType,
+                equipmentId: def.equipmentId,
+                repsTarget: p.reps,
+                sets: Array.from({ length: p.sets }, () => makeSet()),
+                notes: p.notes ?? "",
+                restSeconds: p.restSeconds,
+              } satisfies ActiveExercise
+            })
+            .filter(Boolean) as ActiveExercise[]
+        }
+
+        appendInfo.current = { logId: appendId, orderOffset: existing.length }
         const now = new Date()
         startRef.current = now
         setWorkout({
           name: log.name,
           templateId: null,
           startedAt: new Date(log.started_at),
-          exercises: [],
+          exercises: preloaded,
         })
         return
       }
