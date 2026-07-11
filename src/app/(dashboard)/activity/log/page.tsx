@@ -519,23 +519,13 @@ export default function LogWorkoutPage() {
     router.push(`/activity/${logRow.id}`)
   }
 
-  // ── Render ──────────────────────────────────────────────────
-  if (!workout) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-purple-200 border-t-purple-600" />
-      </div>
-    )
-  }
-
-  const currentExercise = workout.exercises[currentIdx]
-  const isCardio = currentExercise?.exerciseType === "cardio"
-  const isTreadmillExercise =
-    !!currentExercise && isTreadmill(currentExercise)
-  const isOutdoorRunExercise =
-    !!currentExercise && isOutdoorRun(currentExercise)
-  const isDistanceCardioExercise =
-    !!currentExercise && isDistanceCardio(currentExercise)
+  // ── Derived state + hooks ───────────────────────────────────
+  // NOTE: every hook below must run before the `if (!workout)` early return.
+  // `workout` starts null and is set by init(); if these hooks lived after
+  // the early return they'd be skipped on the first (null) render and then
+  // called on the next, changing the hook count and crashing the page with
+  // "Rendered more hooks than during the previous render".
+  const currentExercise = workout?.exercises[currentIdx]
 
   // For PR detection during the active workout. Returns the all-time max
   // weight for the current exercise *before* this session.
@@ -583,6 +573,23 @@ export default function LogWorkoutPage() {
     })
     prefilledExercises.current.add(currentExercise.exerciseId)
   }, [currentExercise, currentHistory])
+
+  // ── Render ──────────────────────────────────────────────────
+  if (!workout) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-purple-200 border-t-purple-600" />
+      </div>
+    )
+  }
+
+  const isCardio = currentExercise?.exerciseType === "cardio"
+  const isTreadmillExercise =
+    !!currentExercise && isTreadmill(currentExercise)
+  const isOutdoorRunExercise =
+    !!currentExercise && isOutdoorRun(currentExercise)
+  const isDistanceCardioExercise =
+    !!currentExercise && isDistanceCardio(currentExercise)
 
   return (
     <div className="mx-auto max-w-lg">
