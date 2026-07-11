@@ -61,14 +61,12 @@ export function QuickLogFood() {
     setEstimate(scaleEstimate(original, f))
   }
 
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
+  /** Send an already-processed photo to the estimate API. Split out from
+   *  handleFile so a network drop can be retried without re-taking the shot. */
+  async function runEstimate(processed: ProcessedImage) {
     setError(null)
     setPhase("estimating")
     try {
-      const processed = await fileToProcessedImage(file)
-      setImage(processed)
       const res = await fetch("/api/estimate-food", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -85,6 +83,27 @@ export function QuickLogFood() {
       setEstimate(body.estimate)
       setOriginal(body.estimate)
       setPhase("review")
+    } catch (err) {
+      // A dropped connection surfaces as fetch's "Load failed" / "Failed to
+      // fetch" — translate that into something actionable.
+      const msg = (err as Error).message
+      const friendly = /load failed|failed to fetch|networkerror/i.test(msg)
+        ? "Couldn’t reach the server — check your connection and try again."
+        : msg
+      setError(friendly)
+      setPhase("idle")
+    }
+  }
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setError(null)
+    setPhase("estimating")
+    try {
+      const processed = await fileToProcessedImage(file)
+      setImage(processed)
+      await runEstimate(processed)
     } catch (err) {
       setError((err as Error).message)
       setPhase("idle")
@@ -201,6 +220,14 @@ export function QuickLogFood() {
               <span className="text-sm font-medium">Take or choose a photo</span>
             </button>
             {error && <p className="text-sm text-red-600">{error}</p>}
+            {error && image && (
+              <button
+                onClick={() => runEstimate(image)}
+                className="w-full rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700"
+              >
+                Try again with the same photo
+              </button>
+            )}
           </div>
         )}
 

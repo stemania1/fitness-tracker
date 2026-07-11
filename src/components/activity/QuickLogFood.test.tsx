@@ -186,4 +186,38 @@ describe("QuickLogFood", () => {
     ).toBeInTheDocument()
     expect(mocks.insert).not.toHaveBeenCalled()
   })
+
+  it("shows a connection message and retries the same photo after a network drop", async () => {
+    // First attempt: fetch rejects like a dropped connection ("Load failed").
+    globalThis.fetch = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError("Load failed"))
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ estimate: ESTIMATE }),
+      }) as unknown as typeof fetch
+
+    renderWithClient(<QuickLogFood />)
+    fireEvent.click(screen.getByRole("button", { name: /snap meal/i }))
+    await screen.findByRole("dialog")
+    selectPhoto()
+
+    // Friendly, actionable message rather than the raw "Load failed".
+    expect(
+      await screen.findByText(/couldn.t reach the server/i)
+    ).toBeInTheDocument()
+
+    // Retrying reuses the already-processed image (no second file processing).
+    fireEvent.click(
+      screen.getByRole("button", { name: /try again with the same photo/i })
+    )
+    await screen.findByDisplayValue("Chicken bowl")
+    expect(mocks.fileToProcessedImage).toHaveBeenCalledTimes(1)
+    expect(globalThis.fetch as ReturnType<typeof vi.fn>).toHaveProperty(
+      "mock"
+    )
+    expect(
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length
+    ).toBe(2)
+  })
 })

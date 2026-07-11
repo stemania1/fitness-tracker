@@ -7,6 +7,11 @@ import {
   sanitizeEstimate,
 } from "@/lib/food-estimate"
 
+// Vision analysis routinely takes longer than the platform's default function
+// timeout (~10s). Without this, a slow estimate gets killed mid-flight and the
+// browser surfaces it as a cryptic "Load failed" instead of a real response.
+export const maxDuration = 60
+
 const ALLOWED_MEDIA = new Set([
   "image/jpeg",
   "image/png",
