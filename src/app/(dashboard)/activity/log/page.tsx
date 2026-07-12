@@ -39,8 +39,9 @@ import {
   estimateCardioCalories,
   type CalorieProfile,
 } from "@/lib/calories"
-import { ensureExercisesExist } from "@/lib/supabase/exercises"
 import { formatMuscleGroup } from "@/lib/muscle-groups"
+import { saveWorkout, type WorkoutPayload } from "@/lib/save-workout"
+import { addPending, localStorageQueue } from "@/lib/pending-workouts"
 import { plannedSession } from "@/lib/todays-workout"
 
 // ── Types ─────────────────────────────────────────────────────
@@ -182,6 +183,7 @@ export default function LogWorkoutPage() {
   const [showIncline, setShowIncline] = useState(false)
   const [restTimer, setRestTimer] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
+  const [finishError, setFinishError] = useState<string | null>(null)
   // Set when Finish is tapped while some exercises have no checked sets — those
   // won't be saved, so confirm before dropping them silently.
   const [pendingFinish, setPendingFinish] = useState(false)
@@ -591,84 +593,78 @@ export default function LogWorkoutPage() {
   const finishWorkout = async () => {
     if (!workout || workout.exercises.length === 0) return
     setSaving(true)
+    setFinishError(null)
 
     const supabase = createClient()
     const {
       data: { user },
     } = await supabase.auth.getUser()
-    if (!user) return
+    if (!user) {
+      setSaving(false)
+      setFinishError("You're signed out — sign in again to save.")
+      return
+    }
 
     const finishedAt = new Date()
-    const durationMins = Math.round(
-      (finishedAt.getTime() - workout.startedAt.getTime()) / 60000
+    const durationMins = Math.max(
+      0,
+      Math.round((finishedAt.getTime() - workout.startedAt.getTime()) / 60000)
     )
 
-    let logRow: { id: string } | null
-    if (appendInfo.current) {
-      // Appending to an existing workout — reuse its id, don't create a new log.
-      logRow = { id: appendInfo.current.logId }
-    } else {
-      // Insert workout log
-      const { data, error: logErr } = await supabase
-        .from("workout_logs")
-        .insert({
-          user_id: user.id,
-          template_id: workout.templateId,
-          name: workout.name,
-          started_at: workout.startedAt.toISOString(),
-          finished_at: finishedAt.toISOString(),
-          duration_mins: durationMins,
+    // Serializable payload — used to save now, or to queue and replay if offline.
+    const payload: WorkoutPayload = {
+      userId: user.id,
+      name: workout.name,
+      templateId: workout.templateId,
+      startedAt: workout.startedAt.toISOString(),
+      finishedAt: finishedAt.toISOString(),
+      durationMins,
+      appendToLogId: appendInfo.current?.logId ?? null,
+      orderOffset: appendInfo.current?.orderOffset ?? 0,
+      exercises: workout.exercises
+        .map((ex, ei) => ({ ex, ei }))
+        .filter(({ ex }) => ex.sets.some((s) => s.completed))
+        .map(({ ex, ei }) => ({
+          exerciseId: ex.exerciseId,
+          notes: ex.notes,
+          orderIndex: ei,
+          completedSets: ex.sets
+            .filter((s) => s.completed)
+            .map((s) => ({
+              reps: s.reps,
+              weight: s.weight,
+              durationMins: s.durationMins,
+              distanceMiles: s.distanceMiles,
+              inclinePercent: s.inclinePercent,
+              rpe: s.rpe,
+            })),
+        })),
+    }
+
+    try {
+      const logId = await saveWorkout(supabase, payload)
+      router.push(`/activity/${logId}`)
+    } catch (err) {
+      const offline =
+        (typeof navigator !== "undefined" && !navigator.onLine) ||
+        /load failed|failed to fetch|networkerror/i.test(
+          (err as Error).message
+        )
+      if (offline) {
+        // Don't lose the session — queue it and sync when back online.
+        addPending(localStorageQueue, {
+          id: crypto.randomUUID(),
+          queuedAt: new Date().toISOString(),
+          payload,
         })
-        .select("id")
-        .single()
-      logRow = data
-      if (logErr || !logRow) {
+        router.push("/dashboard?queued=1")
+      } else {
         setSaving(false)
-        return
+        setFinishError(
+          (err as Error).message || "Couldn't save the workout. Try again."
+        )
       }
     }
-
-    // Map static exercise IDs to database UUIDs
-    const exerciseIds = workout.exercises.map((ex) => ex.exerciseId)
-    const idMap = await ensureExercisesExist(supabase, exerciseIds)
-
-    // Insert exercise logs + set logs
-    for (let ei = 0; ei < workout.exercises.length; ei++) {
-      const ex = workout.exercises[ei]
-      const completedSets = ex.sets.filter((s) => s.completed)
-      if (completedSets.length === 0) continue
-
-      const dbExerciseId = idMap.get(ex.exerciseId)
-      if (!dbExerciseId) continue
-
-      const { data: exRow } = await supabase
-        .from("exercise_logs")
-        .insert({
-          workout_log_id: logRow.id,
-          exercise_id: dbExerciseId,
-          order_index: (appendInfo.current?.orderOffset ?? 0) + ei,
-          notes: ex.notes || null,
-        })
-        .select("id")
-        .single()
-
-      if (!exRow) continue
-
-      const setInserts = completedSets.map((s, si) => ({
-        exercise_log_id: exRow.id,
-        set_number: si + 1,
-        reps: s.reps,
-        weight: s.weight,
-        duration_mins: s.durationMins,
-        distance_miles: s.distanceMiles,
-        incline_percent: s.inclinePercent,
-        rpe: s.rpe,
-      }))
-
-      await supabase.from("set_logs").insert(setInserts)
-    }
-
-    router.push(`/activity/${logRow.id}`)
   }
 
   // Exercises with no checked-off set — these get dropped on save.
@@ -793,6 +789,12 @@ export default function LogWorkoutPage() {
           {saving ? "Saving..." : appendId ? "Add" : "Finish"}
         </Button>
       </div>
+
+      {finishError && (
+        <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+          {finishError}
+        </p>
+      )}
 
       {/* Empty state */}
       {workout.exercises.length === 0 ? (

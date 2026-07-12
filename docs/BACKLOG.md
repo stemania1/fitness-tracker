@@ -81,7 +81,9 @@ still open.
       (`activity/log/page.tsx`): freestyle add→log→save, the
       unchecked-sets confirmation, and the empty state. Heavy deps
       (Supabase, picker, rest timer, history hook) are mocked.
-- [ ] Offline-capable logging with sync when reconnected (stretch)
+- [x] Offline-capable workout logging: a finished workout that fails to
+      save because the device is offline is queued locally and auto-synced
+      on reconnect (write-path only; not a full offline app shell)
 
 ## Refactor & cleanup
 Surfaced while building out the test suite (#37, #38, #39). Listed
