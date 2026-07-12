@@ -201,12 +201,12 @@ export default function OnboardingPage() {
           )}
           {step === 2 && (
             <h1 className="text-2xl font-bold text-gray-900">
-              What's your fitness level?
+              What&apos;s your fitness level?
             </h1>
           )}
           {step === 3 && (
             <h1 className="text-2xl font-bold text-gray-900">
-              What's your main goal?
+              What&apos;s your main goal?
             </h1>
           )}
           {step === 4 && (

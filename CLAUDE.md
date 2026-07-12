@@ -80,7 +80,7 @@ npm run typecheck      # TypeScript type checking
 npm test               # Run the Vitest suite once
 npm run test:watch     # Vitest in watch mode
 npm run test:coverage  # Vitest + v8 coverage (enforces thresholds)
-npm run lint           # next lint — interactive until ESLint is configured
+npm run lint           # next lint (ESLint configured via .eslintrc.json)
 npx supabase start     # Start local Supabase
 npx supabase db push   # Push migrations to remote
 ```
