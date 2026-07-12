@@ -73,9 +73,10 @@ still open.
 ## Polish & quality
 - [ ] Accessibility audit (keyboard nav, screen reader, focus states)
 - [ ] Performance audit (Core Web Vitals)
-- [ ] Component tests for the live active-workout flow
-      (`activity/log/page.tsx`). Quick Log dialogs themselves are
-      covered (#37–#42); the live workout page is still untested.
+- [x] Component tests for the live active-workout flow
+      (`activity/log/page.tsx`): freestyle add→log→save, the
+      unchecked-sets confirmation, and the empty state. Heavy deps
+      (Supabase, picker, rest timer, history hook) are mocked.
 - [ ] Offline-capable logging with sync when reconnected (stretch)
 
 ## Refactor & cleanup
