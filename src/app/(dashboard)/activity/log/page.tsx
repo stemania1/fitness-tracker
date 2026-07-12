@@ -816,6 +816,7 @@ export default function LogWorkoutPage() {
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Previous exercise"
               onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
               disabled={currentIdx === 0}
             >
@@ -823,6 +824,7 @@ export default function LogWorkoutPage() {
             </Button>
             <button
               onClick={() => setShowDrawer(true)}
+              aria-label="Show exercise list"
               className="flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900"
             >
               <List className="h-4 w-4" />
@@ -831,6 +833,7 @@ export default function LogWorkoutPage() {
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Next exercise"
               onClick={() =>
                 setCurrentIdx((i) =>
                   Math.min(workout.exercises.length - 1, i + 1)
@@ -883,6 +886,7 @@ export default function LogWorkoutPage() {
                         setShowPicker(true)
                       }}
                       className="text-gray-400 hover:text-purple-500"
+                      aria-label="Swap exercise"
                       title="Swap exercise (e.g. machine in use or broken)"
                     >
                       <Repeat className="h-4 w-4" />
@@ -892,6 +896,7 @@ export default function LogWorkoutPage() {
                       size="icon"
                       onClick={() => removeExercise(currentIdx)}
                       className="text-gray-400 hover:text-red-500"
+                      aria-label="Remove exercise"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -1119,6 +1124,12 @@ export default function LogWorkoutPage() {
                     {/* Complete / uncomplete */}
                     <button
                       onClick={() => toggleSetComplete(currentIdx, si)}
+                      aria-pressed={set.completed}
+                      aria-label={
+                        set.completed
+                          ? `Mark set ${si + 1} incomplete`
+                          : `Complete set ${si + 1}`
+                      }
                       className={cn(
                         "mx-auto flex h-10 w-10 items-center justify-center rounded-lg transition-colors",
                         set.completed
