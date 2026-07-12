@@ -104,7 +104,9 @@ function makeExercise(
     muscleGroups: def.muscleGroups,
     exerciseType: def.exerciseType,
     equipmentId: def.equipmentId,
-    repsTarget,
+    // Freestyle adds fall back to the catalog default so the card still
+    // shows a target (and timed holds get their seconds labelling).
+    repsTarget: repsTarget ?? def.defaultReps ?? null,
     sets: Array.from({ length: numSets }, () => makeSet()),
     notes: "",
     restSeconds: restSec,
