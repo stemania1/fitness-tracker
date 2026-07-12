@@ -146,6 +146,26 @@ describe("QuickLogFood", () => {
     expect(mocks.upload).toHaveBeenCalledTimes(1)
   })
 
+  it("renders the description as a wrapping textarea and flattens newlines", async () => {
+    renderWithClient(<QuickLogFood />)
+    await openAndEstimate()
+
+    const desc = screen.getByLabelText("Meal")
+    // A single-line input clips long descriptions; the review step needs the
+    // whole text visible.
+    expect(desc.tagName).toBe("TEXTAREA")
+
+    fireEvent.change(desc, {
+      target: { value: "Chicken bowl\nwith extra rice" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: /save meal/i }))
+
+    await waitFor(() => expect(mocks.insert).toHaveBeenCalledTimes(1))
+    const row = mocks.insert.mock.calls[0][0]
+    expect(row.description).toBe("Chicken bowl with extra rice")
+    expect(row.edited).toBe(true)
+  })
+
   it("marks the log edited=true when the user changes a value", async () => {
     renderWithClient(<QuickLogFood />)
     await openAndEstimate()

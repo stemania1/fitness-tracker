@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Camera, Loader2 } from "lucide-react"
 import { fileToProcessedImage, type ProcessedImage } from "@/lib/image-resize"
 import {
@@ -248,10 +249,18 @@ export function QuickLogFood() {
           >
             <div className="space-y-2">
               <Label htmlFor="qlf-desc">Meal</Label>
-              <Input
+              {/* Textarea, not Input: descriptions routinely overflow a
+                  single line and the review step is pointless if you can't
+                  read what you're reviewing. Newlines are stripped so the
+                  value stays a one-line description. */}
+              <Textarea
                 id="qlf-desc"
+                rows={2}
+                className="min-h-0 resize-none"
                 value={estimate.description}
-                onChange={(e) => patch("description", e.target.value)}
+                onChange={(e) =>
+                  patch("description", e.target.value.replace(/\n/g, " "))
+                }
               />
               {estimate.confidence === "low" && (
                 <p className="text-xs text-amber-600">
