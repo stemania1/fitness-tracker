@@ -36,7 +36,9 @@ still open.
 ## Workout builder
 - [x] Add Exercise button in template edit mode
 - [x] Reorder template exercises (up / down)
-- [ ] Drag-and-drop reorder (replace up/down chevrons)
+- [x] Drag-and-drop reorder of template exercises (grip handle; up/down
+      chevrons kept as the touch fallback since HTML5 DnD is unreliable
+      on touch)
 - [x] Swap one exercise for another within a template
 - [x] Swap one exercise for another during a live logged workout
       (broken/occupied machine — sets carry over)
