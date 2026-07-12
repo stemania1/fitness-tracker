@@ -30,6 +30,7 @@ import {
   type CalorieProfile,
 } from "@/lib/calories"
 import { estimateOneRepMax } from "@/lib/personal-records"
+import { SessionRecapCard } from "@/components/activity/SessionRecapCard"
 
 interface SetLogRow {
   id: string
@@ -428,6 +429,22 @@ export default function WorkoutDetailPage() {
           </span>
         )}
       </div>
+
+      {/* How this session compared to previous ones */}
+      <SessionRecapCard
+        workoutStartedAt={workout.started_at}
+        exercises={workout.exercises.map((ex) => {
+          const def = exerciseByName.get(ex.name ?? "")
+          const weights = ex.sets
+            .map((s) => s.weight)
+            .filter((w): w is number => w != null)
+          return {
+            exerciseUuid: ex.exercise_id,
+            name: def?.name ?? ex.name ?? "Exercise",
+            currentTopWeight: weights.length > 0 ? Math.max(...weights) : null,
+          }
+        })}
+      />
 
       {/* Summary stats */}
       <div className="mb-6 grid grid-cols-2 gap-2">
