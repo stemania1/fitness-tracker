@@ -68,6 +68,58 @@ function renderWithClient(ui: React.ReactElement) {
   )
 }
 
+const TARGETS = {
+  calories: 2360,
+  protein_g: 175,
+  carbs_g: 240,
+  fat_g: 80,
+  goalNote: "a 500 cal/day deficit (~1 lb/week) for your weight-loss goal",
+}
+
+describe("NutritionCard — targets", () => {
+  it("shows consumption vs recommended targets with progress bars", async () => {
+    renderWithClient(<NutritionCard targets={TARGETS} />)
+    expect(await screen.findByText("Fried fish")).toBeInTheDocument()
+
+    // Calories headline includes the daily target.
+    expect(screen.getByText(/of 2,360/)).toBeInTheDocument()
+    // Each macro tile shows "consumed / target".
+    expect(screen.getByText("/ 175g")).toBeInTheDocument()
+    expect(screen.getByText("/ 240g")).toBeInTheDocument()
+    expect(screen.getByText("/ 80g")).toBeInTheDocument()
+
+    // Progress bars reflect consumed vs target (22g of 175g protein).
+    const proteinBar = screen.getByRole("progressbar", {
+      name: /protein vs daily target/i,
+    })
+    expect(proteinBar).toHaveAttribute("aria-valuenow", "22")
+    expect(proteinBar).toHaveAttribute("aria-valuemax", "175")
+
+    // Footer explains where the numbers come from.
+    expect(
+      screen.getByText(/targets estimated from your height, weight, age/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/weight-loss goal/i)).toBeInTheDocument()
+  })
+
+  it("lists the day's targets in the empty state", async () => {
+    mocks.rows = []
+    renderWithClient(<NutritionCard targets={TARGETS} />)
+    expect(await screen.findByText(/no meals logged today/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/2,360 cal · 175g protein · 240g carbs · 80g fat/)
+    ).toBeInTheDocument()
+  })
+
+  it("renders without target markup when no targets are available", async () => {
+    renderWithClient(<NutritionCard />)
+    expect(await screen.findByText("Fried fish")).toBeInTheDocument()
+    expect(screen.queryByRole("progressbar")).toBeNull()
+    expect(screen.queryByText(/of 2,360/)).toBeNull()
+    expect(screen.queryByText(/targets estimated/i)).toBeNull()
+  })
+})
+
 describe("NutritionCard — log another serving", () => {
   it("re-inserts an identical food log with a fresh timestamp", async () => {
     renderWithClient(<NutritionCard />)
