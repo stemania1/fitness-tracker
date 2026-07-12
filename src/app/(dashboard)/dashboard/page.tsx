@@ -56,6 +56,7 @@ import type { OuraSummary } from "@/lib/oura"
 import { formatSleepDuration } from "@/lib/oura"
 import { generateInsights } from "@/lib/oura-insights"
 import { zoneRange, classifyHeartRate } from "@/lib/heart-rate"
+import { macroTargets } from "@/lib/macro-targets"
 import type { OuraInsight } from "@/lib/oura-insights"
 import { QuickLogExercise } from "@/components/activity/QuickLogExercise"
 import { QuickLogStrength } from "@/components/activity/QuickLogStrength"
@@ -415,6 +416,9 @@ export default function DashboardPage() {
     [profile?.age]
   )
 
+  // Recommended daily calorie/macro targets for the nutrition card.
+  const nutritionTargets = useMemo(() => macroTargets(profile), [profile])
+
   const ouraInsights = useMemo(
     () =>
       ouraSummary
@@ -557,6 +561,7 @@ export default function DashboardPage() {
       <ErrorBoundary>
         <NutritionCard
           caloriesBurnedToday={ouraSummary?.activity?.total_calories}
+          targets={nutritionTargets}
         />
       </ErrorBoundary>
 

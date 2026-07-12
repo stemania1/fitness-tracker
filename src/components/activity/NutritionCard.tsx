@@ -12,6 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Utensils, Plus } from "lucide-react"
+import type { MacroTargets } from "@/lib/macro-targets"
 
 const supabase = createClient()
 
@@ -44,9 +45,14 @@ const confidenceBadge: Record<string, string> = {
 interface NutritionCardProps {
   /** Today's calories-out (e.g. Oura total_calories), when available. */
   caloriesBurnedToday?: number | null
+  /** Recommended daily targets from the profile (lib/macro-targets). */
+  targets?: MacroTargets | null
 }
 
-export function NutritionCard({ caloriesBurnedToday }: NutritionCardProps = {}) {
+export function NutritionCard({
+  caloriesBurnedToday,
+  targets,
+}: NutritionCardProps = {}) {
   const dayStart = useMemo(() => startOfTodayIso(), [])
   const queryClient = useQueryClient()
   const [pendingId, setPendingId] = useState<string | null>(null)
@@ -144,6 +150,13 @@ export function NutritionCard({ caloriesBurnedToday }: NutritionCardProps = {}) 
               Tap <span className="font-medium">Snap Meal</span> above to
               photograph a meal and log its calories.
             </p>
+            {targets && (
+              <p className="text-xs text-gray-400">
+                Today&apos;s targets: {targets.calories.toLocaleString()} cal ·{" "}
+                {targets.protein_g}g protein · {targets.carbs_g}g carbs ·{" "}
+                {targets.fat_g}g fat
+              </p>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
@@ -152,6 +165,7 @@ export function NutritionCard({ caloriesBurnedToday }: NutritionCardProps = {}) 
                 {totals.calories.toLocaleString()}
                 <span className="ml-1 text-xs font-normal text-gray-500">
                   cal in
+                  {targets && ` · of ${targets.calories.toLocaleString()}`}
                 </span>
               </p>
               {net != null && (
@@ -170,20 +184,72 @@ export function NutritionCard({ caloriesBurnedToday }: NutritionCardProps = {}) 
               )}
             </div>
 
+            {targets && (
+              <div
+                className="h-1.5 overflow-hidden rounded-full bg-gray-100"
+                role="progressbar"
+                aria-label="Calories vs daily target"
+                aria-valuenow={totals.calories}
+                aria-valuemax={targets.calories}
+              >
+                <div
+                  className={`h-full rounded-full ${
+                    totals.calories > targets.calories
+                      ? "bg-orange-400"
+                      : "bg-purple-500"
+                  }`}
+                  style={{
+                    width: `${Math.min(100, (totals.calories / targets.calories) * 100)}%`,
+                  }}
+                />
+              </div>
+            )}
+
             <div className="grid grid-cols-3 gap-2 text-center">
               {(
                 [
-                  ["Protein", totals.protein, "bg-rose-50 text-rose-700"],
-                  ["Carbs", totals.carbs, "bg-amber-50 text-amber-700"],
-                  ["Fat", totals.fat, "bg-sky-50 text-sky-700"],
+                  ["Protein", totals.protein, targets?.protein_g, "bg-rose-50 text-rose-700", "bg-rose-400"],
+                  ["Carbs", totals.carbs, targets?.carbs_g, "bg-amber-50 text-amber-700", "bg-amber-400"],
+                  ["Fat", totals.fat, targets?.fat_g, "bg-sky-50 text-sky-700", "bg-sky-400"],
                 ] as const
-              ).map(([label, grams, cls]) => (
+              ).map(([label, grams, target, cls, barCls]) => (
                 <div key={label} className={`rounded-lg p-2 ${cls}`}>
-                  <p className="text-lg font-bold">{grams}g</p>
+                  <p className="text-lg font-bold">
+                    {grams}g
+                    {target != null && (
+                      <span className="text-xs font-normal opacity-70">
+                        {" "}
+                        / {target}g
+                      </span>
+                    )}
+                  </p>
                   <p className="text-xs">{label}</p>
+                  {target != null && (
+                    <div
+                      className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/70"
+                      role="progressbar"
+                      aria-label={`${label} vs daily target`}
+                      aria-valuenow={grams}
+                      aria-valuemax={target}
+                    >
+                      <div
+                        className={`h-full rounded-full ${barCls}`}
+                        style={{
+                          width: `${Math.min(100, (grams / target) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
+
+            {targets && (
+              <p className="text-xs text-gray-400">
+                Targets estimated from your height, weight, age, and activity —{" "}
+                {targets.goalNote}.
+              </p>
+            )}
 
             <ul className="space-y-1.5">
               {(logs ?? []).map((m) => (
