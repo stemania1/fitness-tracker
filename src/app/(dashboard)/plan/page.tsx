@@ -25,6 +25,7 @@ import {
 } from "@/data/training-plan"
 import { planWeekNumber } from "@/lib/training-plan"
 import { AddPlanTemplates } from "@/components/workouts/AddPlanTemplates"
+import { AddToCalendarButton } from "@/components/workouts/AddToCalendarButton"
 import { findNorm } from "@/data/vo2max-norms"
 import { EMERGENCY_NOTE, SEEK_CARE_SIGNALS } from "@/data/seek-care"
 
@@ -74,6 +75,8 @@ export default function PlanPage() {
       </p>
 
       <AddPlanTemplates />
+
+      <AddToCalendarButton />
 
       {/* Weekly schedule */}
       <Card>
