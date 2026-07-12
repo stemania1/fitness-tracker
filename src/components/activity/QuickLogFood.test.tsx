@@ -146,6 +146,47 @@ describe("QuickLogFood", () => {
     expect(mocks.upload).toHaveBeenCalledTimes(1)
   })
 
+  it("re-estimates the numbers from an edited description", async () => {
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ estimate: ESTIMATE }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          estimate: {
+            ...ESTIMATE,
+            description: "Chicken bowl, no rice",
+            calories: 380,
+            carbs_g: 10,
+          },
+        }),
+      }) as unknown as typeof fetch
+
+    renderWithClient(<QuickLogFood />)
+    await openAndEstimate()
+
+    // No re-estimate button until the description actually changes.
+    expect(screen.queryByRole("button", { name: /update numbers/i })).toBeNull()
+
+    fireEvent.change(screen.getByLabelText("Meal"), {
+      target: { value: "Chicken bowl, no rice" },
+    })
+    fireEvent.click(
+      screen.getByRole("button", { name: /update numbers from description/i })
+    )
+
+    // Second API call carries the correction alongside the same photo.
+    await screen.findByDisplayValue("380")
+    const call = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[1]
+    expect(call[0]).toBe("/api/estimate-food")
+    expect(JSON.parse(call[1].body).correction).toBe("Chicken bowl, no rice")
+    // New estimate becomes the baseline, so the button disappears again.
+    expect(screen.queryByRole("button", { name: /update numbers/i })).toBeNull()
+  })
+
   it("renders the description as a wrapping textarea and flattens newlines", async () => {
     renderWithClient(<QuickLogFood />)
     await openAndEstimate()

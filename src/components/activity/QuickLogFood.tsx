@@ -14,7 +14,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Camera, Loader2 } from "lucide-react"
+import { Camera, Loader2, RefreshCw } from "lucide-react"
 import { fileToProcessedImage, type ProcessedImage } from "@/lib/image-resize"
 import {
   macroConsistency,
@@ -42,6 +42,8 @@ export function QuickLogFood() {
   const [mealType, setMealType] = useState<MealType>("meal")
   const [image, setImage] = useState<ProcessedImage | null>(null)
   const [factor, setFactor] = useState(1)
+  const [reestimating, setReestimating] = useState(false)
+  const [reestimateError, setReestimateError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const queryClient = useQueryClient()
 
@@ -53,6 +55,7 @@ export function QuickLogFood() {
     setImage(null)
     setMealType("meal")
     setFactor(1)
+    setReestimateError(null)
   }
 
   /** Scale the original estimate by a portion multiplier. */
@@ -110,6 +113,37 @@ export function QuickLogFood() {
       setPhase("idle")
     } finally {
       if (fileRef.current) fileRef.current.value = ""
+    }
+  }
+
+  /** Re-run the estimate with the user's corrected description. The photo
+   *  goes along for portion sizing; the text overrides what the food is. */
+  async function reestimate() {
+    if (!image || !estimate) return
+    setReestimating(true)
+    setReestimateError(null)
+    try {
+      const res = await fetch("/api/estimate-food", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          imageBase64: image.base64,
+          mediaType: image.mediaType,
+          correction: estimate.description.trim(),
+        }),
+      })
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string }
+        throw new Error(body.error ?? "Could not re-estimate. Try again.")
+      }
+      const body = (await res.json()) as { estimate: FoodEstimate }
+      setEstimate(body.estimate)
+      setOriginal(body.estimate)
+      setFactor(1)
+    } catch (err) {
+      setReestimateError((err as Error).message)
+    } finally {
+      setReestimating(false)
     }
   }
 
@@ -202,11 +236,12 @@ export function QuickLogFood() {
           </DialogDescription>
         </DialogHeader>
 
+        {/* No `capture` attribute: on iOS it would force the camera open
+            directly, hiding the Photo Library option this button promises. */}
         <input
           ref={fileRef}
           type="file"
           accept="image/*"
-          capture="environment"
           className="hidden"
           onChange={handleFile}
         />
@@ -262,6 +297,28 @@ export function QuickLogFood() {
                   patch("description", e.target.value.replace(/\n/g, " "))
                 }
               />
+              {/* The numbers don't track description edits by themselves —
+                  offer a re-estimate once the text differs from the model's. */}
+              {original &&
+                image &&
+                estimate.description.trim() !== original.description.trim() && (
+                  <button
+                    type="button"
+                    onClick={reestimate}
+                    disabled={reestimating || !estimate.description.trim()}
+                    className="flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-700 disabled:opacity-50"
+                  >
+                    <RefreshCw
+                      className={`h-3 w-3 ${reestimating ? "animate-spin" : ""}`}
+                    />
+                    {reestimating
+                      ? "Re-estimating…"
+                      : "Update numbers from description"}
+                  </button>
+                )}
+              {reestimateError && (
+                <p className="text-xs text-red-600">{reestimateError}</p>
+              )}
               {estimate.confidence === "low" && (
                 <p className="text-xs text-amber-600">
                   Low confidence — portion size was hard to judge. Use the
