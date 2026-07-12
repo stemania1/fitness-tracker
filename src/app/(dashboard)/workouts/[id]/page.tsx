@@ -42,6 +42,7 @@ import { SPLIT_TYPES } from "@/lib/constants"
 import { ExercisePicker } from "@/components/activity/exercise-picker"
 import { ensureExercisesExist } from "@/lib/supabase/exercises"
 import { reorderList } from "@/lib/reorder"
+import { formatMuscleGroup } from "@/lib/muscle-groups"
 import type { ExerciseDefinition } from "@/data/exercises"
 
 const supabase = createClient()
@@ -584,7 +585,7 @@ export default function WorkoutDetailPage() {
                             variant="secondary"
                             className="text-[10px] px-1.5 py-0"
                           >
-                            {mg}
+                            {formatMuscleGroup(mg)}
                           </Badge>
                         ))}
                       </div>
@@ -709,7 +710,7 @@ export default function WorkoutDetailPage() {
                           variant="secondary"
                           className="text-[10px] px-1.5 py-0"
                         >
-                          {mg}
+                          {formatMuscleGroup(mg)}
                         </Badge>
                       ))}
                     </div>

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { exercises, type ExerciseDefinition } from "@/data/exercises"
 import { equipment } from "@/data/equipment"
 import { MUSCLE_GROUPS, EQUIPMENT_CATEGORIES } from "@/lib/constants"
+import { formatMuscleGroup } from "@/lib/muscle-groups"
 import { cn } from "@/lib/utils"
 
 interface ExercisePickerProps {
@@ -97,13 +98,13 @@ export function ExercisePicker({ onSelect, onClose }: ExercisePickerProps) {
               key={mg}
               onClick={() => setMuscleFilter(muscleFilter === mg ? null : mg)}
               className={cn(
-                "shrink-0 rounded-full px-3 py-1 text-xs font-medium capitalize transition-colors",
+                "shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors",
                 muscleFilter === mg
                   ? "bg-purple-600 text-white"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               )}
             >
-              {mg.replace("_", " ")}
+              {formatMuscleGroup(mg)}
             </button>
           ))}
         </div>
@@ -164,8 +165,8 @@ export function ExercisePicker({ onSelect, onClose }: ExercisePickerProps) {
                   </span>
                   <div className="flex flex-wrap items-center gap-1.5">
                     {exercise.muscleGroups.map((mg) => (
-                      <Badge key={mg} variant="default" className="text-[10px] capitalize">
-                        {mg.replace("_", " ")}
+                      <Badge key={mg} variant="default" className="text-[10px]">
+                        {formatMuscleGroup(mg)}
                       </Badge>
                     ))}
                     {exercise.equipmentId && (

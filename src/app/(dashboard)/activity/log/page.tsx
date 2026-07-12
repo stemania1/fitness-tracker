@@ -40,6 +40,7 @@ import {
   type CalorieProfile,
 } from "@/lib/calories"
 import { ensureExercisesExist } from "@/lib/supabase/exercises"
+import { formatMuscleGroup } from "@/lib/muscle-groups"
 import { plannedSession } from "@/lib/todays-workout"
 
 // ── Types ─────────────────────────────────────────────────────
@@ -856,9 +857,9 @@ export default function LogWorkoutPage() {
                         <Badge
                           key={mg}
                           variant="default"
-                          className="text-[10px] capitalize"
+                          className="text-[10px]"
                         >
-                          {mg.replace("_", " ")}
+                          {formatMuscleGroup(mg)}
                         </Badge>
                       ))}
                       {getExerciseCalories(currentExercise) > 0 && (
