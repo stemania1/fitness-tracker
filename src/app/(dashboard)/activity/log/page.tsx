@@ -24,6 +24,7 @@ import {
   MessageSquare,
   Gauge,
   Flame,
+  Repeat,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { exercises as exerciseCatalog, type ExerciseDefinition } from "@/data/exercises"
@@ -171,6 +172,9 @@ export default function LogWorkoutPage() {
   const [currentIdx, setCurrentIdx] = useState(0)
   const [elapsed, setElapsed] = useState(0)
   const [showPicker, setShowPicker] = useState(false)
+  // When set, the exercise picker replaces the exercise at this index (a
+  // "swap" for a broken machine) instead of appending a new one.
+  const [swappingIdx, setSwappingIdx] = useState<number | null>(null)
   const [showDrawer, setShowDrawer] = useState(false)
   const [showRpe, setShowRpe] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
@@ -503,6 +507,31 @@ export default function LogWorkoutPage() {
       setCurrentIdx(workout?.exercises.length ?? 0)
     },
     [workout?.exercises.length]
+  )
+
+  /** Replace one exercise with a substitute (e.g. a broken machine), keeping
+   *  the prescribed sets/reps/rest and any sets already entered. */
+  const swapExercise = useCallback(
+    (idx: number, def: ExerciseDefinition) => {
+      setWorkout((prev) => {
+        if (!prev) return prev
+        const exercises = [...prev.exercises]
+        const old = exercises[idx]
+        if (!old) return prev
+        exercises[idx] = {
+          ...old,
+          exerciseId: def.id,
+          name: def.name,
+          muscleGroups: def.muscleGroups,
+          exerciseType: def.exerciseType,
+          equipmentId: def.equipmentId,
+        }
+        return { ...prev, exercises }
+      })
+      setSwappingIdx(null)
+      setShowPicker(false)
+    },
+    []
   )
 
   // ── Calorie estimates ────────────────────────────────────────
@@ -844,14 +873,28 @@ export default function LogWorkoutPage() {
                       exerciseType={currentExercise.exerciseType}
                     />
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeExercise(currentIdx)}
-                    className="shrink-0 text-gray-400 hover:text-red-500"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setSwappingIdx(currentIdx)
+                        setShowPicker(true)
+                      }}
+                      className="text-gray-400 hover:text-purple-500"
+                      title="Swap exercise (e.g. machine in use or broken)"
+                    >
+                      <Repeat className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeExercise(currentIdx)}
+                      className="text-gray-400 hover:text-red-500"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Progressive overload suggestion (only when there's a
@@ -1321,11 +1364,19 @@ export default function LogWorkoutPage() {
         </div>
       )}
 
-      {/* Exercise picker modal */}
+      {/* Exercise picker modal — adds a new exercise, or swaps the current
+          one when triggered from the swap button. */}
       {showPicker && (
         <ExercisePicker
-          onSelect={addExercise}
-          onClose={() => setShowPicker(false)}
+          onSelect={(def) =>
+            swappingIdx !== null
+              ? swapExercise(swappingIdx, def)
+              : addExercise(def)
+          }
+          onClose={() => {
+            setShowPicker(false)
+            setSwappingIdx(null)
+          }}
         />
       )}
 

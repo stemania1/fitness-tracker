@@ -62,6 +62,7 @@ import { QuickLogStrength } from "@/components/activity/QuickLogStrength"
 import { QuickLogWeight } from "@/components/activity/QuickLogWeight"
 import { Vo2MaxTrendCard } from "@/components/activity/Vo2MaxTrendCard"
 import { TrainingPlanTodayCard } from "@/components/activity/TrainingPlanTodayCard"
+import { WeeklyTrainingCard } from "@/components/activity/WeeklyTrainingCard"
 import { todaysWorkout } from "@/lib/todays-workout"
 import { RemInsightsCard } from "@/components/activity/RemInsightsCard"
 import { RecoveryWatchCard } from "@/components/activity/RecoveryWatchCard"
@@ -616,6 +617,11 @@ export default function DashboardPage() {
             )}
           </CardContent>
         </Card>
+      </ErrorBoundary>
+
+      {/* Weekly strength volume + Zone 2 minutes */}
+      <ErrorBoundary>
+        <WeeklyTrainingCard />
       </ErrorBoundary>
 
       {/* Oura Ring Summary */}
