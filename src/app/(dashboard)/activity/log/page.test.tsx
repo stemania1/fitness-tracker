@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   insert: vi.fn(),
   // last inserted rows, by table
   inserted: {} as Record<string, unknown[]>,
+  failWorkoutLogs: false,
 }))
 
 vi.mock("next/navigation", () => ({
@@ -39,6 +40,8 @@ function makeBuilder(table: string) {
     single: async () => {
       if (table === "user_profiles")
         return { data: { current_weight: 180, age: 51, sex: "male", height_inches: 70 } }
+      if (table === "workout_logs" && mocks.failWorkoutLogs)
+        return { data: null, error: { message: "Load failed" } }
       // workout_logs / exercise_logs insert().select().single()
       return { data: { id: `${table}-id` }, error: null }
     },
@@ -99,6 +102,12 @@ beforeEach(() => {
   mocks.insert.mockReset()
   mocks.inserted = {}
   mocks.params = new Map()
+  mocks.failWorkoutLogs = false
+  localStorage.clear()
+  if (!("randomUUID" in globalThis.crypto)) {
+    // @ts-expect-error test shim
+    globalThis.crypto.randomUUID = () => "test-uuid"
+  }
 })
 
 afterEach(() => cleanup())
@@ -165,6 +174,29 @@ describe("LogWorkoutPage (freestyle)", () => {
     await waitFor(() =>
       expect(mocks.push).toHaveBeenCalledWith("/activity/workout_logs-id")
     )
+  })
+
+  it("queues the workout offline and routes to the dashboard when the save fails", async () => {
+    mocks.failWorkoutLogs = true
+    renderPage()
+    fireEvent.click(await screen.findByRole("button", { name: /add exercise/i }))
+    fireEvent.click(screen.getByText(/mock-pick-exercise/i))
+    await screen.findByText(PICK.name)
+    fireEvent.change(screen.getAllByPlaceholderText("lbs")[0], {
+      target: { value: "100" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: /complete set 1/i }))
+    fireEvent.click(screen.getByRole("button", { name: /^finish$/i }))
+
+    // Routed to the dashboard with the queued flag.
+    await waitFor(() =>
+      expect(mocks.push).toHaveBeenCalledWith("/dashboard?queued=1")
+    )
+    // The workout was stashed in the offline queue, not lost.
+    const queued = JSON.parse(localStorage.getItem("pending-workouts") ?? "[]")
+    expect(queued).toHaveLength(1)
+    expect(queued[0].payload.name).toBe("Freestyle Workout")
+    expect(queued[0].payload.exercises[0].exerciseId).toBe(PICK.id)
   })
 
   it("warns before finishing when an exercise has no completed set", async () => {
