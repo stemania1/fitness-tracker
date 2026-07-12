@@ -26,12 +26,13 @@ const MAX_BASE64_LENGTH = 5_000_000
 const MAX_CORRECTION_LENGTH = 500
 
 /**
- * POST /api/estimate-food — estimate calories + macros from a meal photo.
- * Body: { imageBase64: string, mediaType: string, correction?: string }.
- * `correction` is the user's edited description of the meal; when present
- * the model re-estimates for what the user says it is, using the photo
- * only for portion size. Does not persist anything; the client saves the
- * confirmed estimate separately.
+ * POST /api/estimate-food — estimate calories + macros for a meal.
+ * Body: { imageBase64?: string, mediaType?: string, correction?: string }.
+ * At least one of a photo or a `correction` (the user's own description,
+ * e.g. "fried chicken thigh") is required. With both, the text overrides
+ * what the food is and the photo informs portion size; with text alone,
+ * the model assumes a typical serving. Does not persist anything; the
+ * client saves the confirmed estimate separately.
  */
 export async function POST(request: Request) {
   const supabase = await createServerSupabaseClient()
@@ -57,9 +58,10 @@ export async function POST(request: Request) {
   }
 
   const { imageBase64, mediaType, correction } = body
-  if (typeof imageBase64 !== "string" || typeof mediaType !== "string") {
+  const hasImage = imageBase64 !== undefined || mediaType !== undefined
+  if (hasImage && (typeof imageBase64 !== "string" || typeof mediaType !== "string")) {
     return NextResponse.json(
-      { error: "imageBase64 and mediaType are required" },
+      { error: "imageBase64 and mediaType must be provided together" },
       { status: 400 }
     )
   }
@@ -74,13 +76,19 @@ export async function POST(request: Request) {
       { status: 400 }
     )
   }
-  if (!ALLOWED_MEDIA.has(mediaType)) {
+  if (!hasImage && correction === undefined) {
+    return NextResponse.json(
+      { error: "Provide a photo or a meal description" },
+      { status: 400 }
+    )
+  }
+  if (hasImage && !ALLOWED_MEDIA.has(mediaType as string)) {
     return NextResponse.json(
       { error: "Unsupported image type" },
       { status: 400 }
     )
   }
-  if (imageBase64.length > MAX_BASE64_LENGTH) {
+  if (hasImage && (imageBase64 as string).length > MAX_BASE64_LENGTH) {
     return NextResponse.json(
       { error: "Image too large — please use a smaller photo" },
       { status: 413 }
@@ -112,27 +120,36 @@ export async function POST(request: Request) {
         {
           role: "user",
           content: [
+            ...(hasImage
+              ? [
+                  {
+                    type: "image" as const,
+                    source: {
+                      type: "base64" as const,
+                      media_type: mediaType as
+                        | "image/jpeg"
+                        | "image/png"
+                        | "image/webp"
+                        | "image/gif",
+                      data: imageBase64 as string,
+                    },
+                  },
+                ]
+              : []),
             {
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: mediaType as
-                  | "image/jpeg"
-                  | "image/png"
-                  | "image/webp"
-                  | "image/gif",
-                data: imageBase64,
-              },
-            },
-            {
-              type: "text",
+              type: "text" as const,
               text:
-                typeof correction === "string"
+                typeof correction === "string" && hasImage
                   ? `The user corrected the meal description to: "${correction.trim()}". ` +
                     "Trust their description of what the food is over your own reading of the photo, " +
                     "and use the photo only to judge portion size. Re-estimate the calories and " +
                     "macronutrients for the corrected meal, and base the returned description on theirs."
-                  : "Estimate the calories and macronutrients for this meal.",
+                  : typeof correction === "string"
+                    ? `The user describes their meal as: "${correction.trim()}". ` +
+                      "Estimate the calories and macronutrients from this description alone. " +
+                      "Assume a typical serving unless the description states quantities, and " +
+                      "base the returned description on theirs."
+                    : "Estimate the calories and macronutrients for this meal.",
             },
           ],
         },
@@ -141,7 +158,7 @@ export async function POST(request: Request) {
   } catch (err) {
     console.error("[estimate-food] Anthropic call failed", err)
     return NextResponse.json(
-      { error: "Could not analyze the photo right now. Try again." },
+      { error: "Could not analyze the meal right now. Try again." },
       { status: 502 }
     )
   }

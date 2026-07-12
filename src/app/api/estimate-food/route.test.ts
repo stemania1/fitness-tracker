@@ -51,9 +51,44 @@ describe("POST /api/estimate-food", () => {
     process.env.ANTHROPIC_API_KEY = OLD_ENV ?? "sk-test"
   })
 
-  it("400 for a missing image or media type", async () => {
+  it("400 for half an image (one of base64/media type missing)", async () => {
     expect((await POST(req({ mediaType: "image/jpeg" }))).status).toBe(400)
     expect((await POST(req({ imageBase64: "AAAA" }))).status).toBe(400)
+  })
+
+  it("400 when neither a photo nor a description is provided", async () => {
+    expect((await POST(req({}))).status).toBe(400)
+  })
+
+  it("estimates from a text description alone (no image block sent)", async () => {
+    mocks.create.mockResolvedValue({
+      stop_reason: "tool_use",
+      content: [
+        {
+          type: "tool_use",
+          input: {
+            description: "Fried chicken thigh",
+            items: [{ name: "Fried chicken thigh", calories: 280 }],
+            calories: 280,
+            protein_g: 19,
+            carbs_g: 8,
+            fat_g: 18,
+            confidence: "medium",
+          },
+        },
+      ],
+    })
+
+    const res = await POST(req({ correction: "fried chicken thigh" }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.estimate.calories).toBe(280)
+
+    const args = mocks.create.mock.calls[0][0]
+    const types = args.messages[0].content.map((b: { type: string }) => b.type)
+    expect(types).toEqual(["text"]) // no image block
+    expect(args.messages[0].content[0].text).toContain('"fried chicken thigh"')
+    expect(args.messages[0].content[0].text).toMatch(/typical serving/i)
   })
 
   it("400 for an unsupported media type", async () => {

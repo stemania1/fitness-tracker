@@ -40,8 +40,8 @@ export default function TermsOfServicePage() {
             2. Description of Service
           </h2>
           <p>
-            {appName} is a personal fitness tracking application designed for
-            Planet Fitness members. The Service allows users to create workouts,
+            {appName} is a personal fitness tracking application.
+            The Service allows users to create workouts,
             log fitness activity, set goals, and track progress. The Service may
             integrate with third-party devices and services (such as Oura Ring)
             to provide additional health and activity data.
