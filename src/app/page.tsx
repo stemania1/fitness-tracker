@@ -27,7 +27,7 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Dumbbell className="h-6 w-6 text-purple-600" />
-            <span className="text-xl font-bold text-gray-900">PF Fitness Tracker</span>
+            <span className="text-xl font-bold text-gray-900">Fitness Tracker</span>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/login">
@@ -44,14 +44,14 @@ export default function LandingPage() {
         <section className="max-w-5xl mx-auto px-4 py-24 text-center">
           <div className="inline-flex items-center gap-2 rounded-full bg-purple-100 px-4 py-1.5 text-sm font-medium text-purple-700 mb-6">
             <Dumbbell className="h-4 w-4" />
-            Planet Fitness Companion
+            Your Training Companion
           </div>
           <h1 className="text-5xl font-extrabold tracking-tight text-gray-900 sm:text-6xl">
-            PF Fitness Tracker
+            Fitness Tracker
           </h1>
           <p className="mt-4 text-lg text-gray-500 max-w-2xl mx-auto">
-            Your personal workout companion for Planet Fitness. Log workouts, set
-            goals, and track your progress — all in one place.
+            Your personal workout companion. Log workouts, set goals, and track
+            your progress — all in one place.
           </p>
           <div className="mt-8 flex items-center justify-center gap-4">
             <Link href="/signup">
@@ -93,7 +93,7 @@ export default function LandingPage() {
             Terms of Service
           </Link>
         </div>
-        &copy; {new Date().getFullYear()} PF Fitness Tracker. All rights reserved.
+        &copy; {new Date().getFullYear()} Fitness Tracker. All rights reserved.
       </footer>
     </div>
   )

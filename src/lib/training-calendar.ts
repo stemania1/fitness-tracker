@@ -69,7 +69,7 @@ export function buildTrainingIcs(opts: TrainingIcsOptions = {}): string {
   const lines: string[] = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//PF Tracker//Training Plan//EN",
+    "PRODID:-//Fitness Tracker//Training Plan//EN",
     "CALSCALE:GREGORIAN",
   ]
 

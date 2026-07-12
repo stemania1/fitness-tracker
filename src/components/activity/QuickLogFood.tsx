@@ -41,6 +41,7 @@ export function QuickLogFood() {
   const [original, setOriginal] = useState<FoodEstimate | null>(null)
   const [mealType, setMealType] = useState<MealType>("meal")
   const [image, setImage] = useState<ProcessedImage | null>(null)
+  const [manualText, setManualText] = useState("")
   const [factor, setFactor] = useState(1)
   const [reestimating, setReestimating] = useState(false)
   const [reestimateError, setReestimateError] = useState<string | null>(null)
@@ -53,6 +54,7 @@ export function QuickLogFood() {
     setEstimate(null)
     setOriginal(null)
     setImage(null)
+    setManualText("")
     setMealType("meal")
     setFactor(1)
     setReestimateError(null)
@@ -65,9 +67,13 @@ export function QuickLogFood() {
     setEstimate(scaleEstimate(original, f))
   }
 
-  /** Send an already-processed photo to the estimate API. Split out from
-   *  handleFile so a network drop can be retried without re-taking the shot. */
-  async function runEstimate(processed: ProcessedImage) {
+  /** Send a photo, a typed description, or both to the estimate API. Split
+   *  out from handleFile so a network drop can be retried without re-taking
+   *  the shot. */
+  async function runEstimate(
+    processed: ProcessedImage | null,
+    correction?: string
+  ) {
     setError(null)
     setPhase("estimating")
     try {
@@ -75,8 +81,11 @@ export function QuickLogFood() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          imageBase64: processed.base64,
-          mediaType: processed.mediaType,
+          ...(processed && {
+            imageBase64: processed.base64,
+            mediaType: processed.mediaType,
+          }),
+          ...(correction && { correction }),
         }),
       })
       if (!res.ok) {
@@ -116,10 +125,10 @@ export function QuickLogFood() {
     }
   }
 
-  /** Re-run the estimate with the user's corrected description. The photo
+  /** Re-run the estimate with the user's corrected description. Any photo
    *  goes along for portion sizing; the text overrides what the food is. */
   async function reestimate() {
-    if (!image || !estimate) return
+    if (!estimate) return
     setReestimating(true)
     setReestimateError(null)
     try {
@@ -127,8 +136,10 @@ export function QuickLogFood() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          imageBase64: image.base64,
-          mediaType: image.mediaType,
+          ...(image && {
+            imageBase64: image.base64,
+            mediaType: image.mediaType,
+          }),
           correction: estimate.description.trim(),
         }),
       })
@@ -231,8 +242,8 @@ export function QuickLogFood() {
         <DialogHeader>
           <DialogTitle>Log a Meal</DialogTitle>
           <DialogDescription>
-            Take a photo — Claude estimates the calories and macros. Check the
-            numbers and adjust before saving.
+            Take a photo or describe the meal — Claude estimates the calories
+            and macros. Check the numbers and adjust before saving.
           </DialogDescription>
         </DialogHeader>
 
@@ -255,6 +266,38 @@ export function QuickLogFood() {
               <Camera className="h-8 w-8" />
               <span className="text-sm font-medium">Take or choose a photo</span>
             </button>
+
+            <div className="flex items-center gap-3 text-xs uppercase text-gray-400">
+              <span className="h-px flex-1 bg-gray-200" />
+              or
+              <span className="h-px flex-1 bg-gray-200" />
+            </div>
+
+            {/* No photo handy (or none exists): type the meal and estimate
+                from the description alone. */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                const text = manualText.trim()
+                if (text) runEstimate(null, text)
+              }}
+              className="flex gap-2"
+            >
+              <Input
+                value={manualText}
+                onChange={(e) => setManualText(e.target.value)}
+                placeholder='Describe it — e.g. "fried chicken thigh"'
+                aria-label="Meal description"
+              />
+              <button
+                type="submit"
+                disabled={!manualText.trim()}
+                className="shrink-0 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
+              >
+                Estimate
+              </button>
+            </form>
+
             {error && <p className="text-sm text-red-600">{error}</p>}
             {error && image && (
               <button
@@ -300,7 +343,6 @@ export function QuickLogFood() {
               {/* The numbers don't track description edits by themselves —
                   offer a re-estimate once the text differs from the model's. */}
               {original &&
-                image &&
                 estimate.description.trim() !== original.description.trim() && (
                   <button
                     type="button"

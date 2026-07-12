@@ -146,6 +146,43 @@ describe("QuickLogFood", () => {
     expect(mocks.upload).toHaveBeenCalledTimes(1)
   })
 
+  it("estimates a manually described meal without a photo and saves it", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        estimate: {
+          ...ESTIMATE,
+          description: "Fried chicken thigh",
+          calories: 280,
+        },
+      }),
+    }) as unknown as typeof fetch
+
+    renderWithClient(<QuickLogFood />)
+    fireEvent.click(screen.getByRole("button", { name: /snap meal/i }))
+    await screen.findByRole("dialog")
+
+    fireEvent.change(screen.getByLabelText("Meal description"), {
+      target: { value: "fried chicken thigh" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: /^estimate$/i }))
+    await screen.findByDisplayValue("Fried chicken thigh")
+
+    // Text-only request: correction present, no image fields.
+    const call = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
+    const sent = JSON.parse(call[1].body)
+    expect(sent.correction).toBe("fried chicken thigh")
+    expect(sent.imageBase64).toBeUndefined()
+
+    // Saving works with no photo — no upload, null image_path.
+    fireEvent.click(screen.getByRole("button", { name: /save meal/i }))
+    await waitFor(() => expect(mocks.insert).toHaveBeenCalledTimes(1))
+    const row = mocks.insert.mock.calls[0][0]
+    expect(row.calories).toBe(280)
+    expect(row.image_path).toBeNull()
+    expect(mocks.upload).not.toHaveBeenCalled()
+  })
+
   it("re-estimates the numbers from an edited description", async () => {
     globalThis.fetch = vi
       .fn()

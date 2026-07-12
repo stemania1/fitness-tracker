@@ -3,12 +3,12 @@ import "./globals.css"
 import { QueryProvider } from "@/components/providers/query-provider"
 
 export const metadata: Metadata = {
-  title: "PF Fitness Tracker",
-  description: "Track your Planet Fitness workouts and reach your goals",
+  title: "Fitness Tracker",
+  description: "Track your workouts and reach your goals",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "PF Tracker",
+    title: "Fitness Tracker",
   },
 }
 
