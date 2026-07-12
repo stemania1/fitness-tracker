@@ -67,8 +67,10 @@ still open.
 
 ## Equipment & exercises
 - [x] Free-weight exercise catalog expanded (16 added Apr–May 2026)
-- [ ] Reconcile remaining static-vs-DB muscle-group naming
-      ("quads" vs "quadriceps", "obliques", etc.)
+- [x] Unify muscle-group *display* labels via `formatMuscleGroup`
+      (aliases like quadriceps→Quads, consistent casing across every
+      badge/chip). Underlying stored-data reconciliation, if ever needed,
+      is now a display-independent concern.
 - [ ] BACKLOG: catalog new equipment we haven't modeled (functional
       trainer was added but unreferenced by any exercise yet)
 

@@ -30,6 +30,7 @@ import {
   type CalorieProfile,
 } from "@/lib/calories"
 import { estimateOneRepMax } from "@/lib/personal-records"
+import { formatMuscleGroup } from "@/lib/muscle-groups"
 import { SessionRecapCard } from "@/components/activity/SessionRecapCard"
 
 interface SetLogRow {
@@ -512,9 +513,9 @@ export default function WorkoutDetailPage() {
                         <Badge
                           key={mg}
                           variant="default"
-                          className="text-[10px] capitalize"
+                          className="text-[10px]"
                         >
-                          {mg.replace("_", " ")}
+                          {formatMuscleGroup(mg)}
                         </Badge>
                       ))}
                     </div>

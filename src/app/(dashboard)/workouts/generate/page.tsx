@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
 import { generateWorkout, type GeneratedWorkout } from "@/lib/workout-generator"
 import { ensureExercisesExist } from "@/lib/supabase/exercises"
+import { formatMuscleGroup } from "@/lib/muscle-groups"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -317,7 +318,7 @@ export default function GenerateWorkoutPage() {
                                 variant="secondary"
                                 className="text-[10px] px-1.5 py-0"
                               >
-                                {mg}
+                                {formatMuscleGroup(mg)}
                               </Badge>
                             ))}
                           </div>
