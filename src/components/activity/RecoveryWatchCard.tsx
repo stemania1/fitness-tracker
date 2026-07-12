@@ -41,7 +41,7 @@ export function RecoveryWatchCard() {
     },
   })
 
-  const metrics = data ?? []
+  const metrics = useMemo(() => data ?? [], [data])
   const baseline = useMemo(() => hrvBaseline(metrics), [metrics])
 
   const hasAnyHrv = metrics.some((m) => m.averageHrv != null)

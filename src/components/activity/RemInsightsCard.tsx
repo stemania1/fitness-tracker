@@ -60,7 +60,7 @@ export function RemInsightsCard() {
     },
   })
 
-  const metrics = data ?? []
+  const metrics = useMemo(() => data ?? [], [data])
 
   const remNights = useMemo(
     () => metrics.filter((m) => m.remFraction != null),
