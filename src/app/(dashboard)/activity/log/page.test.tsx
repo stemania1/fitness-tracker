@@ -138,9 +138,12 @@ describe("LogWorkoutPage (freestyle)", () => {
     fireEvent.change(weight, { target: { value: "100" } })
     fireEvent.change(reps, { target: { value: "8" } })
 
-    // Complete that set — the toggle is the only button in the set-row grid.
-    const setRow = weight.parentElement!
-    fireEvent.click(setRow.querySelector("button")!)
+    // Complete that set via its accessible name (a11y).
+    fireEvent.click(screen.getByRole("button", { name: /complete set 1/i }))
+    // Exercise nav is labelled for screen readers.
+    expect(
+      screen.getByRole("button", { name: /previous exercise/i })
+    ).toBeInTheDocument()
 
     // Finish.
     fireEvent.click(screen.getByRole("button", { name: /^finish$/i }))
