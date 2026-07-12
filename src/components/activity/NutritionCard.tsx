@@ -1,7 +1,7 @@
 "use client"
 
-import { useMemo } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useMemo, useState } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
 import {
   Card,
@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Utensils } from "lucide-react"
+import { Utensils, Plus } from "lucide-react"
 
 const supabase = createClient()
 
@@ -24,6 +24,7 @@ interface FoodLogRow {
   carbs_g: number
   fat_g: number
   confidence: "low" | "medium" | "high" | null
+  image_path: string | null
   logged_at: string
 }
 
@@ -47,6 +48,8 @@ interface NutritionCardProps {
 
 export function NutritionCard({ caloriesBurnedToday }: NutritionCardProps = {}) {
   const dayStart = useMemo(() => startOfTodayIso(), [])
+  const queryClient = useQueryClient()
+  const [pendingId, setPendingId] = useState<string | null>(null)
 
   const { data: logs, isLoading } = useQuery({
     queryKey: ["food-logs-today", dayStart],
@@ -58,13 +61,49 @@ export function NutritionCard({ caloriesBurnedToday }: NutritionCardProps = {}) 
       const { data, error } = await supabase
         .from("food_logs")
         .select(
-          "id, description, meal_type, calories, protein_g, carbs_g, fat_g, confidence, logged_at"
+          "id, description, meal_type, calories, protein_g, carbs_g, fat_g, confidence, image_path, logged_at"
         )
         .eq("user_id", user.id)
         .gte("logged_at", dayStart)
         .order("logged_at", { ascending: true })
       if (error) throw error
       return data ?? []
+    },
+  })
+
+  // One-tap second serving: re-insert an identical food log with a fresh
+  // timestamp, so you don't have to photograph the same food again.
+  const logAgain = useMutation({
+    mutationFn: async (meal: FoodLogRow) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
+      const { error } = await supabase.from("food_logs").insert({
+        user_id: user.id,
+        description: meal.description,
+        // Value comes straight from a stored row, so it's a valid meal_type.
+        meal_type: meal.meal_type as
+          | "breakfast"
+          | "lunch"
+          | "dinner"
+          | "snack"
+          | "meal",
+        calories: meal.calories,
+        protein_g: meal.protein_g,
+        carbs_g: meal.carbs_g,
+        fat_g: meal.fat_g,
+        image_path: meal.image_path,
+        confidence: meal.confidence,
+        edited: false,
+      })
+      if (error) throw error
+    },
+    onMutate: (meal) => setPendingId(meal.id),
+    onSettled: () => setPendingId(null),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["food-logs-today"] })
+      queryClient.invalidateQueries({ queryKey: ["weekly-calories"] })
     },
   })
 
@@ -170,6 +209,15 @@ export function NutritionCard({ caloriesBurnedToday }: NutritionCardProps = {}) 
                   <span className="shrink-0 text-sm font-semibold text-gray-900">
                     {m.calories.toLocaleString()}
                   </span>
+                  <button
+                    onClick={() => logAgain.mutate(m)}
+                    disabled={pendingId === m.id}
+                    className="shrink-0 rounded-md p-1 text-gray-400 transition-colors hover:bg-purple-50 hover:text-purple-600 disabled:opacity-40"
+                    title="Log another serving"
+                    aria-label={`Log another serving of ${m.description}`}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
                 </li>
               ))}
             </ul>
