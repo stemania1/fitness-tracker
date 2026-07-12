@@ -22,10 +22,16 @@ const ALLOWED_MEDIA = new Set([
 /** ~5 MB of base64 (≈3.75 MB binary) — client should downscale before send. */
 const MAX_BASE64_LENGTH = 5_000_000
 
+/** A user-corrected description is a sentence, not an essay. */
+const MAX_CORRECTION_LENGTH = 500
+
 /**
  * POST /api/estimate-food — estimate calories + macros from a meal photo.
- * Body: { imageBase64: string, mediaType: string }. Does not persist
- * anything; the client saves the confirmed estimate separately.
+ * Body: { imageBase64: string, mediaType: string, correction?: string }.
+ * `correction` is the user's edited description of the meal; when present
+ * the model re-estimates for what the user says it is, using the photo
+ * only for portion size. Does not persist anything; the client saves the
+ * confirmed estimate separately.
  */
 export async function POST(request: Request) {
   const supabase = await createServerSupabaseClient()
@@ -43,17 +49,28 @@ export async function POST(request: Request) {
     )
   }
 
-  let body: { imageBase64?: unknown; mediaType?: unknown }
+  let body: { imageBase64?: unknown; mediaType?: unknown; correction?: unknown }
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
   }
 
-  const { imageBase64, mediaType } = body
+  const { imageBase64, mediaType, correction } = body
   if (typeof imageBase64 !== "string" || typeof mediaType !== "string") {
     return NextResponse.json(
       { error: "imageBase64 and mediaType are required" },
+      { status: 400 }
+    )
+  }
+  if (
+    correction !== undefined &&
+    (typeof correction !== "string" ||
+      correction.trim().length === 0 ||
+      correction.length > MAX_CORRECTION_LENGTH)
+  ) {
+    return NextResponse.json(
+      { error: "correction must be a short non-empty string" },
       { status: 400 }
     )
   }
@@ -109,7 +126,13 @@ export async function POST(request: Request) {
             },
             {
               type: "text",
-              text: "Estimate the calories and macronutrients for this meal.",
+              text:
+                typeof correction === "string"
+                  ? `The user corrected the meal description to: "${correction.trim()}". ` +
+                    "Trust their description of what the food is over your own reading of the photo, " +
+                    "and use the photo only to judge portion size. Re-estimate the calories and " +
+                    "macronutrients for the corrected meal, and base the returned description on theirs."
+                  : "Estimate the calories and macronutrients for this meal.",
             },
           ],
         },

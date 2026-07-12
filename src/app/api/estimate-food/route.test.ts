@@ -101,6 +101,45 @@ describe("POST /api/estimate-food", () => {
     expect(args.model).toBe("claude-sonnet-5")
   })
 
+  it("passes a user correction through to the model prompt", async () => {
+    mocks.create.mockResolvedValue({
+      stop_reason: "tool_use",
+      content: [
+        {
+          type: "tool_use",
+          input: {
+            description: "Egg sandwich, no mayo",
+            items: [],
+            calories: 400,
+            protein_g: 15,
+            carbs_g: 40,
+            fat_g: 20,
+            confidence: "medium",
+          },
+        },
+      ],
+    })
+
+    const res = await POST(
+      req({ ...goodBody, correction: "Egg sandwich, no mayo" })
+    )
+    expect(res.status).toBe(200)
+    const args = mocks.create.mock.calls[0][0]
+    const textBlock = args.messages[0].content.find(
+      (b: { type: string }) => b.type === "text"
+    )
+    expect(textBlock.text).toContain('"Egg sandwich, no mayo"')
+    expect(textBlock.text).toMatch(/trust their description/i)
+  })
+
+  it("400 for a blank or oversized correction", async () => {
+    expect((await POST(req({ ...goodBody, correction: "  " }))).status).toBe(400)
+    expect(
+      (await POST(req({ ...goodBody, correction: "x".repeat(501) }))).status
+    ).toBe(400)
+    expect((await POST(req({ ...goodBody, correction: 42 }))).status).toBe(400)
+  })
+
   it("sanitizes junk numbers from the model", async () => {
     mocks.create.mockResolvedValue({
       stop_reason: "tool_use",
