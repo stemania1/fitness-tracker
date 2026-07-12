@@ -16,6 +16,7 @@ import {
   type ExerciseBest,
 } from "@/lib/goal-progress"
 import { buildGoalTrend, type DatedExerciseRow } from "@/lib/goal-trend"
+import { calcWeeklyStreak, calcVolumeByWeek } from "@/lib/goal-stats"
 import { GoalTrendChart } from "@/components/goals/GoalTrendChart"
 import Milestones, { type MilestoneData } from "./milestones"
 import {
@@ -94,15 +95,6 @@ function formatChartDate(dateStr: string): string {
     month: "short",
     day: "numeric",
   })
-}
-
-function getWeekLabel(dateStr: string): string {
-  const d = new Date(dateStr)
-  const startOfYear = new Date(d.getFullYear(), 0, 1)
-  const weekNum = Math.ceil(
-    ((d.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7
-  )
-  return `W${weekNum}`
 }
 
 // ─── Data fetching ─────────────────────────────────────────────
@@ -252,73 +244,6 @@ function useExerciseBests() {
       return rows
     },
   })
-}
-
-// ─── Weekly streak calculation ──────────────────────────────────
-
-function calcWeeklyStreak(
-  workoutLogs: { started_at: string }[],
-  targetPerWeek: number
-): number {
-  if (!workoutLogs.length || targetPerWeek <= 0) return 0
-
-  // Group workouts by ISO week
-  const weekMap = new Map<string, number>()
-  for (const log of workoutLogs) {
-    const d = new Date(log.started_at)
-    const yearWeek = `${d.getFullYear()}-${getWeekLabel(log.started_at)}`
-    weekMap.set(yearWeek, (weekMap.get(yearWeek) ?? 0) + 1)
-  }
-
-  // Get sorted weeks
-  const sortedWeeks = [...weekMap.entries()].sort((a, b) =>
-    a[0].localeCompare(b[0])
-  )
-
-  // Count consecutive weeks from the most recent that hit the target
-  let streak = 0
-  for (let i = sortedWeeks.length - 1; i >= 0; i--) {
-    if (sortedWeeks[i][1] >= targetPerWeek) {
-      streak++
-    } else {
-      break
-    }
-  }
-  return streak
-}
-
-// ─── Volume chart data ──────────────────────────────────────────
-
-interface VolumeWeek {
-  week: string
-  volume: number
-}
-
-function calcVolumeByWeek(
-  setLogData: {
-    started_at: string
-    exercise_logs: { set_logs: { weight: number | null; reps: number | null }[] }[]
-  }[]
-): VolumeWeek[] {
-  const weekMap = new Map<string, number>()
-
-  for (const workout of setLogData) {
-    const week = getWeekLabel(workout.started_at)
-    let vol = weekMap.get(week) ?? 0
-    for (const ex of workout.exercise_logs) {
-      for (const s of ex.set_logs) {
-        if (s.weight && s.reps) {
-          vol += s.weight * s.reps
-        }
-      }
-    }
-    weekMap.set(week, vol)
-  }
-
-  return [...weekMap.entries()]
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .slice(-12)
-    .map(([week, volume]) => ({ week, volume }))
 }
 
 // ─── Milestone data builder ─────────────────────────────────────
