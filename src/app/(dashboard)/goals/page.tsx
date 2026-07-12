@@ -9,6 +9,13 @@ import {
   projectWeightDate,
 } from "@/lib/weight-projection"
 import { exercises as staticExercises } from "@/data/exercises"
+import {
+  computeExerciseBests,
+  liveGoalCurrent,
+  goalProgressPercent,
+  type ExerciseBest,
+  type LoggedExerciseRow,
+} from "@/lib/goal-progress"
 import Milestones, { type MilestoneData } from "./milestones"
 import {
   Card,
@@ -183,6 +190,63 @@ function useSetLogs() {
         .order("started_at", { ascending: true })
       if (error) throw error
       return data
+    },
+  })
+}
+
+/** Logged exercises shaped for computeExerciseBests: resolves each logged
+ *  exercise's DB name back to its static catalog id so strength/endurance
+ *  goals (which store the static id) can be matched. */
+function useExerciseBests() {
+  return useQuery({
+    queryKey: ["goal-exercise-bests"],
+    queryFn: async (): Promise<LoggedExerciseRow[]> => {
+      const userId = await getAuthUserId()
+      const { data, error } = await supabase
+        .from("workout_logs")
+        .select(
+          "exercise_logs(exercises(name), set_logs(weight, duration_mins))"
+        )
+        .eq("user_id", userId)
+      if (error) throw error
+
+      const byName = new Map(
+        staticExercises.map((e) => [e.name.toLowerCase(), e.id])
+      )
+      const workouts = (data ?? []) as Array<{
+        exercise_logs: Array<{
+          exercises: { name: string } | { name: string }[] | null
+          set_logs: Array<{
+            weight: number | null
+            duration_mins: number | null
+          }>
+        }>
+      }>
+
+      const rows: LoggedExerciseRow[] = []
+      for (const wl of workouts) {
+        for (const el of wl.exercise_logs ?? []) {
+          const rel = Array.isArray(el.exercises)
+            ? el.exercises[0]
+            : el.exercises
+          const name = rel?.name
+          const staticExerciseId = name
+            ? byName.get(name.toLowerCase()) ?? null
+            : null
+          const sets = el.set_logs ?? []
+          rows.push({
+            staticExerciseId,
+            weights: sets
+              .map((s) => s.weight)
+              .filter((w): w is number => w != null),
+            sessionMinutes: sets.reduce(
+              (sum, s) => sum + (s.duration_mins ?? 0),
+              0
+            ),
+          })
+        }
+      }
+      return rows
     },
   })
 }
@@ -493,11 +557,29 @@ function AddGoalModal({
 
 // ─── Goal Card ──────────────────────────────────────────────────
 
-function GoalCard({ goal }: { goal: UserGoal }) {
+function GoalCard({
+  goal,
+  bests,
+}: {
+  goal: UserGoal
+  bests: Map<string, ExerciseBest>
+}) {
   const config = GOAL_TYPE_CONFIG[goal.goal_type]
   const Icon = config.icon
-  const progress = goalProgress(goal)
-  const isAchieved = !!goal.achieved_at
+  // Strength/endurance goals derive their current value from logged workouts;
+  // weight/consistency fall back to the stored value / their own summaries.
+  const isExerciseGoal =
+    goal.goal_type === "strength" || goal.goal_type === "endurance"
+  const liveCurrent = liveGoalCurrent(goal, bests)
+  const progress = isExerciseGoal
+    ? goalProgressPercent(liveCurrent, goal.target_value)
+    : goalProgress(goal)
+  const isAchieved = !!goal.achieved_at || (isExerciseGoal && progress >= 100)
+
+  // Nicely round minutes/lbs for display.
+  const exerciseName = goal.exercise_id
+    ? staticExercises.find((e) => e.id === goal.exercise_id)?.name
+    : undefined
 
   return (
     <Card>
@@ -515,7 +597,7 @@ function GoalCard({ goal }: { goal: UserGoal }) {
                 ? `Body Weight: ${goal.current_value ?? "?"} ${goal.unit} \u2192 ${goal.target_value} ${goal.unit}`
                 : goal.goal_type === "consistency"
                   ? `${goal.target_value} workouts per week`
-                  : `${goal.current_value ?? 0} ${goal.unit} \u2192 ${goal.target_value} ${goal.unit}`}
+                  : `${exerciseName ? `${exerciseName}: ` : ""}${Math.round(liveCurrent)} ${goal.unit} \u2192 ${goal.target_value} ${goal.unit}`}
             </p>
             <Badge variant={isAchieved ? "success" : "default"}>
               {isAchieved ? "Achieved" : "In Progress"}
@@ -546,6 +628,12 @@ export default function GoalsPage() {
   const { data: weightLogs } = useWeightLogs()
   const { data: workoutLogs } = useWorkoutLogs()
   const { data: setLogData } = useSetLogs()
+  const { data: bestsRows } = useExerciseBests()
+
+  const exerciseBests = useMemo(
+    () => computeExerciseBests(bestsRows ?? []),
+    [bestsRows]
+  )
 
   const targetWorkoutsPerWeek = profile?.workout_days ?? 3
 
@@ -746,7 +834,7 @@ export default function GoalsPage() {
           <h2 className="text-lg font-semibold text-gray-900">Your Goals</h2>
           <div className="space-y-3">
             {goals!.map((goal) => (
-              <GoalCard key={goal.id} goal={goal} />
+              <GoalCard key={goal.id} goal={goal} bests={exerciseBests} />
             ))}
           </div>
         </div>
