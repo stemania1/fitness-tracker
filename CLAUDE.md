@@ -38,8 +38,23 @@ fitness-tracker/
 │   │   ├── progressive-overload.ts # +5 lbs suggestion logic
 │   │   ├── weight-projection.ts    # Goal-date linear regression
 │   │   ├── volume-trend.ts         # Weekly volume + deload heuristic
+│   │   ├── weekly-summary.ts       # Weekly strength volume + Zone 2 minutes
 │   │   ├── workout-generator.ts    # Auto-generate workouts from profile
+│   │   ├── training-plan.ts        # 12-week plan week/session lookups
+│   │   ├── todays-workout.ts       # Today's session → checklist / logger preload
+│   │   ├── session-recap.ts        # Previous-vs-today per-lift comparison
+│   │   ├── training-calendar.ts    # 12-week plan → .ics export
+│   │   ├── fitness-tests.ts        # Fitness-test parsing + VO2 trend
+│   │   ├── vo2max.ts               # VO2 max classification
+│   │   ├── vo2max-percentile.ts    # Age/sex VO2 max percentiles
+│   │   ├── recovery.ts             # HRV overreaching / Recovery Watch
+│   │   ├── sleep-insights.ts       # REM-sleep insights + correlations
+│   │   ├── heart-rate.ts           # HR zones from age
+│   │   ├── limitations.ts          # Non-diagnostic "when to seek care" data
+│   │   ├── food-estimate.ts        # Photo calorie/macro estimate schema + helpers
+│   │   ├── image-resize.ts         # Browser image downscale for vision upload
 │   │   ├── oura.ts                 # Oura Ring API HTTP client
+│   │   ├── oura-token.ts           # Oura OAuth token refresh
 │   │   └── oura-insights.ts        # Threshold-driven readiness insights
 │   ├── hooks/                # Custom React hooks (useExerciseHistory, etc.)
 │   ├── types/                # TypeScript type definitions

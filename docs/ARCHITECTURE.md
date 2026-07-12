@@ -173,6 +173,48 @@ achieved_at     timestamptz
 created_at      timestamptz DEFAULT now()
 ```
 
+#### `fitness_tests`
+Logged fitness-test results driving the VO2 max trend.
+```sql
+id              uuid PRIMARY KEY DEFAULT gen_random_uuid()
+user_id         uuid REFERENCES auth.users(id) NOT NULL
+test_type       text CHECK (test_type IN ('cooper_run', 'pullup_max'))
+result          decimal(7,1) NOT NULL -- cooper_run: meters; pullup_max: reps
+tested_at       date NOT NULL DEFAULT current_date
+notes           text
+created_at      timestamptz DEFAULT now()
+updated_at      timestamptz DEFAULT now()
+```
+
+#### `food_logs`
+Photo-estimated meals (calories + macros).
+```sql
+id              uuid PRIMARY KEY DEFAULT gen_random_uuid()
+user_id         uuid REFERENCES auth.users(id) NOT NULL
+description     text NOT NULL
+meal_type       text CHECK (meal_type IN ('breakfast','lunch','dinner','snack','meal'))
+calories        integer NOT NULL
+protein_g       integer NOT NULL DEFAULT 0
+carbs_g         integer NOT NULL DEFAULT 0
+fat_g           integer NOT NULL DEFAULT 0
+image_path      text -- storage path in the meal-photos bucket
+confidence      text CHECK (confidence IN ('low','medium','high'))
+edited          boolean NOT NULL DEFAULT false -- user changed the numbers
+logged_at       timestamptz NOT NULL DEFAULT now()
+created_at      timestamptz DEFAULT now()
+```
+
+#### `oura_tokens`
+Per-user Oura OAuth tokens (one row per user).
+```sql
+id              uuid PRIMARY KEY DEFAULT gen_random_uuid()
+user_id         uuid REFERENCES auth.users(id) NOT NULL UNIQUE
+access_token    text NOT NULL
+refresh_token   text NOT NULL
+expires_at      timestamptz NOT NULL
+created_at      timestamptz DEFAULT now()
+```
+
 ### Row Level Security
 
 Every user-owned table enforces:
@@ -265,9 +307,12 @@ Start Workout → Load template exercises
 |-------|--------|-------------|
 | `/auth/callback` | GET | Supabase auth callback (`exchangeCodeForSession`); redirects to `?next=` or `/dashboard`. |
 | `/api/oura` | GET | Fetches today's Oura summary for the signed-in user. Refreshes the stored access token if expired. |
+| `/api/oura/metrics` | GET | Time-series Oura metrics over a window (charts/insights). |
+| `/api/oura/vo2max` | GET | Oura VO2 max samples for the trend chart. |
 | `/api/auth/oura/callback` | GET | Oura OAuth2 callback — exchanges authorization code for tokens and upserts `oura_tokens`. Redirects to `/profile?oura=connected` on success or `/profile?oura=error&oura_reason=...` on failure. |
+| `/api/estimate-food` | POST | Sends a meal photo to Claude vision (`claude-sonnet-5`, forced tool call) and returns a calories + macros estimate. Requires `ANTHROPIC_API_KEY`; `maxDuration = 60`. Does not persist — the client saves the confirmed estimate. |
 
-Most reads go through the Supabase client directly (TanStack Query handles caching, deduplication, and background refetching). API routes exist where we need server-side secrets (Oura OAuth) or third-party HTTP plumbing.
+Most reads go through the Supabase client directly (TanStack Query handles caching, deduplication, and background refetching). API routes exist where we need server-side secrets (Oura OAuth, Anthropic vision) or third-party HTTP plumbing.
 
 ## File Naming Conventions
 - Pages: `src/app/(group)/route/page.tsx`

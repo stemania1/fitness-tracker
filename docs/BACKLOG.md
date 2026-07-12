@@ -26,7 +26,10 @@ still open.
 - [x] Treadmill: time + distance → computed Avg mph + optional incline
 - [x] Outdoor Run: time + distance → computed pace (min/mi)
 - [x] Incline contributes to calorie estimate at walking speeds
-- [x] Edit a saved workout log (sets and notes — not exercise selection)
+- [x] Edit a saved workout log (sets and notes)
+- [x] Add exercises to a saved workout log (append mode in the logger),
+      pre-loading the plan's remaining exercises when it's a plan session
+- [x] "Save without these?" confirmation when finishing with unchecked exercises
 - [x] Pre-fill new set weights from previous performance
 - [x] Rest-timer auto-advances to the next exercise when sets are complete
 
@@ -35,6 +38,30 @@ still open.
 - [x] Reorder template exercises (up / down)
 - [ ] Drag-and-drop reorder (replace up/down chevrons)
 - [x] Swap one exercise for another within a template
+- [x] Swap one exercise for another during a live logged workout
+      (broken/occupied machine — sets carry over)
+
+## VO2 max & pull-up training plan
+- [x] 12-week structured plan (data + Plan page: schedule, phases, tests)
+- [x] Dashboard "today's session" card + one-tap Start Workout that
+      pre-loads the day's prescribed session (lifts + Zone 2 finisher) in
+      the logger
+- [x] Readiness-gated session guidance; HRV overreaching "Recovery Watch"
+- [x] Fitness-test logging (Cooper, pull-up max, assisted 8RM) + VO2 max
+      trend chart with percentile context
+- [x] "Training This Week" card (strength volume + Zone 2 minutes)
+- [x] Post-workout Session Recap (each lift vs. previous sessions)
+- [x] Calendar (.ics) export of plan sessions with reminders
+- [ ] In-app web-push reminders (deferred — calendar export covers this
+      more reliably on iOS; revisit if in-app notifications are wanted)
+
+## Nutrition — photo calorie & macro logging
+- [x] "Snap Meal" photo → Claude vision (claude-sonnet-5) calorie + macro
+      estimate, reviewed/adjusted before saving
+- [x] Portion-size assumption + one-tap multiplier
+- [x] One-tap "log another serving"
+- [x] Today's Nutrition card (calories in, macros, net vs. Oura out)
+- [x] Robustness: raised function timeout + retry-same-photo on a drop
 
 ## Equipment & exercises
 - [x] Free-weight exercise catalog expanded (16 added Apr–May 2026)
@@ -92,7 +119,9 @@ roughly easiest → hardest; pick off in order.
 
 ## Out of scope (v1, per PRD)
 - Social features (sharing, leaderboards)
-- Nutrition / diet tracking
 - Wearable integration beyond the existing Oura dashboard
 - Trainer marketplace
 - In-app payments
+
+_(Nutrition / diet tracking was formerly out of scope; now shipped as photo
+calorie & macro logging — see the section above.)_
