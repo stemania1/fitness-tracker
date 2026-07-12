@@ -202,11 +202,12 @@ export function QuickLogFood() {
           </DialogDescription>
         </DialogHeader>
 
+        {/* No `capture` attribute: on iOS it would force the camera open
+            directly, hiding the Photo Library option this button promises. */}
         <input
           ref={fileRef}
           type="file"
           accept="image/*"
-          capture="environment"
           className="hidden"
           onChange={handleFile}
         />
