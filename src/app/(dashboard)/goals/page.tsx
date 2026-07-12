@@ -14,8 +14,9 @@ import {
   liveGoalCurrent,
   goalProgressPercent,
   type ExerciseBest,
-  type LoggedExerciseRow,
 } from "@/lib/goal-progress"
+import { buildGoalTrend, type DatedExerciseRow } from "@/lib/goal-trend"
+import { GoalTrendChart } from "@/components/goals/GoalTrendChart"
 import Milestones, { type MilestoneData } from "./milestones"
 import {
   Card,
@@ -200,12 +201,12 @@ function useSetLogs() {
 function useExerciseBests() {
   return useQuery({
     queryKey: ["goal-exercise-bests"],
-    queryFn: async (): Promise<LoggedExerciseRow[]> => {
+    queryFn: async (): Promise<DatedExerciseRow[]> => {
       const userId = await getAuthUserId()
       const { data, error } = await supabase
         .from("workout_logs")
         .select(
-          "exercise_logs(exercises(name), set_logs(weight, duration_mins))"
+          "started_at, exercise_logs(exercises(name), set_logs(weight, duration_mins))"
         )
         .eq("user_id", userId)
       if (error) throw error
@@ -214,6 +215,7 @@ function useExerciseBests() {
         staticExercises.map((e) => [e.name.toLowerCase(), e.id])
       )
       const workouts = (data ?? []) as Array<{
+        started_at: string
         exercise_logs: Array<{
           exercises: { name: string } | { name: string }[] | null
           set_logs: Array<{
@@ -223,7 +225,7 @@ function useExerciseBests() {
         }>
       }>
 
-      const rows: LoggedExerciseRow[] = []
+      const rows: DatedExerciseRow[] = []
       for (const wl of workouts) {
         for (const el of wl.exercise_logs ?? []) {
           const rel = Array.isArray(el.exercises)
@@ -236,6 +238,7 @@ function useExerciseBests() {
           const sets = el.set_logs ?? []
           rows.push({
             staticExerciseId,
+            date: wl.started_at,
             weights: sets
               .map((s) => s.weight)
               .filter((w): w is number => w != null),
@@ -560,9 +563,11 @@ function AddGoalModal({
 function GoalCard({
   goal,
   bests,
+  rows,
 }: {
   goal: UserGoal
   bests: Map<string, ExerciseBest>
+  rows: DatedExerciseRow[]
 }) {
   const config = GOAL_TYPE_CONFIG[goal.goal_type]
   const Icon = config.icon
@@ -571,6 +576,18 @@ function GoalCard({
   const isExerciseGoal =
     goal.goal_type === "strength" || goal.goal_type === "endurance"
   const liveCurrent = liveGoalCurrent(goal, bests)
+
+  const trend = useMemo(
+    () =>
+      isExerciseGoal && goal.exercise_id
+        ? buildGoalTrend(
+            rows,
+            goal.exercise_id,
+            goal.goal_type as "strength" | "endurance"
+          )
+        : [],
+    [rows, goal.exercise_id, goal.goal_type, isExerciseGoal]
+  )
   const progress = isExerciseGoal
     ? goalProgressPercent(liveCurrent, goal.target_value)
     : goalProgress(goal)
@@ -612,6 +629,13 @@ function GoalCard({
               <span>Due {formatDate(goal.deadline)}</span>
             )}
           </div>
+
+          {/* Progress trend for strength/endurance goals (needs 2+ sessions) */}
+          <GoalTrendChart
+            points={trend}
+            target={goal.target_value}
+            unit={goal.unit}
+          />
         </div>
       </CardContent>
     </Card>
@@ -630,9 +654,10 @@ export default function GoalsPage() {
   const { data: setLogData } = useSetLogs()
   const { data: bestsRows } = useExerciseBests()
 
+  const datedRows = useMemo(() => bestsRows ?? [], [bestsRows])
   const exerciseBests = useMemo(
-    () => computeExerciseBests(bestsRows ?? []),
-    [bestsRows]
+    () => computeExerciseBests(datedRows),
+    [datedRows]
   )
 
   const targetWorkoutsPerWeek = profile?.workout_days ?? 3
@@ -834,7 +859,12 @@ export default function GoalsPage() {
           <h2 className="text-lg font-semibold text-gray-900">Your Goals</h2>
           <div className="space-y-3">
             {goals!.map((goal) => (
-              <GoalCard key={goal.id} goal={goal} bests={exerciseBests} />
+              <GoalCard
+                key={goal.id}
+                goal={goal}
+                bests={exerciseBests}
+                rows={datedRows}
+              />
             ))}
           </div>
         </div>
