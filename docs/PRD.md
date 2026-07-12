@@ -98,6 +98,27 @@ A simple, focused fitness app for Planet Fitness members that builds personalize
 - Daily Oura summary on the dashboard: sleep score, readiness, resting heart rate, SpO2, stress, resilience, VO2 max
 - Threshold-driven insights (e.g. "Great day for a hard workout" at readiness ≥ 85 + restored stress; "Consider a light day" when readiness < 70)
 - Server-side token refresh when the stored access token expires
+- Ring battery indicator; readiness-gated "today's session" guidance;
+  HRV overreaching "Recovery Watch"; REM-sleep insights with correlations
+
+### 7. VO2 Max & Pull-Up Training Plan
+**Goal**: Drive a concrete 12-week program to raise VO2 max and pull-up count, and measure progress against it.
+
+- Structured 12-week plan (`src/data/training-plan.ts`) rendered on the Plan page: weekly schedule, phases, and scheduled tests
+- Dashboard "today's session" card and one-tap **Start Workout** that opens the day's prescribed session in the logger pre-loaded with its exercises (strength lifts + Zone 2 finisher), so sets record weight × reps with previous-performance and progressive-overload built in
+- Fitness-test logging (Cooper 12-min, pull-up max, assisted 8RM) and a VO2 max trend chart with percentile context
+- "Training This Week" summary (strength volume + Zone 2 minutes) and a post-workout **Session Recap** comparing each lift to previous sessions
+- Add-exercises-to-a-saved-workout, swap-exercise (broken/occupied machine), and an "unchecked sets" confirmation on finish
+- Calendar (.ics) export of the plan's sessions with reminders (native-calendar based; no push infrastructure)
+
+### 8. Photo Calorie & Macro Logging
+**Goal**: Log meals by photo instead of manual entry.
+
+- "Snap Meal": photograph a meal; Claude vision (`claude-sonnet-5`) estimates calories + macros, which the user reviews/adjusts before saving
+- Portion-size assumption with a one-tap multiplier to scale the estimate
+- One-tap "log another serving" to re-add an identical meal
+- Today's Nutrition card with calories-in, macros, and net vs. Oura calories-out
+- Resilient to slow/dropped requests (raised function timeout, retry-same-photo)
 
 ## Non-Functional Requirements
 - Mobile-first responsive design (most users will log at the gym on phone)
@@ -107,7 +128,11 @@ A simple, focused fitness app for Planet Fitness members that builds personalize
 
 ## Out of Scope (v1)
 - Social features (sharing, leaderboards)
-- Nutrition/diet tracking
 - Wearable integration beyond Oura (Apple Watch, Garmin, Fitbit, etc.)
+- In-app web-push notifications (session reminders are handled via calendar
+  export instead — more reliable on iOS PWAs)
 - Trainer marketplace
 - In-app payments
+
+_Note: nutrition/diet tracking was originally out of scope but is now shipped
+as photo calorie & macro logging (feature 8)._
