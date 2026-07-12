@@ -119,6 +119,17 @@ describe("exercises catalog", () => {
     }
   })
 
+  it("has timed calf stretches for post-cardio tightness", () => {
+    // Flexibility entries the picker surfaces under the Calves chip; all
+    // are timed holds so the logger labels the reps column in seconds.
+    const stretches = exercises.filter((e) => e.exerciseType === "flexibility")
+    expect(stretches.length).toBeGreaterThanOrEqual(3)
+    for (const s of stretches) {
+      expect(s.muscleGroups, s.id).toContain("calves")
+      expect(s.defaultReps, s.id).toMatch(/\bsec\b/)
+    }
+  })
+
   it("has at least one beginner cardio option", () => {
     const beginnerCardio = exercises.filter(
       (e) => e.exerciseType === "cardio" && e.difficulty === "beginner"

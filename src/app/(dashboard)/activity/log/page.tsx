@@ -43,6 +43,7 @@ import { formatMuscleGroup } from "@/lib/muscle-groups"
 import { saveWorkout, type WorkoutPayload } from "@/lib/save-workout"
 import { addPending, localStorageQueue } from "@/lib/pending-workouts"
 import { plannedSession } from "@/lib/todays-workout"
+import { isTimedTarget, repsTargetLabel } from "@/lib/reps-target"
 
 // ── Types ─────────────────────────────────────────────────────
 interface ActiveSet {
@@ -103,7 +104,9 @@ function makeExercise(
     muscleGroups: def.muscleGroups,
     exerciseType: def.exerciseType,
     equipmentId: def.equipmentId,
-    repsTarget,
+    // Freestyle adds fall back to the catalog default so the card still
+    // shows a target (and timed holds get their seconds labelling).
+    repsTarget: repsTarget ?? def.defaultReps ?? null,
     sets: Array.from({ length: numSets }, () => makeSet()),
     notes: "",
     restSeconds: restSec,
@@ -747,6 +750,10 @@ export default function LogWorkoutPage() {
   }
 
   const isCardio = currentExercise?.exerciseType === "cardio"
+  // Timed hold (e.g. plank "20-30 sec"): the reps column records seconds
+  // held, so the header and placeholder must say so.
+  const isTimedHold =
+    !isCardio && isTimedTarget(currentExercise?.repsTarget)
   const isTreadmillExercise =
     !!currentExercise && isTreadmill(currentExercise)
   const isOutdoorRunExercise =
@@ -874,6 +881,21 @@ export default function LogWorkoutPage() {
                         </span>
                       )}
                     </div>
+                    {/* Prescription from the plan/template. Without this the
+                        user has no way to know a plank means a continuous
+                        20-30 sec hold, or that the bike can be swapped. */}
+                    {currentExercise.repsTarget && (
+                      <p className="mt-1.5 text-xs font-medium text-purple-700">
+                        Target: {repsTargetLabel(currentExercise.repsTarget)}{" "}
+                        per set
+                        {isTimedHold && " — one continuous hold"}
+                      </p>
+                    )}
+                    {currentExercise.notes && (
+                      <p className="mt-0.5 text-xs italic text-gray-500">
+                        {currentExercise.notes}
+                      </p>
+                    )}
                     <PreviousPerformance
                       exerciseId={currentExercise.exerciseId}
                       exerciseType={currentExercise.exerciseType}
@@ -944,7 +966,7 @@ export default function LogWorkoutPage() {
                   ) : (
                     <>
                       <span>Weight</span>
-                      <span>Reps</span>
+                      <span>{isTimedHold ? "Sec held" : "Reps"}</span>
                     </>
                   )}
                   <span className="text-center">
@@ -1109,7 +1131,7 @@ export default function LogWorkoutPage() {
                         <Input
                           type="number"
                           inputMode="numeric"
-                          placeholder="reps"
+                          placeholder={isTimedHold ? "sec" : "reps"}
                           value={set.reps ?? ""}
                           onChange={(e) =>
                             updateSet(currentIdx, si, {

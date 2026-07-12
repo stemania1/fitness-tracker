@@ -67,7 +67,8 @@ export const PULL_A_PRESET: TemplatePreset = {
       sets: 3,
       reps: "20-30 sec",
       restSeconds: 60,
-      notes: "Hollow hold if comfortable — pull-ups are half core.",
+      notes:
+        "One continuous hold per set — log the seconds, leave weight blank (bodyweight). Hollow hold if comfortable; pull-ups are half core.",
     },
   ],
 }

@@ -65,6 +65,14 @@ const MET_VALUES: Record<string, number> = {
   "mountain-climbers": 8.0,
   "bicycle-crunches": 3.5,
   "dead-bug": 3.0,
+
+  // Stretches / Mobility (the logger estimates all non-cardio via the
+  // strength path, so these need explicit entries to avoid the 3.5
+  // strength default)
+  "standing-calf-stretch": 2.3,
+  "bent-knee-calf-stretch": 2.3,
+  "heel-drop-stretch": 2.3,
+  "foam-roll-calves": 2.5,
 }
 
 /** Default MET by exercise type for exercises not in the map */

@@ -705,4 +705,49 @@ export const exercises: ExerciseDefinition[] = [
     defaultSets: 1,
     defaultReps: "20-30 min",
   },
+
+  // ── Stretches / Mobility ───────────────────────────────
+  // No equipment needed beyond a wall or step — all doable in the PF
+  // stretching area. Timed holds: the logger records seconds in the
+  // reps column (see lib/reps-target.ts).
+  {
+    id: "standing-calf-stretch",
+    name: "Standing Calf Stretch (Wall)",
+    equipmentId: null,
+    muscleGroups: ["calves"],
+    exerciseType: "flexibility",
+    difficulty: "beginner",
+    defaultSets: 2,
+    defaultReps: "30 sec each side",
+  },
+  {
+    id: "bent-knee-calf-stretch",
+    name: "Bent-Knee Calf Stretch (Soleus)",
+    equipmentId: null,
+    muscleGroups: ["calves"],
+    exerciseType: "flexibility",
+    difficulty: "beginner",
+    defaultSets: 2,
+    defaultReps: "30 sec each side",
+  },
+  {
+    id: "heel-drop-stretch",
+    name: "Heel Drop Calf Stretch (Step)",
+    equipmentId: null,
+    muscleGroups: ["calves"],
+    exerciseType: "flexibility",
+    difficulty: "beginner",
+    defaultSets: 2,
+    defaultReps: "30 sec each side",
+  },
+  {
+    id: "foam-roll-calves",
+    name: "Foam Roll Calves",
+    equipmentId: null,
+    muscleGroups: ["calves"],
+    exerciseType: "flexibility",
+    difficulty: "beginner",
+    defaultSets: 1,
+    defaultReps: "60 sec each side",
+  },
 ]
