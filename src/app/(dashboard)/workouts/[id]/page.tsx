@@ -33,6 +33,7 @@ import {
   Trash2,
   ChevronUp,
   ChevronDown,
+  GripVertical,
   X,
   Save,
   Loader2,
@@ -40,6 +41,7 @@ import {
 import { SPLIT_TYPES } from "@/lib/constants"
 import { ExercisePicker } from "@/components/activity/exercise-picker"
 import { ensureExercisesExist } from "@/lib/supabase/exercises"
+import { reorderList } from "@/lib/reorder"
 import type { ExerciseDefinition } from "@/data/exercises"
 
 const supabase = createClient()
@@ -88,6 +90,7 @@ export default function WorkoutDetailPage() {
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState("")
   const [editExercises, setEditExercises] = useState<EditableExercise[]>([])
+  const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showPicker, setShowPicker] = useState(false)
   /** When the picker is opened from a row's swap button, this holds the
@@ -146,12 +149,17 @@ export default function WorkoutDetailPage() {
   }
 
   function moveExercise(index: number, direction: "up" | "down") {
-    const next = [...editExercises]
     const swapIdx = direction === "up" ? index - 1 : index + 1
-    if (swapIdx < 0 || swapIdx >= next.length) return
-    ;[next[index], next[swapIdx]] = [next[swapIdx], next[index]]
-    next.forEach((ex, i) => (ex.orderIndex = i))
-    setEditExercises(next)
+    moveExerciseTo(index, swapIdx)
+  }
+
+  /** Reorder within the edit list and renumber order_index. Shared by the
+   *  up/down chevrons (touch-friendly) and drag-and-drop (pointer). */
+  function moveExerciseTo(from: number, to: number) {
+    if (to < 0 || to >= editExercises.length || from === to) return
+    setEditExercises((prev) =>
+      reorderList(prev, from, to).map((ex, i) => ({ ...ex, orderIndex: i }))
+    )
   }
 
   function removeExercise(index: number) {
@@ -517,14 +525,40 @@ export default function WorkoutDetailPage() {
         )}
         {isEditing
           ? editExercises.map((ex, idx) => (
-              <Card key={ex.id || idx}>
+              <Card
+                key={ex.id || idx}
+                onDragOver={(e) => {
+                  if (dragIndex !== null) e.preventDefault()
+                }}
+                onDrop={() => {
+                  if (dragIndex !== null) moveExerciseTo(dragIndex, idx)
+                  setDragIndex(null)
+                }}
+                className={
+                  dragIndex === idx
+                    ? "opacity-50"
+                    : dragIndex !== null
+                      ? "border-dashed"
+                      : undefined
+                }
+              >
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
-                    {/* Reorder buttons */}
-                    <div className="flex flex-col gap-1 pt-1">
+                    {/* Drag handle (pointer) + up/down (touch fallback) */}
+                    <div className="flex flex-col items-center gap-1 pt-1">
+                      <span
+                        draggable
+                        onDragStart={() => setDragIndex(idx)}
+                        onDragEnd={() => setDragIndex(null)}
+                        aria-label="Drag to reorder"
+                        className="cursor-grab text-gray-300 hover:text-gray-500 active:cursor-grabbing"
+                      >
+                        <GripVertical className="h-4 w-4" aria-hidden />
+                      </span>
                       <button
                         onClick={() => moveExercise(idx, "up")}
                         disabled={idx === 0}
+                        aria-label="Move up"
                         className="rounded p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-30"
                       >
                         <ChevronUp className="h-4 w-4" />
@@ -532,6 +566,7 @@ export default function WorkoutDetailPage() {
                       <button
                         onClick={() => moveExercise(idx, "down")}
                         disabled={idx === editExercises.length - 1}
+                        aria-label="Move down"
                         className="rounded p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-30"
                       >
                         <ChevronDown className="h-4 w-4" />
