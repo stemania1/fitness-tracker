@@ -164,7 +164,8 @@ export function QuickLogFood() {
       field === "calories" ||
       field === "protein_g" ||
       field === "carbs_g" ||
-      field === "fat_g"
+      field === "fat_g" ||
+      field === "sugar_g"
     // A manual edit means the numbers no longer match a clean multiplier.
     if (numeric) setFactor(0)
     setEstimate({
@@ -197,6 +198,7 @@ export function QuickLogFood() {
           original.protein_g !== estimate.protein_g ||
           original.carbs_g !== estimate.carbs_g ||
           original.fat_g !== estimate.fat_g ||
+          original.sugar_g !== estimate.sugar_g ||
           original.description !== estimate.description)
 
       const { error: insErr } = await supabase.from("food_logs").insert({
@@ -207,6 +209,7 @@ export function QuickLogFood() {
         protein_g: estimate.protein_g,
         carbs_g: estimate.carbs_g,
         fat_g: estimate.fat_g,
+        sugar_g: estimate.sugar_g,
         image_path: imagePath,
         confidence: estimate.confidence,
         edited,
@@ -409,7 +412,7 @@ export function QuickLogFood() {
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               <div className="space-y-1">
                 <Label htmlFor="qlf-p" className="text-xs">
                   Protein (g)
@@ -444,6 +447,18 @@ export function QuickLogFood() {
                   min={0}
                   value={estimate.fat_g}
                   onChange={(e) => patch("fat_g", e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="qlf-s" className="text-xs">
+                  Sugar (g)
+                </Label>
+                <Input
+                  id="qlf-s"
+                  type="number"
+                  min={0}
+                  value={estimate.sugar_g}
+                  onChange={(e) => patch("sugar_g", e.target.value)}
                 />
               </div>
             </div>

@@ -427,6 +427,7 @@ export interface Database {
           protein_g: number
           carbs_g: number
           fat_g: number
+          sugar_g: number
           image_path: string | null
           confidence: "low" | "medium" | "high" | null
           edited: boolean
@@ -443,6 +444,7 @@ export interface Database {
           protein_g?: number
           carbs_g?: number
           fat_g?: number
+          sugar_g?: number
           image_path?: string | null
           confidence?: "low" | "medium" | "high" | null
           edited?: boolean
@@ -459,6 +461,7 @@ export interface Database {
           protein_g?: number
           carbs_g?: number
           fat_g?: number
+          sugar_g?: number
           image_path?: string | null
           confidence?: "low" | "medium" | "high" | null
           edited?: boolean

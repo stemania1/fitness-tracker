@@ -47,6 +47,8 @@ describe("macroTargets", () => {
     expect(t.fat_g).toBe(80)
     // Remainder: (2363.0 - 700 - 708.9) / 4 = 238.5 → rounds to 240.
     expect(t.carbs_g).toBe(240)
+    // WHO free-sugars ceiling: 10% of 2360 cal / 4 = 59 → rounds to 60.
+    expect(t.sugar_limit_g).toBe(60)
     expect(t.goalNote).toMatch(/deficit/)
   })
 
@@ -65,6 +67,7 @@ describe("macroTargets", () => {
     expect(t.protein_g).toBe(110) // 0.8 g/lb * 140 = 112 → rounds to 110
     expect(t.fat_g).toBe(65) // 30% of 1986.4 / 9 = 66.2
     expect(t.carbs_g).toBe(235) // (1986.4 - 448 - 595.9) / 4 = 235.6
+    expect(t.sugar_limit_g).toBe(50) // 10% of 1990 / 4 = 49.75
     expect(t.goalNote).toMatch(/maintenance/)
   })
 
