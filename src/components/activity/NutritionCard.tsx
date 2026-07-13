@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Utensils, Plus, Trash2 } from "lucide-react"
+import { Utensils, Plus, Trash2, ChevronDown } from "lucide-react"
 import type { MacroTargets } from "@/lib/macro-targets"
 
 const supabase = createClient()
@@ -60,6 +60,8 @@ export function NutritionCard({
   // Two-tap delete: first tap arms the row's trash button, second deletes.
   // Cheaper than a confirm dialog and still guards against stray taps.
   const [armedDeleteId, setArmedDeleteId] = useState<string | null>(null)
+  // Tap a meal row to expand its full stats (macros, sugar, time).
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const { data: logs, isLoading } = useQuery({
     queryKey: ["food-logs-today", dayStart],
@@ -325,16 +327,32 @@ export function NutritionCard({
               {(logs ?? []).map((m) => (
                 <li
                   key={m.id}
-                  className="flex items-center gap-2 rounded-lg border border-gray-100 px-3 py-2"
+                  className="rounded-lg border border-gray-100 px-3 py-2"
                 >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-gray-900">
-                      {m.description}
-                    </p>
-                    <p className="text-xs capitalize text-gray-400">
-                      {m.meal_type}
-                    </p>
-                  </div>
+                  <div className="flex items-center gap-2">
+                  {/* Tapping the text toggles the full stats for this meal. */}
+                  <button
+                    onClick={() =>
+                      setExpandedId(expandedId === m.id ? null : m.id)
+                    }
+                    aria-expanded={expandedId === m.id}
+                    aria-label={`Show stats for ${m.description}`}
+                    className="flex min-w-0 flex-1 items-center gap-1 text-left"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-gray-900">
+                        {m.description}
+                      </p>
+                      <p className="text-xs capitalize text-gray-400">
+                        {m.meal_type}
+                      </p>
+                    </div>
+                    <ChevronDown
+                      className={`h-3.5 w-3.5 shrink-0 text-gray-300 transition-transform ${
+                        expandedId === m.id ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
                   {m.confidence && (
                     <Badge
                       className={`${confidenceBadge[m.confidence]} shrink-0 text-[10px]`}
@@ -379,6 +397,40 @@ export function NutritionCard({
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
+                  </div>
+
+                  {expandedId === m.id && (
+                    <div className="mt-2 border-t border-gray-100 pt-2">
+                      {/* The list row truncates long descriptions; show it
+                          in full here alongside the numbers. */}
+                      <p className="text-xs text-gray-600">{m.description}</p>
+                      <div className="mt-2 grid grid-cols-5 gap-1 text-center">
+                        {(
+                          [
+                            ["Cal", m.calories, "text-gray-900"],
+                            ["Protein", `${m.protein_g}g`, "text-rose-700"],
+                            ["Carbs", `${m.carbs_g}g`, "text-amber-700"],
+                            ["Fat", `${m.fat_g}g`, "text-sky-700"],
+                            ["Sugar", `${m.sugar_g ?? 0}g`, "text-fuchsia-700"],
+                          ] as const
+                        ).map(([label, value, cls]) => (
+                          <div key={label} className="rounded-md bg-gray-50 py-1.5">
+                            <p className={`text-sm font-semibold ${cls}`}>
+                              {value}
+                            </p>
+                            <p className="text-[10px] text-gray-400">{label}</p>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="mt-1.5 text-[10px] text-gray-400">
+                        Logged at{" "}
+                        {new Date(m.logged_at).toLocaleTimeString([], {
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>

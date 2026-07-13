@@ -6,6 +6,7 @@ import {
   fireEvent,
   cleanup,
   waitFor,
+  within,
 } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import type React from "react"
@@ -133,6 +134,35 @@ describe("NutritionCard — targets", () => {
     expect(screen.queryByRole("progressbar")).toBeNull()
     expect(screen.queryByText(/of 2,360/)).toBeNull()
     expect(screen.queryByText(/targets estimated/i)).toBeNull()
+  })
+})
+
+describe("NutritionCard — meal stats", () => {
+  it("expands a tapped meal to show calories, macros, and sugar", async () => {
+    renderWithClient(<NutritionCard />)
+    expect(await screen.findByText("Fried fish")).toBeInTheDocument()
+
+    const toggle = screen.getByRole("button", {
+      name: /show stats for fried fish/i,
+    })
+    expect(toggle).toHaveAttribute("aria-expanded", "false")
+    // Scope to the row — with a single meal the day's totals elsewhere in
+    // the card show the same numbers.
+    const row = within(toggle.closest("li") as HTMLElement)
+    expect(row.queryByText(/logged at/i)).toBeNull()
+
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute("aria-expanded", "true")
+    expect(row.getByText("22g")).toBeInTheDocument() // protein
+    expect(row.getByText("14g")).toBeInTheDocument() // carbs
+    expect(row.getByText("18g")).toBeInTheDocument() // fat
+    expect(row.getByText("5g")).toBeInTheDocument() // sugar
+    expect(row.getByText("Cal")).toBeInTheDocument() // calories tile label
+    expect(row.getByText(/logged at/i)).toBeInTheDocument()
+
+    // Tapping again collapses it.
+    fireEvent.click(toggle)
+    expect(row.queryByText(/logged at/i)).toBeNull()
   })
 })
 
