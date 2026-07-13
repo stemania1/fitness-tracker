@@ -13,6 +13,8 @@ import type React from "react"
 const mocks = vi.hoisted(() => ({
   getUser: vi.fn(),
   insert: vi.fn(),
+  deleteEq: vi.fn(),
+  removePhoto: vi.fn(),
   rows: [] as unknown[],
 }))
 
@@ -29,7 +31,9 @@ vi.mock("@/lib/supabase/client", () => ({
         }),
       }),
       insert: mocks.insert,
+      delete: () => ({ eq: mocks.deleteEq }),
     }),
+    storage: { from: (_b: string) => ({ remove: mocks.removePhoto }) },
   }),
 }))
 
@@ -51,6 +55,8 @@ const FISH = {
 beforeEach(() => {
   mocks.getUser.mockReset().mockResolvedValue({ data: { user: { id: "u1" } } })
   mocks.insert.mockReset().mockResolvedValue({ error: null })
+  mocks.deleteEq.mockReset().mockResolvedValue({ error: null })
+  mocks.removePhoto.mockReset().mockResolvedValue({ error: null })
   mocks.rows = [FISH]
 })
 
@@ -117,6 +123,41 @@ describe("NutritionCard — targets", () => {
     expect(screen.queryByRole("progressbar")).toBeNull()
     expect(screen.queryByText(/of 2,360/)).toBeNull()
     expect(screen.queryByText(/targets estimated/i)).toBeNull()
+  })
+})
+
+describe("NutritionCard — delete entry", () => {
+  it("requires a second tap to confirm, then deletes the row and its photo", async () => {
+    renderWithClient(<NutritionCard />)
+    expect(await screen.findByText("Fried fish")).toBeInTheDocument()
+
+    // First tap only arms the button — nothing deleted yet.
+    fireEvent.click(screen.getByRole("button", { name: /^delete fried fish/i }))
+    expect(mocks.deleteEq).not.toHaveBeenCalled()
+
+    // Second tap (now labelled as confirm) performs the delete.
+    fireEvent.click(
+      screen.getByRole("button", { name: /confirm delete of fried fish/i })
+    )
+    await waitFor(() => expect(mocks.deleteEq).toHaveBeenCalledTimes(1))
+    expect(mocks.deleteEq).toHaveBeenCalledWith("id", "meal-1")
+    // Stored photo is cleaned up best-effort.
+    await waitFor(() =>
+      expect(mocks.removePhoto).toHaveBeenCalledWith(["u1/fish.jpg"])
+    )
+  })
+
+  it("skips photo cleanup for entries without an image", async () => {
+    mocks.rows = [{ ...FISH, image_path: null }]
+    renderWithClient(<NutritionCard />)
+    expect(await screen.findByText("Fried fish")).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: /^delete fried fish/i }))
+    fireEvent.click(
+      screen.getByRole("button", { name: /confirm delete of fried fish/i })
+    )
+    await waitFor(() => expect(mocks.deleteEq).toHaveBeenCalledTimes(1))
+    expect(mocks.removePhoto).not.toHaveBeenCalled()
   })
 })
 

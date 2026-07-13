@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Utensils, Plus } from "lucide-react"
+import { Utensils, Plus, Trash2 } from "lucide-react"
 import type { MacroTargets } from "@/lib/macro-targets"
 
 const supabase = createClient()
@@ -56,6 +56,9 @@ export function NutritionCard({
   const dayStart = useMemo(() => startOfTodayIso(), [])
   const queryClient = useQueryClient()
   const [pendingId, setPendingId] = useState<string | null>(null)
+  // Two-tap delete: first tap arms the row's trash button, second deletes.
+  // Cheaper than a confirm dialog and still guards against stray taps.
+  const [armedDeleteId, setArmedDeleteId] = useState<string | null>(null)
 
   const { data: logs, isLoading } = useQuery({
     queryKey: ["food-logs-today", dayStart],
@@ -107,6 +110,34 @@ export function NutritionCard({
     },
     onMutate: (meal) => setPendingId(meal.id),
     onSettled: () => setPendingId(null),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["food-logs-today"] })
+      queryClient.invalidateQueries({ queryKey: ["weekly-calories"] })
+    },
+  })
+
+  const deleteMeal = useMutation({
+    mutationFn: async (meal: FoodLogRow) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
+      const { error } = await supabase
+        .from("food_logs")
+        .delete()
+        .eq("id", meal.id)
+      if (error) throw error
+      // Photo cleanup is best-effort — the log row is already gone, and an
+      // orphaned image is not worth failing the delete over.
+      if (meal.image_path) {
+        await supabase.storage.from("meal-photos").remove([meal.image_path])
+      }
+    },
+    onMutate: (meal) => setPendingId(meal.id),
+    onSettled: () => {
+      setPendingId(null)
+      setArmedDeleteId(null)
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["food-logs-today"] })
       queryClient.invalidateQueries({ queryKey: ["weekly-calories"] })
@@ -283,6 +314,31 @@ export function NutritionCard({
                     aria-label={`Log another serving of ${m.description}`}
                   >
                     <Plus className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() =>
+                      armedDeleteId === m.id
+                        ? deleteMeal.mutate(m)
+                        : setArmedDeleteId(m.id)
+                    }
+                    disabled={pendingId === m.id}
+                    className={`shrink-0 rounded-md p-1 transition-colors disabled:opacity-40 ${
+                      armedDeleteId === m.id
+                        ? "bg-red-50 text-red-600"
+                        : "text-gray-400 hover:bg-red-50 hover:text-red-500"
+                    }`}
+                    title={
+                      armedDeleteId === m.id
+                        ? "Tap again to delete"
+                        : "Delete this entry"
+                    }
+                    aria-label={
+                      armedDeleteId === m.id
+                        ? `Confirm delete of ${m.description}`
+                        : `Delete ${m.description}`
+                    }
+                  >
+                    <Trash2 className="h-4 w-4" />
                   </button>
                 </li>
               ))}
