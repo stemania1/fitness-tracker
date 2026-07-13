@@ -20,9 +20,17 @@ describe("sanitizeEstimate", () => {
       protein_g: 35,
       carbs_g: 18,
       fat_g: 22,
+      sugar_g: 6,
       confidence: "medium",
     }
     expect(sanitizeEstimate(raw)).toEqual(raw)
+  })
+
+  it("clamps sugar to the carb total and defaults it to zero", () => {
+    // Sugars are a subset of carbs — a confused response can't exceed them.
+    expect(sanitizeEstimate({ carbs_g: 20, sugar_g: 45 }).sugar_g).toBe(20)
+    expect(sanitizeEstimate({ carbs_g: 20 }).sugar_g).toBe(0)
+    expect(sanitizeEstimate({ carbs_g: 20, sugar_g: -5 }).sugar_g).toBe(0)
   })
 
   it("defaults portion to an empty string when missing or non-string", () => {
@@ -81,6 +89,7 @@ describe("scaleEstimate", () => {
     protein_g: 10,
     carbs_g: 35,
     fat_g: 12,
+    sugar_g: 15,
     confidence: "low",
   }
 
@@ -90,6 +99,7 @@ describe("scaleEstimate", () => {
     expect(doubled.protein_g).toBe(20)
     expect(doubled.carbs_g).toBe(70)
     expect(doubled.fat_g).toBe(24)
+    expect(doubled.sugar_g).toBe(30)
   })
 
   it("rounds fractional results (0.5×)", () => {
@@ -130,6 +140,7 @@ describe("macroConsistency", () => {
     protein_g: 30,
     carbs_g: 40,
     fat_g: 10,
+    sugar_g: 0,
     confidence: "medium",
   }
 

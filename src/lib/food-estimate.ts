@@ -21,6 +21,8 @@ export interface FoodEstimate {
   protein_g: number
   carbs_g: number
   fat_g: number
+  /** Total sugars — a subset of carbs_g, never larger. */
+  sugar_g: number
   confidence: Confidence
 }
 
@@ -58,6 +60,11 @@ export const FOOD_ESTIMATE_SCHEMA = {
     protein_g: { type: "integer", description: "Total estimated protein in grams." },
     carbs_g: { type: "integer", description: "Total estimated carbohydrates in grams." },
     fat_g: { type: "integer", description: "Total estimated fat in grams." },
+    sugar_g: {
+      type: "integer",
+      description:
+        "Total estimated sugars in grams (natural + added). A subset of carbs_g — never larger than it.",
+    },
     confidence: {
       type: "string",
       enum: ["low", "medium", "high"],
@@ -72,6 +79,7 @@ export const FOOD_ESTIMATE_SCHEMA = {
     "protein_g",
     "carbs_g",
     "fat_g",
+    "sugar_g",
     "confidence",
   ],
 } as const
@@ -80,7 +88,7 @@ export const FOOD_ESTIMATE_SYSTEM_PROMPT = `You are a nutrition estimation assis
 
 Guidelines:
 - Identify each distinct food item and estimate its calories.
-- Estimate total calories, protein, carbohydrates, and fat in grams.
+- Estimate total calories, protein, carbohydrates, fat, and sugars in grams. Sugars count both natural and added sugar and are a subset of the carbohydrates.
 - Account for likely cooking oils, dressings, and sauces even when not obviously visible.
 - Judge portion sizes from visual cues (plate size, utensils, hand if present). With only a description, assume a typical serving unless it states quantities.
 - State the portion you assumed in everyday terms with an approximate weight (e.g. "about 1.5 cups (350g)"). All your numbers must correspond to that stated portion.
@@ -128,14 +136,18 @@ export function sanitizeEstimate(raw: unknown): FoodEstimate {
   const portion =
     typeof obj.portion === "string" ? obj.portion.trim() : ""
 
+  const carbs_g = nonNegInt(obj.carbs_g)
+
   return {
     description,
     portion,
     items,
     calories: nonNegInt(obj.calories),
     protein_g: nonNegInt(obj.protein_g),
-    carbs_g: nonNegInt(obj.carbs_g),
+    carbs_g,
     fat_g: nonNegInt(obj.fat_g),
+    // Sugars are by definition carbs; clamp a confused model response.
+    sugar_g: Math.min(nonNegInt(obj.sugar_g), carbs_g),
     confidence,
   }
 }
@@ -156,6 +168,7 @@ export function scaleEstimate(
     protein_g: Math.round(estimate.protein_g * f),
     carbs_g: Math.round(estimate.carbs_g * f),
     fat_g: Math.round(estimate.fat_g * f),
+    sugar_g: Math.round(estimate.sugar_g * f),
   }
 }
 

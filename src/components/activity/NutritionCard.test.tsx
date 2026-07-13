@@ -47,6 +47,7 @@ const FISH = {
   protein_g: 22,
   carbs_g: 14,
   fat_g: 18,
+  sugar_g: 5,
   confidence: "medium" as const,
   image_path: "u1/fish.jpg",
   logged_at: "2026-07-11T23:00:00.000Z",
@@ -79,6 +80,7 @@ const TARGETS = {
   protein_g: 175,
   carbs_g: 240,
   fat_g: 80,
+  sugar_limit_g: 60,
   goalNote: "a 500 cal/day deficit (~1 lb/week) for your weight-loss goal",
 }
 
@@ -100,6 +102,14 @@ describe("NutritionCard — targets", () => {
     })
     expect(proteinBar).toHaveAttribute("aria-valuenow", "22")
     expect(proteinBar).toHaveAttribute("aria-valuemax", "175")
+
+    // Sugar shows as a ceiling with its own progress bar (5g of 60g).
+    expect(screen.getByText(/aim under 60g/)).toBeInTheDocument()
+    const sugarBar = screen.getByRole("progressbar", {
+      name: /sugar vs daily limit/i,
+    })
+    expect(sugarBar).toHaveAttribute("aria-valuenow", "5")
+    expect(sugarBar).toHaveAttribute("aria-valuemax", "60")
 
     // Footer explains where the numbers come from.
     expect(

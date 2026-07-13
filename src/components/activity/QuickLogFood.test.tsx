@@ -41,6 +41,7 @@ const ESTIMATE = {
   protein_g: 40,
   carbs_g: 45,
   fat_g: 18,
+  sugar_g: 9,
   confidence: "medium" as const,
 }
 
@@ -141,6 +142,7 @@ describe("QuickLogFood", () => {
     await waitFor(() => expect(mocks.insert).toHaveBeenCalledTimes(1))
     const row = mocks.insert.mock.calls[0][0]
     expect(row.calories).toBe(550)
+    expect(row.sugar_g).toBe(9)
     expect(row.edited).toBe(false)
     expect(row.image_path).toMatch(/^u1\//)
     expect(mocks.upload).toHaveBeenCalledTimes(1)

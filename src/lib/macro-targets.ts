@@ -37,6 +37,12 @@ export interface MacroTargets {
   protein_g: number
   carbs_g: number
   fat_g: number
+  /**
+   * Daily sugar ceiling (grams), not a target to hit: WHO's free-sugars
+   * guideline of <10% of energy intake, converted at 4 cal/g. Logged
+   * sugars include natural ones (fruit, dairy), so this is a soft line.
+   */
+  sugar_limit_g: number
   /** Human-readable basis for the calorie target, e.g. for a card footer. */
   goalNote: string
 }
@@ -150,6 +156,7 @@ export function macroTargets(
     protein_g: roundTo(proteinG, 5),
     carbs_g: roundTo(carbsG, 5),
     fat_g: roundTo(fatG, 5),
+    sugar_limit_g: roundTo((0.1 * calories) / 4, 5),
     goalNote: goal.note,
   }
 }

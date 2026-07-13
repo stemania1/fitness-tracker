@@ -24,6 +24,7 @@ interface FoodLogRow {
   protein_g: number
   carbs_g: number
   fat_g: number
+  sugar_g: number
   confidence: "low" | "medium" | "high" | null
   image_path: string | null
   logged_at: string
@@ -70,7 +71,7 @@ export function NutritionCard({
       const { data, error } = await supabase
         .from("food_logs")
         .select(
-          "id, description, meal_type, calories, protein_g, carbs_g, fat_g, confidence, image_path, logged_at"
+          "id, description, meal_type, calories, protein_g, carbs_g, fat_g, sugar_g, confidence, image_path, logged_at"
         )
         .eq("user_id", user.id)
         .gte("logged_at", dayStart)
@@ -102,6 +103,7 @@ export function NutritionCard({
         protein_g: meal.protein_g,
         carbs_g: meal.carbs_g,
         fat_g: meal.fat_g,
+        sugar_g: meal.sugar_g,
         image_path: meal.image_path,
         confidence: meal.confidence,
         edited: false,
@@ -152,8 +154,9 @@ export function NutritionCard({
         protein: acc.protein + m.protein_g,
         carbs: acc.carbs + m.carbs_g,
         fat: acc.fat + m.fat_g,
+        sugar: acc.sugar + (m.sugar_g ?? 0),
       }),
-      { calories: 0, protein: 0, carbs: 0, fat: 0 }
+      { calories: 0, protein: 0, carbs: 0, fat: 0, sugar: 0 }
     )
   }, [logs])
 
@@ -273,6 +276,42 @@ export function NutritionCard({
                   )}
                 </div>
               ))}
+            </div>
+
+            {/* Sugar is a ceiling, not a target — shown as its own slim row
+                so it doesn't read like a macro to hit. */}
+            <div
+              className={`flex items-center gap-2 rounded-lg px-3 py-2 ${
+                targets && totals.sugar > targets.sugar_limit_g
+                  ? "bg-red-50 text-red-700"
+                  : "bg-fuchsia-50 text-fuchsia-700"
+              }`}
+            >
+              <p className="text-sm font-bold">{totals.sugar}g</p>
+              <p className="text-xs">
+                Sugar
+                {targets && ` · aim under ${targets.sugar_limit_g}g`}
+              </p>
+              {targets && (
+                <div
+                  className="ml-auto h-1 w-24 overflow-hidden rounded-full bg-white/70"
+                  role="progressbar"
+                  aria-label="Sugar vs daily limit"
+                  aria-valuenow={totals.sugar}
+                  aria-valuemax={targets.sugar_limit_g}
+                >
+                  <div
+                    className={`h-full rounded-full ${
+                      totals.sugar > targets.sugar_limit_g
+                        ? "bg-red-400"
+                        : "bg-fuchsia-400"
+                    }`}
+                    style={{
+                      width: `${Math.min(100, (totals.sugar / targets.sugar_limit_g) * 100)}%`,
+                    }}
+                  />
+                </div>
+              )}
             </div>
 
             {targets && (
