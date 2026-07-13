@@ -13,6 +13,7 @@ import { CalendarCheck, ChevronRight, Moon, Timer } from "lucide-react"
 import { PLAN_WEEKS } from "@/data/training-plan"
 import { todayPlan } from "@/lib/training-plan"
 import { readinessGate, type GateAction } from "@/lib/recovery"
+import type { PlanSuggestion } from "@/lib/plan-adaptation"
 
 const typeStyles: Record<string, string> = {
   cardio: "bg-cyan-100 text-cyan-700",
@@ -29,6 +30,8 @@ const gateStyles: Record<Exclude<GateAction, "none">, string> = {
 interface TrainingPlanTodayCardProps {
   /** Today's Oura readiness score (0-100), when available. */
   readinessScore?: number | null
+  /** Missed-session suggestion from lib/plan-adaptation, when one applies. */
+  suggestion?: PlanSuggestion | null
 }
 
 /**
@@ -38,6 +41,7 @@ interface TrainingPlanTodayCardProps {
  */
 export function TrainingPlanTodayCard({
   readinessScore,
+  suggestion,
 }: TrainingPlanTodayCardProps = {}) {
   const plan = useMemo(() => todayPlan(new Date()), [])
   const gate = useMemo(
@@ -90,6 +94,15 @@ export function TrainingPlanTodayCard({
             </ul>
           </div>
         </div>
+
+        {/* Missed-work catch-up, suggestion-only: the app proposes, the
+            user decides. */}
+        {suggestion && (
+          <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <p className="font-semibold">{suggestion.headline}</p>
+            <p className="mt-0.5">{suggestion.detail}</p>
+          </div>
+        )}
 
         {gate.action !== "none" && (
           <div className={`rounded-lg px-3 py-2 ${gateStyles[gate.action]}`}>

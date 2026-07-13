@@ -57,6 +57,7 @@ import { formatSleepDuration } from "@/lib/oura"
 import { generateInsights } from "@/lib/oura-insights"
 import { zoneRange, classifyHeartRate } from "@/lib/heart-rate"
 import { macroTargets } from "@/lib/macro-targets"
+import { planSuggestion } from "@/lib/plan-adaptation"
 import type { OuraInsight } from "@/lib/oura-insights"
 import { QuickLogExercise } from "@/components/activity/QuickLogExercise"
 import { QuickLogStrength } from "@/components/activity/QuickLogStrength"
@@ -211,6 +212,40 @@ export default function DashboardPage() {
         .order("started_at", { ascending: true })
       if (error) throw error
       return data
+    },
+  })
+
+  // Last ~9 days of logs + recent fitness tests feed the missed-session
+  // detector behind the Today's Plan card (lib/plan-adaptation).
+  const { data: planCatchupWorkouts } = useQuery({
+    queryKey: ["plan-adaptation-workouts"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
+      const since = new Date(Date.now() - 9 * 24 * 60 * 60 * 1000)
+      const { data, error } = await supabase
+        .from("workout_logs")
+        .select("name, started_at")
+        .eq("user_id", user.id)
+        .gte("started_at", since.toISOString())
+      if (error) throw error
+      return data ?? []
+    },
+  })
+
+  const { data: planCatchupTests } = useQuery({
+    queryKey: ["plan-adaptation-tests"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
+      const since = new Date(Date.now() - 21 * 24 * 60 * 60 * 1000)
+      const { data, error } = await supabase
+        .from("fitness_tests")
+        .select("test_type, tested_at")
+        .eq("user_id", user.id)
+        .gte("tested_at", since.toISOString().slice(0, 10))
+      if (error) throw error
+      return data ?? []
     },
   })
 
@@ -419,6 +454,17 @@ export default function DashboardPage() {
   // Recommended daily calorie/macro targets for the nutrition card.
   const nutritionTargets = useMemo(() => macroTargets(profile), [profile])
 
+  // Missed-session catch-up suggestion for the Today's Plan card.
+  const planCatchup = useMemo(
+    () =>
+      planSuggestion(
+        new Date(),
+        planCatchupWorkouts ?? [],
+        planCatchupTests ?? []
+      ),
+    [planCatchupWorkouts, planCatchupTests]
+  )
+
   const ouraInsights = useMemo(
     () =>
       ouraSummary
@@ -554,7 +600,10 @@ export default function DashboardPage() {
       {/* Today's prescribed session from the 12-week training plan,
           readiness-gated when Oura data is available */}
       <ErrorBoundary>
-        <TrainingPlanTodayCard readinessScore={ouraSummary?.readiness?.score} />
+        <TrainingPlanTodayCard
+          readinessScore={ouraSummary?.readiness?.score}
+          suggestion={planCatchup}
+        />
       </ErrorBoundary>
 
       {/* Photo-logged meals: calories in, macros, net vs Oura calories out */}

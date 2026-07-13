@@ -71,4 +71,30 @@ describe("TrainingPlanTodayCard", () => {
     renderAt("2026-07-24T08:00:00", 40) // Friday rest, week 3
     expect(screen.queryByText(/downshift/i)).toBeNull()
   })
+
+  it("renders a missed-session suggestion when one is passed", () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-07-13T08:00:00")) // Monday, week 2
+    render(
+      <TrainingPlanTodayCard
+        suggestion={{
+          kind: "cooper-test",
+          headline: "Cooper 12-min test still to do",
+          detail: "Do it on Tuesday in place of VO2 Max intervals — 4×4.",
+        }}
+      />
+    )
+    expect(
+      screen.getByText(/cooper 12-min test still to do/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/in place of VO2 Max intervals/i)).toBeInTheDocument()
+  })
+
+  it("renders no suggestion block when the suggestion is null", () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-07-13T08:00:00"))
+    render(<TrainingPlanTodayCard suggestion={null} />)
+    expect(screen.queryByText(/still to do/i)).toBeNull()
+    expect(screen.queryByText(/missed:/i)).toBeNull()
+  })
 })
