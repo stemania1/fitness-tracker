@@ -226,6 +226,23 @@ describe("QuickLogFood", () => {
     expect(screen.queryByRole("button", { name: /update numbers/i })).toBeNull()
   })
 
+  it("clears a numeric field to empty instead of a sticky zero", async () => {
+    renderWithClient(<QuickLogFood />)
+    await openAndEstimate()
+
+    const cal = screen.getByLabelText("Calories")
+    // Clearing the field leaves it visibly empty (state holds 0)...
+    fireEvent.change(cal, { target: { value: "" } })
+    expect(cal).toHaveValue(null)
+    // ...so typing a new number replaces it rather than appending ("0460").
+    fireEvent.change(cal, { target: { value: "460" } })
+    expect(cal).toHaveValue(460)
+
+    fireEvent.click(screen.getByRole("button", { name: /save meal/i }))
+    await waitFor(() => expect(mocks.insert).toHaveBeenCalledTimes(1))
+    expect(mocks.insert.mock.calls[0][0].calories).toBe(460)
+  })
+
   it("renders the description as a wrapping textarea and flattens newlines", async () => {
     renderWithClient(<QuickLogFood />)
     await openAndEstimate()
