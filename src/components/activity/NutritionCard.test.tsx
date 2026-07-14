@@ -164,6 +164,31 @@ describe("NutritionCard — meal stats", () => {
     fireEvent.click(toggle)
     expect(row.queryByText(/logged at/i)).toBeNull()
   })
+
+  it("keeps multiple meals expanded at the same time", async () => {
+    mocks.rows = [
+      FISH,
+      { ...FISH, id: "meal-2", description: "Greek yogurt", sugar_g: 12 },
+    ]
+    renderWithClient(<NutritionCard />)
+    expect(await screen.findByText("Greek yogurt")).toBeInTheDocument()
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /show stats for fried fish/i })
+    )
+    fireEvent.click(
+      screen.getByRole("button", { name: /show stats for greek yogurt/i })
+    )
+
+    // Both panels are open at once — expanding one doesn't collapse the other.
+    expect(screen.getAllByText(/logged at/i)).toHaveLength(2)
+    expect(
+      screen.getByRole("button", { name: /show stats for fried fish/i })
+    ).toHaveAttribute("aria-expanded", "true")
+    expect(
+      screen.getByRole("button", { name: /show stats for greek yogurt/i })
+    ).toHaveAttribute("aria-expanded", "true")
+  })
 })
 
 describe("NutritionCard — delete entry", () => {
