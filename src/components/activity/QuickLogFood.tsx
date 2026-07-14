@@ -21,6 +21,7 @@ import {
   scaleEstimate,
   type FoodEstimate,
 } from "@/lib/food-estimate"
+import { classifyMealGl, GL_WALK_TIP } from "@/lib/glycemic-load"
 
 const supabase = createClient()
 
@@ -210,6 +211,7 @@ export function QuickLogFood() {
         carbs_g: estimate.carbs_g,
         fat_g: estimate.fat_g,
         sugar_g: estimate.sugar_g,
+        glycemic_load: estimate.glycemic_load,
         image_path: imagePath,
         confidence: estimate.confidence,
         edited,
@@ -475,6 +477,28 @@ export function QuickLogFood() {
                 />
               </div>
             </div>
+
+            {/* Glucose-impact guidance from glycemic load — a food
+                property, deliberately not a blood-sugar estimate. */}
+            {estimate.glycemic_load > 0 && (
+              <p className="text-xs text-gray-500">
+                Glucose impact:{" "}
+                <span
+                  className={`font-semibold ${
+                    classifyMealGl(estimate.glycemic_load) === "high"
+                      ? "text-red-600"
+                      : classifyMealGl(estimate.glycemic_load) === "medium"
+                        ? "text-amber-600"
+                        : "text-emerald-600"
+                  }`}
+                >
+                  {classifyMealGl(estimate.glycemic_load)}
+                </span>{" "}
+                (GL {estimate.glycemic_load})
+                {classifyMealGl(estimate.glycemic_load) === "high" &&
+                  ` — ${GL_WALK_TIP}`}
+              </p>
+            )}
 
             {inconsistent && (
               <p className="text-xs text-amber-600">

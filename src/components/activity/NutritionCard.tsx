@@ -13,6 +13,11 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Utensils, Plus, Trash2, ChevronDown } from "lucide-react"
 import type { MacroTargets } from "@/lib/macro-targets"
+import {
+  classifyDailyGl,
+  classifyMealGl,
+  GL_WALK_TIP,
+} from "@/lib/glycemic-load"
 
 const supabase = createClient()
 
@@ -25,6 +30,7 @@ interface FoodLogRow {
   carbs_g: number
   fat_g: number
   sugar_g: number
+  glycemic_load: number
   confidence: "low" | "medium" | "high" | null
   image_path: string | null
   logged_at: string
@@ -83,7 +89,7 @@ export function NutritionCard({
       const { data, error } = await supabase
         .from("food_logs")
         .select(
-          "id, description, meal_type, calories, protein_g, carbs_g, fat_g, sugar_g, confidence, image_path, logged_at"
+          "id, description, meal_type, calories, protein_g, carbs_g, fat_g, sugar_g, glycemic_load, confidence, image_path, logged_at"
         )
         .eq("user_id", user.id)
         .gte("logged_at", dayStart)
@@ -116,6 +122,7 @@ export function NutritionCard({
         carbs_g: meal.carbs_g,
         fat_g: meal.fat_g,
         sugar_g: meal.sugar_g,
+        glycemic_load: meal.glycemic_load,
         image_path: meal.image_path,
         confidence: meal.confidence,
         edited: false,
@@ -167,8 +174,9 @@ export function NutritionCard({
         carbs: acc.carbs + m.carbs_g,
         fat: acc.fat + m.fat_g,
         sugar: acc.sugar + (m.sugar_g ?? 0),
+        gl: acc.gl + (m.glycemic_load ?? 0),
       }),
-      { calories: 0, protein: 0, carbs: 0, fat: 0, sugar: 0 }
+      { calories: 0, protein: 0, carbs: 0, fat: 0, sugar: 0, gl: 0 }
     )
   }, [logs])
 
@@ -326,6 +334,29 @@ export function NutritionCard({
               )}
             </div>
 
+            {/* Day-level glucose impact from summed glycemic load, with the
+                post-meal-walk nudge when any single meal ran high. */}
+            {totals.gl > 0 && (
+              <p className="text-xs text-gray-500">
+                Glucose impact today:{" "}
+                <span
+                  className={`font-semibold capitalize ${
+                    classifyDailyGl(totals.gl) === "high"
+                      ? "text-red-600"
+                      : classifyDailyGl(totals.gl) === "medium"
+                        ? "text-amber-600"
+                        : "text-emerald-600"
+                  }`}
+                >
+                  {classifyDailyGl(totals.gl)}
+                </span>{" "}
+                (GL {totals.gl}).
+                {(logs ?? []).some(
+                  (m) => classifyMealGl(m.glycemic_load ?? 0) === "high"
+                ) && ` ${GL_WALK_TIP}`}
+              </p>
+            )}
+
             {targets && (
               <p className="text-xs text-gray-400">
                 Targets estimated from your height, weight, age, and activity —{" "}
@@ -412,7 +443,7 @@ export function NutritionCard({
                       {/* The list row truncates long descriptions; show it
                           in full here alongside the numbers. */}
                       <p className="text-xs text-gray-600">{m.description}</p>
-                      <div className="mt-2 grid grid-cols-5 gap-1 text-center">
+                      <div className="mt-2 grid grid-cols-3 gap-1 text-center">
                         {(
                           [
                             ["Cal", m.calories, "text-gray-900"],
@@ -420,6 +451,16 @@ export function NutritionCard({
                             ["Carbs", `${m.carbs_g}g`, "text-amber-700"],
                             ["Fat", `${m.fat_g}g`, "text-sky-700"],
                             ["Sugar", `${m.sugar_g ?? 0}g`, "text-fuchsia-700"],
+                            [
+                              "Glucose impact",
+                              `${classifyMealGl(m.glycemic_load ?? 0)}`,
+                              classifyMealGl(m.glycemic_load ?? 0) === "high"
+                                ? "text-red-600 capitalize"
+                                : classifyMealGl(m.glycemic_load ?? 0) ===
+                                    "medium"
+                                  ? "text-amber-600 capitalize"
+                                  : "text-emerald-600 capitalize",
+                            ],
                           ] as const
                         ).map(([label, value, cls]) => (
                           <div key={label} className="rounded-md bg-gray-50 py-1.5">

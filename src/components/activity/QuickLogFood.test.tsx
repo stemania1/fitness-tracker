@@ -42,6 +42,7 @@ const ESTIMATE = {
   carbs_g: 45,
   fat_g: 18,
   sugar_g: 9,
+  glycemic_load: 24,
   confidence: "medium" as const,
 }
 
@@ -108,6 +109,9 @@ describe("QuickLogFood", () => {
     await openAndEstimate()
     expect(screen.getByDisplayValue("550")).toBeInTheDocument() // calories
     expect(screen.getByDisplayValue("40")).toBeInTheDocument() // protein
+    // GL 24 = high impact, so the walk tip shows.
+    expect(screen.getByText(/glucose impact/i)).toBeInTheDocument()
+    expect(screen.getByText(/walk within an hour/i)).toBeInTheDocument()
     // Shows the assumed portion.
     expect(screen.getByText(/about 1 bowl \(400g\)/i)).toBeInTheDocument()
     // Posted the processed image to the estimate endpoint.
@@ -143,6 +147,7 @@ describe("QuickLogFood", () => {
     const row = mocks.insert.mock.calls[0][0]
     expect(row.calories).toBe(550)
     expect(row.sugar_g).toBe(9)
+    expect(row.glycemic_load).toBe(24)
     expect(row.edited).toBe(false)
     expect(row.image_path).toMatch(/^u1\//)
     expect(mocks.upload).toHaveBeenCalledTimes(1)
