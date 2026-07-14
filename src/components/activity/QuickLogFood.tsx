@@ -401,13 +401,18 @@ export function QuickLogFood() {
               </div>
             )}
 
+            {/* Numeric fields render 0 as empty and select-all on focus.
+                Otherwise clearing a controlled number input snaps back to a
+                sticky "0" and typing 460 produces "0460". */}
             <div className="space-y-2">
               <Label htmlFor="qlf-cal">Calories</Label>
               <Input
                 id="qlf-cal"
                 type="number"
                 min={0}
-                value={estimate.calories}
+                placeholder="0"
+                value={estimate.calories === 0 ? "" : estimate.calories}
+                onFocus={(e) => e.currentTarget.select()}
                 onChange={(e) => patch("calories", e.target.value)}
               />
             </div>
@@ -421,7 +426,9 @@ export function QuickLogFood() {
                   id="qlf-p"
                   type="number"
                   min={0}
-                  value={estimate.protein_g}
+                  placeholder="0"
+                  value={estimate.protein_g === 0 ? "" : estimate.protein_g}
+                  onFocus={(e) => e.currentTarget.select()}
                   onChange={(e) => patch("protein_g", e.target.value)}
                 />
               </div>
@@ -433,7 +440,9 @@ export function QuickLogFood() {
                   id="qlf-c"
                   type="number"
                   min={0}
-                  value={estimate.carbs_g}
+                  placeholder="0"
+                  value={estimate.carbs_g === 0 ? "" : estimate.carbs_g}
+                  onFocus={(e) => e.currentTarget.select()}
                   onChange={(e) => patch("carbs_g", e.target.value)}
                 />
               </div>
@@ -445,7 +454,9 @@ export function QuickLogFood() {
                   id="qlf-f"
                   type="number"
                   min={0}
-                  value={estimate.fat_g}
+                  placeholder="0"
+                  value={estimate.fat_g === 0 ? "" : estimate.fat_g}
+                  onFocus={(e) => e.currentTarget.select()}
                   onChange={(e) => patch("fat_g", e.target.value)}
                 />
               </div>
@@ -457,7 +468,9 @@ export function QuickLogFood() {
                   id="qlf-s"
                   type="number"
                   min={0}
-                  value={estimate.sugar_g}
+                  placeholder="0"
+                  value={estimate.sugar_g === 0 ? "" : estimate.sugar_g}
+                  onFocus={(e) => e.currentTarget.select()}
                   onChange={(e) => patch("sugar_g", e.target.value)}
                 />
               </div>
