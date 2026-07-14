@@ -49,6 +49,7 @@ const FISH = {
   carbs_g: 14,
   fat_g: 18,
   sugar_g: 5,
+  glycemic_load: 8,
   confidence: "medium" as const,
   image_path: "u1/fish.jpg",
   logged_at: "2026-07-11T23:00:00.000Z",
@@ -158,6 +159,9 @@ describe("NutritionCard — meal stats", () => {
     expect(row.getByText("18g")).toBeInTheDocument() // fat
     expect(row.getByText("5g")).toBeInTheDocument() // sugar
     expect(row.getByText("Cal")).toBeInTheDocument() // calories tile label
+    // GL 8 classifies as low glucose impact.
+    expect(row.getByText("Glucose impact")).toBeInTheDocument()
+    expect(row.getByText("low")).toBeInTheDocument()
     expect(row.getByText(/logged at/i)).toBeInTheDocument()
 
     // Tapping again collapses it.

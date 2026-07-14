@@ -23,6 +23,12 @@ export interface FoodEstimate {
   fat_g: number
   /** Total sugars — a subset of carbs_g, never larger. */
   sugar_g: number
+  /**
+   * Estimated glycemic load for the stated portion (carbs x GI / 100).
+   * A food property used for low/medium/high impact guidance — never a
+   * blood-glucose estimate. Bounded above by carbs_g (GI <= 100).
+   */
+  glycemic_load: number
   confidence: Confidence
 }
 
@@ -65,6 +71,11 @@ export const FOOD_ESTIMATE_SCHEMA = {
       description:
         "Total estimated sugars in grams (natural + added). A subset of carbs_g — never larger than it.",
     },
+    glycemic_load: {
+      type: "integer",
+      description:
+        "Estimated glycemic load for the stated portion: carbohydrate grams x glycemic index / 100. Never larger than carbs_g. Typical meals: 10 or less is low, 20+ is high.",
+    },
     confidence: {
       type: "string",
       enum: ["low", "medium", "high"],
@@ -80,6 +91,7 @@ export const FOOD_ESTIMATE_SCHEMA = {
     "carbs_g",
     "fat_g",
     "sugar_g",
+    "glycemic_load",
     "confidence",
   ],
 } as const
@@ -89,6 +101,7 @@ export const FOOD_ESTIMATE_SYSTEM_PROMPT = `You are a nutrition estimation assis
 Guidelines:
 - Identify each distinct food item and estimate its calories.
 - Estimate total calories, protein, carbohydrates, fat, and sugars in grams. Sugars count both natural and added sugar and are a subset of the carbohydrates.
+- Estimate the portion's glycemic load (carbohydrate grams x glycemic index / 100). Refined starches and sugary items score high; fiber, fat, protein, and acidity pull it down.
 - Account for likely cooking oils, dressings, and sauces even when not obviously visible.
 - Judge portion sizes from visual cues (plate size, utensils, hand if present). With only a description, assume a typical serving unless it states quantities.
 - State the portion you assumed in everyday terms with an approximate weight (e.g. "about 1.5 cups (350g)"). All your numbers must correspond to that stated portion.
@@ -148,6 +161,8 @@ export function sanitizeEstimate(raw: unknown): FoodEstimate {
     fat_g: nonNegInt(obj.fat_g),
     // Sugars are by definition carbs; clamp a confused model response.
     sugar_g: Math.min(nonNegInt(obj.sugar_g), carbs_g),
+    // GL = carbs x GI/100 and GI <= 100, so GL can never exceed carbs.
+    glycemic_load: Math.min(nonNegInt(obj.glycemic_load), carbs_g),
     confidence,
   }
 }
@@ -169,6 +184,7 @@ export function scaleEstimate(
     carbs_g: Math.round(estimate.carbs_g * f),
     fat_g: Math.round(estimate.fat_g * f),
     sugar_g: Math.round(estimate.sugar_g * f),
+    glycemic_load: Math.round(estimate.glycemic_load * f),
   }
 }
 

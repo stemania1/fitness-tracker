@@ -21,6 +21,7 @@ describe("sanitizeEstimate", () => {
       carbs_g: 18,
       fat_g: 22,
       sugar_g: 6,
+      glycemic_load: 8,
       confidence: "medium",
     }
     expect(sanitizeEstimate(raw)).toEqual(raw)
@@ -31,6 +32,14 @@ describe("sanitizeEstimate", () => {
     expect(sanitizeEstimate({ carbs_g: 20, sugar_g: 45 }).sugar_g).toBe(20)
     expect(sanitizeEstimate({ carbs_g: 20 }).sugar_g).toBe(0)
     expect(sanitizeEstimate({ carbs_g: 20, sugar_g: -5 }).sugar_g).toBe(0)
+  })
+
+  it("clamps glycemic load to the carb total and defaults it to zero", () => {
+    // GL = carbs x GI/100 with GI <= 100, so GL can't exceed carbs.
+    expect(
+      sanitizeEstimate({ carbs_g: 20, glycemic_load: 45 }).glycemic_load
+    ).toBe(20)
+    expect(sanitizeEstimate({ carbs_g: 20 }).glycemic_load).toBe(0)
   })
 
   it("defaults portion to an empty string when missing or non-string", () => {
@@ -90,6 +99,7 @@ describe("scaleEstimate", () => {
     carbs_g: 35,
     fat_g: 12,
     sugar_g: 15,
+    glycemic_load: 14,
     confidence: "low",
   }
 
@@ -100,6 +110,7 @@ describe("scaleEstimate", () => {
     expect(doubled.carbs_g).toBe(70)
     expect(doubled.fat_g).toBe(24)
     expect(doubled.sugar_g).toBe(30)
+    expect(doubled.glycemic_load).toBe(28)
   })
 
   it("rounds fractional results (0.5×)", () => {
@@ -141,6 +152,7 @@ describe("macroConsistency", () => {
     carbs_g: 40,
     fat_g: 10,
     sugar_g: 0,
+    glycemic_load: 0,
     confidence: "medium",
   }
 
