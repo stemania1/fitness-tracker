@@ -60,8 +60,18 @@ export function NutritionCard({
   // Two-tap delete: first tap arms the row's trash button, second deletes.
   // Cheaper than a confirm dialog and still guards against stray taps.
   const [armedDeleteId, setArmedDeleteId] = useState<string | null>(null)
-  // Tap a meal row to expand its full stats (macros, sugar, time).
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  // Tap meal rows to expand their full stats (macros, sugar, time).
+  // A set, not a single id — comparing two meals side by side is the point.
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+
+  function toggleExpanded(id: string) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   const { data: logs, isLoading } = useQuery({
     queryKey: ["food-logs-today", dayStart],
@@ -332,10 +342,8 @@ export function NutritionCard({
                   <div className="flex items-center gap-2">
                   {/* Tapping the text toggles the full stats for this meal. */}
                   <button
-                    onClick={() =>
-                      setExpandedId(expandedId === m.id ? null : m.id)
-                    }
-                    aria-expanded={expandedId === m.id}
+                    onClick={() => toggleExpanded(m.id)}
+                    aria-expanded={expandedIds.has(m.id)}
                     aria-label={`Show stats for ${m.description}`}
                     className="flex min-w-0 flex-1 items-center gap-1 text-left"
                   >
@@ -349,7 +357,7 @@ export function NutritionCard({
                     </div>
                     <ChevronDown
                       className={`h-3.5 w-3.5 shrink-0 text-gray-300 transition-transform ${
-                        expandedId === m.id ? "rotate-180" : ""
+                        expandedIds.has(m.id) ? "rotate-180" : ""
                       }`}
                     />
                   </button>
@@ -399,7 +407,7 @@ export function NutritionCard({
                   </button>
                   </div>
 
-                  {expandedId === m.id && (
+                  {expandedIds.has(m.id) && (
                     <div className="mt-2 border-t border-gray-100 pt-2">
                       {/* The list row truncates long descriptions; show it
                           in full here alongside the numbers. */}
