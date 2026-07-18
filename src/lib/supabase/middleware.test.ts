@@ -70,6 +70,16 @@ describe("middleware — unauthenticated users", () => {
     expect(location).toBeNull()
   })
 
+  it("allows the /auth/confirm page through (token-hash verification)", async () => {
+    const { location } = await run("/auth/confirm?token_hash=xyz&type=signup")
+    expect(location).toBeNull()
+  })
+
+  it("allows the /forgot-password page through", async () => {
+    const { location } = await run("/forgot-password")
+    expect(location).toBeNull()
+  })
+
   it("allows the public /privacy page through", async () => {
     const { location } = await run("/privacy")
     expect(location).toBeNull()
@@ -104,6 +114,16 @@ describe("middleware — authenticated users", () => {
   it("redirects /signup to /dashboard", async () => {
     const { location } = await run("/signup")
     expect(location).toBe("http://localhost/dashboard")
+  })
+
+  it("redirects /forgot-password to /dashboard", async () => {
+    const { location } = await run("/forgot-password")
+    expect(location).toBe("http://localhost/dashboard")
+  })
+
+  it("allows /update-password through (recovery session sets a new password)", async () => {
+    const { location } = await run("/update-password")
+    expect(location).toBeNull()
   })
 
   it("allows /dashboard through", async () => {

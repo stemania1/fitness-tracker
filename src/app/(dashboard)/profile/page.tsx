@@ -29,6 +29,7 @@ import {
   Link2,
   Unlink,
   AlertTriangle,
+  KeyRound,
 } from "lucide-react"
 import type { UserProfileUpdate } from "@/types/database"
 
@@ -825,6 +826,16 @@ export default function ProfilePage() {
               {authUser?.email ?? "..."}
             </p>
           </div>
+
+          {/* Change Password */}
+          <Button
+            variant="secondary"
+            className="w-full"
+            onClick={() => router.push("/update-password")}
+          >
+            <KeyRound className="mr-2 h-4 w-4" />
+            Change Password
+          </Button>
 
           {/* Sign Out */}
           <Button

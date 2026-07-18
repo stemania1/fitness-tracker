@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Dumbbell, Loader2 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
@@ -17,27 +16,40 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 
-export default function LoginPage() {
+/**
+ * Set a new password. Reached after the recovery email link is verified by
+ * /auth/confirm (which establishes a session), or by any signed-in user who
+ * wants to change their password. `updateUser` acts on the current session.
+ */
+export default function UpdatePasswordPage() {
   const router = useRouter()
-  const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.")
+      return
+    }
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.")
+      return
+    }
+
     setLoading(true)
 
     try {
       const supabase = createClient()
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
+      const { error: updateError } = await supabase.auth.updateUser({ password })
 
-      if (signInError) {
-        setError(signInError.message)
+      if (updateError) {
+        setError(updateError.message)
         return
       }
 
@@ -56,10 +68,8 @@ export default function LoginPage() {
         <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-purple-100">
           <Dumbbell className="h-6 w-6 text-purple-600" />
         </div>
-        <CardTitle className="text-2xl">Welcome back</CardTitle>
-        <CardDescription>
-          Log in to your CraigFitness account
-        </CardDescription>
+        <CardTitle className="text-2xl">Set a new password</CardTitle>
+        <CardDescription>Choose a new password for your account</CardDescription>
       </CardHeader>
 
       <form onSubmit={handleSubmit}>
@@ -71,54 +81,39 @@ export default function LoginPage() {
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="password">New password</Label>
             <Input
-              id="email"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              id="password"
+              type="password"
+              placeholder="At least 6 characters"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               required
+              minLength={6}
               disabled={loading}
             />
           </div>
 
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="password">Password</Label>
-              <Link
-                href="/forgot-password"
-                className="text-sm font-medium text-purple-600 hover:text-purple-700"
-              >
-                Forgot password?
-              </Link>
-            </div>
+            <Label htmlFor="confirm-password">Confirm new password</Label>
             <Input
-              id="password"
+              id="confirm-password"
               type="password"
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Re-enter your new password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
               required
+              minLength={6}
               disabled={loading}
             />
           </div>
         </CardContent>
 
-        <CardFooter className="flex flex-col gap-4">
+        <CardFooter>
           <Button type="submit" className="w-full" disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Log In
+            Update password
           </Button>
-          <p className="text-sm text-gray-500">
-            Don&apos;t have an account?{" "}
-            <Link
-              href="/signup"
-              className="font-medium text-purple-600 hover:text-purple-700"
-            >
-              Sign up
-            </Link>
-          </p>
         </CardFooter>
       </form>
     </Card>
