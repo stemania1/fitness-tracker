@@ -1,12 +1,12 @@
 import Link from "next/link"
 
 export const metadata = {
-  title: "Privacy Policy | Fitness Tracker",
+  title: "Privacy Policy | CraigFitness",
 }
 
 export default function PrivacyPolicyPage() {
   const lastUpdated = "March 29, 2026"
-  const appName = "Fitness Tracker"
+  const appName = "CraigFitness"
   const contactEmail = "privacy@craigfamilywebsite.com"
   const domain = "fitness.craigfamilywebsite.com"
 

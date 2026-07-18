@@ -8,8 +8,8 @@ import type { MetadataRoute } from "next"
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Fitness Tracker",
-    short_name: "Fitness Tracker",
+    name: "CraigFitness",
+    short_name: "CraigFitness",
     description: "Track your workouts and reach your goals",
     // Open straight to the dashboard; middleware routes to /login if the
     // session has actually expired.

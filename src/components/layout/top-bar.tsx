@@ -6,8 +6,9 @@ import { User } from "lucide-react"
 export function TopBar() {
   return (
     <header aria-label="Top bar" className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
-      <Link href="/dashboard" className="text-lg font-bold text-purple-700">
-        Fitness Tracker
+      <Link href="/dashboard" className="text-lg font-bold">
+        <span className="text-gray-900">Craig</span>
+        <span className="text-purple-700">Fitness</span>
       </Link>
       <Link
         href="/profile"

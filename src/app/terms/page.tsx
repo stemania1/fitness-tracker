@@ -1,12 +1,12 @@
 import Link from "next/link"
 
 export const metadata = {
-  title: "Terms of Service | Fitness Tracker",
+  title: "Terms of Service | CraigFitness",
 }
 
 export default function TermsOfServicePage() {
   const lastUpdated = "March 29, 2026"
-  const appName = "Fitness Tracker"
+  const appName = "CraigFitness"
   const contactEmail = "support@craigfamilywebsite.com"
   const domain = "fitness.craigfamilywebsite.com"
 
