@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { Dumbbell, Loader2 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -17,11 +16,10 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 
-export default function LoginPage() {
-  const router = useRouter()
+export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
@@ -31,23 +29,56 @@ export default function LoginPage() {
 
     try {
       const supabase = createClient()
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      // redirectTo is where the recovery email link lands after the token
+      // is verified. The Supabase "Reset Password" template should point at
+      // /auth/confirm (token-hash flow) so the link works on any device.
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
         email,
-        password,
-      })
+        {
+          redirectTo: `${window.location.origin}/auth/confirm?next=/update-password`,
+        }
+      )
 
-      if (signInError) {
-        setError(signInError.message)
+      if (resetError) {
+        setError(resetError.message)
         return
       }
 
-      router.push("/dashboard")
-      router.refresh()
+      setSuccess(true)
     } catch {
       setError("An unexpected error occurred. Please try again.")
     } finally {
       setLoading(false)
     }
+  }
+
+  if (success) {
+    return (
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-purple-100">
+            <Dumbbell className="h-6 w-6 text-purple-600" />
+          </div>
+          <CardTitle className="text-2xl">Check your email</CardTitle>
+          <CardDescription>
+            If an account exists for{" "}
+            <span className="font-medium text-gray-900">{email}</span>, we&apos;ve
+            sent a link to reset your password. Open it on any device to choose a
+            new password.
+          </CardDescription>
+        </CardHeader>
+        <CardFooter className="justify-center">
+          <p className="text-sm text-gray-500">
+            <Link
+              href="/login"
+              className="font-medium text-purple-600 hover:text-purple-700"
+            >
+              Back to log in
+            </Link>
+          </p>
+        </CardFooter>
+      </Card>
+    )
   }
 
   return (
@@ -56,9 +87,9 @@ export default function LoginPage() {
         <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-purple-100">
           <Dumbbell className="h-6 w-6 text-purple-600" />
         </div>
-        <CardTitle className="text-2xl">Welcome back</CardTitle>
+        <CardTitle className="text-2xl">Reset your password</CardTitle>
         <CardDescription>
-          Log in to your CraigFitness account
+          Enter your email and we&apos;ll send you a link to set a new password
         </CardDescription>
       </CardHeader>
 
@@ -82,41 +113,20 @@ export default function LoginPage() {
               disabled={loading}
             />
           </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="password">Password</Label>
-              <Link
-                href="/forgot-password"
-                className="text-sm font-medium text-purple-600 hover:text-purple-700"
-              >
-                Forgot password?
-              </Link>
-            </div>
-            <Input
-              id="password"
-              type="password"
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              disabled={loading}
-            />
-          </div>
         </CardContent>
 
         <CardFooter className="flex flex-col gap-4">
           <Button type="submit" className="w-full" disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Log In
+            Send reset link
           </Button>
           <p className="text-sm text-gray-500">
-            Don&apos;t have an account?{" "}
+            Remember your password?{" "}
             <Link
-              href="/signup"
+              href="/login"
               className="font-medium text-purple-600 hover:text-purple-700"
             >
-              Sign up
+              Log in
             </Link>
           </p>
         </CardFooter>

@@ -38,9 +38,13 @@ export async function updateSession(request: NextRequest) {
 
   // Redirect unauthenticated users to login (except auth pages and root)
   const isAuthPage = request.nextUrl.pathname.startsWith("/login") ||
-    request.nextUrl.pathname.startsWith("/signup")
+    request.nextUrl.pathname.startsWith("/signup") ||
+    request.nextUrl.pathname.startsWith("/forgot-password")
   const isRootPage = request.nextUrl.pathname === "/"
-  const isCallbackPage = request.nextUrl.pathname.startsWith("/auth/callback")
+  // Email-link verification routes must run for signed-out users so they can
+  // establish a session from the link (signup confirmation, password recovery).
+  const isCallbackPage = request.nextUrl.pathname.startsWith("/auth/callback") ||
+    request.nextUrl.pathname.startsWith("/auth/confirm")
 
   const isPublicPage = request.nextUrl.pathname.startsWith("/privacy") ||
     request.nextUrl.pathname.startsWith("/terms") ||
