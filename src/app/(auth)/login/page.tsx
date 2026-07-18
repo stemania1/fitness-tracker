@@ -58,7 +58,7 @@ export default function LoginPage() {
         </div>
         <CardTitle className="text-2xl">Welcome back</CardTitle>
         <CardDescription>
-          Log in to your Fitness Tracker account
+          Log in to your CraigFitness account
         </CardDescription>
       </CardHeader>
 

@@ -27,7 +27,10 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Dumbbell className="h-6 w-6 text-purple-600" />
-            <span className="text-xl font-bold text-gray-900">Fitness Tracker</span>
+            <span className="text-xl font-bold">
+              <span className="text-gray-900">Craig</span>
+              <span className="text-purple-700">Fitness</span>
+            </span>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/login">
@@ -46,8 +49,9 @@ export default function LandingPage() {
             <Dumbbell className="h-4 w-4" />
             Your Training Companion
           </div>
-          <h1 className="text-5xl font-extrabold tracking-tight text-gray-900 sm:text-6xl">
-            Fitness Tracker
+          <h1 className="text-5xl font-extrabold tracking-tight sm:text-6xl">
+            <span className="text-gray-900">Craig</span>
+            <span className="text-purple-700">Fitness</span>
           </h1>
           <p className="mt-4 text-lg text-gray-500 max-w-2xl mx-auto">
             Your personal workout companion. Log workouts, set goals, and track
@@ -93,7 +97,7 @@ export default function LandingPage() {
             Terms of Service
           </Link>
         </div>
-        &copy; {new Date().getFullYear()} Fitness Tracker. All rights reserved.
+        &copy; {new Date().getFullYear()} CraigFitness. All rights reserved.
       </footer>
     </div>
   )
