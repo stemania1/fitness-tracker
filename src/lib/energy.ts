@@ -155,24 +155,34 @@ export function expectedEnergy(inputs: EnergyInputs): EnergyExpectation {
     })
   }
 
-  // Sleep — the strongest lever. Prefer the composite score, fall back to duration.
+  // Sleep — the strongest lever. Prefer the composite score, fall back to
+  // duration. When the night was also short (<6h) we fold the duration
+  // penalty into the SAME driver so the read never shows a "good sleep" and a
+  // "short sleep" chip side by side — one honest chip that says quality was
+  // fine but the hours weren't.
   if (inputs.sleepScore != null) {
     signalCount++
-    if (inputs.sleepScore >= 85) add(1.0, "Great sleep last night")
-    else if (inputs.sleepScore >= 70) add(0.25, "Decent sleep last night")
-    else if (inputs.sleepScore >= 55) add(-0.75, "Below-par sleep last night")
-    else add(-1.25, "Poor sleep last night")
+    const short = inputs.sleepMinutes != null && inputs.sleepMinutes < 360
+    const hrs = short ? `~${((inputs.sleepMinutes as number) / 60).toFixed(1)}h` : ""
+    if (inputs.sleepScore >= 85) {
+      if (short) add(0.5, `Good sleep, just short (${hrs})`)
+      else add(1.0, "Great sleep last night")
+    } else if (inputs.sleepScore >= 70) {
+      if (short) add(-0.25, `Short sleep (${hrs}), decent quality`)
+      else add(0.25, "Decent sleep last night")
+    } else if (inputs.sleepScore >= 55) {
+      if (short) add(-1.25, `Short, below-par sleep (${hrs})`)
+      else add(-0.75, "Below-par sleep last night")
+    } else {
+      if (short) add(-1.75, `Very short, poor sleep (${hrs})`)
+      else add(-1.25, "Poor sleep last night")
+    }
   } else if (inputs.sleepMinutes != null) {
     signalCount++
     if (inputs.sleepMinutes >= 450) add(0.75, "Plenty of sleep last night")
     else if (inputs.sleepMinutes >= 390) add(0.25, "A full night's sleep")
     else if (inputs.sleepMinutes >= 330) add(-0.5, "A little short on sleep")
     else add(-1.0, "Not much sleep last night")
-  }
-
-  // A very short night drags energy even when the score looked okay.
-  if (inputs.sleepMinutes != null && inputs.sleepMinutes < 360 && inputs.sleepScore != null) {
-    add(-0.5, "Short sleep (under 6h)")
   }
 
   // Recovery. Readiness already composites HRV, so use it in preference to the

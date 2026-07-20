@@ -73,10 +73,29 @@ describe("expectedEnergy — sleep", () => {
     expect(scant.score).toBeLessThan(3)
   })
 
-  it("adds a short-night penalty on top of a decent score", () => {
+  it("penalizes a short night even when the score looked decent", () => {
     const decentButShort = expectedEnergy(base({ sleepScore: 72, sleepMinutes: 330 }))
     const decentOnly = expectedEnergy(base({ sleepScore: 72, sleepMinutes: 420 }))
     expect(decentButShort.score).toBeLessThan(decentOnly.score)
+  })
+
+  it("collapses short + decent sleep into one non-contradictory driver", () => {
+    // Good sleep score (78) but only 5h — should read as a single 'short'
+    // chip, never a '↑ decent' and '↓ short' pair.
+    const e = expectedEnergy(base({ sleepScore: 78, sleepMinutes: 300 }))
+    const sleepDrivers = e.drivers.filter((d) => /sleep|short|quality/i.test(d.label))
+    expect(sleepDrivers).toHaveLength(1)
+    expect(sleepDrivers[0].label).toMatch(/short/i)
+    expect(sleepDrivers[0].label).toMatch(/5\.0h/)
+    expect(sleepDrivers[0].direction).toBe("down")
+  })
+
+  it("keeps net sleep scoring identical after the driver merge", () => {
+    // Great-but-short stays net positive; decent-but-short stays net negative.
+    expect(expectedEnergy(base({ sleepScore: 90, sleepMinutes: 300 })).score)
+      .toBeGreaterThan(3)
+    expect(expectedEnergy(base({ sleepScore: 74, sleepMinutes: 300 })).score)
+      .toBeLessThan(3)
   })
 })
 
