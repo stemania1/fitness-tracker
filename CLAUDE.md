@@ -82,8 +82,12 @@ npm run test:watch     # Vitest in watch mode
 npm run test:coverage  # Vitest + v8 coverage (enforces thresholds)
 npm run lint           # next lint (ESLint configured via .eslintrc.json)
 npx supabase start     # Start local Supabase
-npx supabase db push   # Push migrations to remote
+npx supabase db push   # Push migrations to remote (see supabase/README.md)
 ```
+
+> Migrations are applied to the remote database **manually** (SQL Editor or a
+> linked `db push`) — they are not pushed automatically on deploy. See
+> `supabase/README.md`.
 
 ## Development Guidelines
 - Always use TypeScript strict mode — no `any` types
