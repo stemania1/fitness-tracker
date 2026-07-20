@@ -72,9 +72,9 @@ still open.
       it against how the user says they feel (validate a normal feeling vs.
       flag a surprise). Works on the manual input alone; sharper with Oura.
       Persisted via `energy_checkins`; surfaced on the dashboard.
-- [ ] Wire the fuel signal in: derive `FuelState` from the day's logged
-      food (intake vs. target / recency of last meal) and pass it to the
-      card. The model already accepts it — just not fed yet.
+- [x] Wire the fuel signal in: `deriveFuelState` reads the day's logged food
+      (intake vs. target for the hour + recency of the last meal → under /
+      adequate / over) and the dashboard feeds it to the card.
 - [ ] Energy trend + personal drivers: once a few weeks of check-ins exist,
       correlate felt energy against its candidate drivers (mirrors the REM
       sleep-driver analysis in `sleep-insights.ts`) and surface each user's

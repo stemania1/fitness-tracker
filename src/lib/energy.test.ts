@@ -4,6 +4,7 @@ import {
   expectedEnergy,
   reconcileEnergy,
   assessEnergy,
+  deriveFuelState,
   type EnergyInputs,
 } from "./energy"
 
@@ -184,6 +185,47 @@ describe("reconcileEnergy", () => {
     const exp = expectedEnergy(base({ hour: 10 })) // no signals
     const r = reconcileEnergy(3, exp)
     expect(r.detail).toMatch(/time of day alone/i)
+  })
+})
+
+describe("deriveFuelState", () => {
+  it("reads a recent meal as 'over' regardless of daily totals", () => {
+    expect(
+      deriveFuelState({ hour: 20, minutesSinceLastMeal: 20, caloriesConsumed: 300, calorieTarget: 2200 })
+    ).toBe("over")
+  })
+
+  it("flags 'under' when well behind the expected intake for the hour", () => {
+    // 6pm with almost nothing eaten.
+    expect(
+      deriveFuelState({ hour: 18, caloriesConsumed: 200, calorieTarget: 2200, minutesSinceLastMeal: 300 })
+    ).toBe("under")
+  })
+
+  it("does not flag 'under' in the morning before meals are expected", () => {
+    expect(
+      deriveFuelState({ hour: 8, caloriesConsumed: 0, calorieTarget: 2200, minutesSinceLastMeal: null })
+    ).toBe("adequate")
+  })
+
+  it("reads on-track intake as 'adequate'", () => {
+    expect(
+      deriveFuelState({ hour: 18, caloriesConsumed: 1600, calorieTarget: 2200, minutesSinceLastMeal: 120 })
+    ).toBe("adequate")
+  })
+
+  it("returns null when there isn't enough to judge", () => {
+    expect(deriveFuelState({ hour: 14, caloriesConsumed: null, calorieTarget: 2200 })).toBeNull()
+    expect(deriveFuelState({ hour: 14, caloriesConsumed: 500, calorieTarget: null })).toBeNull()
+    expect(deriveFuelState({ hour: 14, caloriesConsumed: 500, calorieTarget: 0 })).toBeNull()
+  })
+
+  it("feeds the energy read end-to-end", () => {
+    const fuel = deriveFuelState({ hour: 20, minutesSinceLastMeal: 15 })
+    expect(fuel).toBe("over")
+    const withFuel = expectedEnergy({ hour: 20, sleepScore: 74, fuel })
+    const withoutFuel = expectedEnergy({ hour: 20, sleepScore: 74 })
+    expect(withFuel.score).toBeLessThan(withoutFuel.score)
   })
 })
 

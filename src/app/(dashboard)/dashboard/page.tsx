@@ -69,6 +69,7 @@ import { todaysWorkout } from "@/lib/todays-workout"
 import { RemInsightsCard } from "@/components/activity/RemInsightsCard"
 import { RecoveryWatchCard } from "@/components/activity/RecoveryWatchCard"
 import { EnergyCheckInCard } from "@/components/activity/EnergyCheckInCard"
+import { deriveFuelState } from "@/lib/energy"
 import { QuickLogFood } from "@/components/activity/QuickLogFood"
 import { NutritionCard } from "@/components/activity/NutritionCard"
 import { RingBatteryIndicator } from "@/components/activity/RingBatteryIndicator"
@@ -492,6 +493,42 @@ export default function DashboardPage() {
       ? Math.round(ouraSummary.sleepPeriod.total_sleep_duration / 60)
       : null
 
+  // Today's fuel, for the energy read: total calories in + recency of the last
+  // meal. Its own lightweight query (distinct key from the Nutrition card so
+  // neither clobbers the other's cached shape).
+  const { data: todaysFuelLogs } = useQuery({
+    queryKey: ["energy-fuel-today"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
+      const dayStart = new Date()
+      dayStart.setHours(0, 0, 0, 0)
+      const { data, error } = await supabase
+        .from("food_logs")
+        .select("calories, logged_at")
+        .eq("user_id", user.id)
+        .gte("logged_at", dayStart.toISOString())
+        .order("logged_at", { ascending: true })
+      if (error) throw error
+      return data ?? []
+    },
+  })
+
+  const fuelState = useMemo(() => {
+    if (!todaysFuelLogs) return null
+    const caloriesConsumed = todaysFuelLogs.reduce((sum, m) => sum + m.calories, 0)
+    const lastMeal = todaysFuelLogs[todaysFuelLogs.length - 1]
+    const minutesSinceLastMeal = lastMeal
+      ? Math.round((Date.now() - new Date(lastMeal.logged_at).getTime()) / 60000)
+      : null
+    return deriveFuelState({
+      hour: new Date().getHours(),
+      caloriesConsumed,
+      calorieTarget: nutritionTargets?.calories ?? null,
+      minutesSinceLastMeal,
+    })
+  }, [todaysFuelLogs, nutritionTargets])
+
   // All strength sets the user has ever logged. Used to derive both the
   // recent PRs and the weekly volume trend without firing extra queries.
   const { data: allStrengthSets, isLoading: strengthSetsLoading } = useQuery({
@@ -629,6 +666,7 @@ export default function DashboardPage() {
           sleepMinutes={sleepMinutesLastNight}
           readinessScore={ouraSummary?.readiness?.score}
           trainedHardToday={trainedToday}
+          fuel={fuelState}
         />
       </ErrorBoundary>
 

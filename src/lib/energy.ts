@@ -78,6 +78,48 @@ export function partOfDay(hour: number): PartOfDay {
   return "evening"
 }
 
+/** Signals needed to infer the day's fuel state from logged food. */
+export interface FuelSignal {
+  /** Local hour, 0-23. Fueling expectations scale with how far into the day it is. */
+  hour: number
+  /** Calories logged so far today, or null if unknown. */
+  caloriesConsumed?: number | null
+  /** Recommended daily calorie target, or null if not set. */
+  calorieTarget?: number | null
+  /** Minutes since the most recent meal, or null if nothing logged today. */
+  minutesSinceLastMeal?: number | null
+}
+
+/** Rough share of daily calories a person would have eaten by a given hour. */
+function expectedIntakeFraction(hour: number): number {
+  if (hour < 8) return 0
+  if (hour >= 21) return 1
+  return clamp(((hour - 8) / 13) * 0.9 + 0.1, 0, 1)
+}
+
+/**
+ * Infer a FuelState from the day's food log:
+ *  - a recent meal drives the postprandial dip ("over"), regardless of totals;
+ *  - being well behind the expected intake for the hour reads as "under";
+ *  - otherwise "adequate". Returns null when there isn't enough to judge.
+ */
+export function deriveFuelState(sig: FuelSignal): FuelState | null {
+  if (sig.minutesSinceLastMeal != null && sig.minutesSinceLastMeal <= 45) {
+    return "over"
+  }
+  if (
+    sig.caloriesConsumed == null ||
+    sig.calorieTarget == null ||
+    sig.calorieTarget <= 0
+  ) {
+    return null
+  }
+  const frac = sig.caloriesConsumed / sig.calorieTarget
+  const expected = expectedIntakeFraction(sig.hour)
+  if (expected >= 0.3 && frac < expected - 0.3) return "under"
+  return "adequate"
+}
+
 function bandOf(score: number): EnergyBand {
   if (score < 2.5) return "low"
   if (score < 3.5) return "moderate"
