@@ -68,6 +68,7 @@ import { WeeklyTrainingCard } from "@/components/activity/WeeklyTrainingCard"
 import { todaysWorkout } from "@/lib/todays-workout"
 import { RemInsightsCard } from "@/components/activity/RemInsightsCard"
 import { RecoveryWatchCard } from "@/components/activity/RecoveryWatchCard"
+import { EnergyCheckInCard } from "@/components/activity/EnergyCheckInCard"
 import { QuickLogFood } from "@/components/activity/QuickLogFood"
 import { NutritionCard } from "@/components/activity/NutritionCard"
 import { RingBatteryIndicator } from "@/components/activity/RingBatteryIndicator"
@@ -476,6 +477,21 @@ export default function DashboardPage() {
     [ouraSummary, profile?.age, profile?.sex]
   )
 
+  // Signals for the energy check-in read. Everything is optional — the card
+  // works on the subjective input alone when Oura data isn't available.
+  const trainedToday = useMemo(() => {
+    if (!allWorkoutLogs) return false
+    const today = new Date().toLocaleDateString("en-CA")
+    return allWorkoutLogs.some(
+      (w) => new Date(w.started_at).toLocaleDateString("en-CA") === today
+    )
+  }, [allWorkoutLogs])
+
+  const sleepMinutesLastNight =
+    ouraSummary?.sleepPeriod?.total_sleep_duration != null
+      ? Math.round(ouraSummary.sleepPeriod.total_sleep_duration / 60)
+      : null
+
   // All strength sets the user has ever logged. Used to derive both the
   // recent PRs and the weekly volume trend without firing extra queries.
   const { data: allStrengthSets, isLoading: strengthSetsLoading } = useQuery({
@@ -603,6 +619,16 @@ export default function DashboardPage() {
         <TrainingPlanTodayCard
           readinessScore={ouraSummary?.readiness?.score}
           suggestion={planCatchup}
+        />
+      </ErrorBoundary>
+
+      {/* Subjective energy check-in reconciled against the day's signals */}
+      <ErrorBoundary>
+        <EnergyCheckInCard
+          sleepScore={ouraSummary?.sleep?.score}
+          sleepMinutes={sleepMinutesLastNight}
+          readinessScore={ouraSummary?.readiness?.score}
+          trainedHardToday={trainedToday}
         />
       </ErrorBoundary>
 

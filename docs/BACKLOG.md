@@ -65,6 +65,24 @@ still open.
 - [x] Today's Nutrition card (calories in, macros, net vs. Oura out)
 - [x] Robustness: raised function timeout + retry-same-photo on a drop
 
+## Energy & recovery
+- [x] Energy Check-In (v1): subjective 1-5 log + a felt-vs-expected read.
+      `src/lib/energy.ts` blends sleep, recovery/HRV, training load, and
+      circadian time of day into an expected energy band, then reconciles
+      it against how the user says they feel (validate a normal feeling vs.
+      flag a surprise). Works on the manual input alone; sharper with Oura.
+      Persisted via `energy_checkins`; surfaced on the dashboard.
+- [ ] Wire the fuel signal in: derive `FuelState` from the day's logged
+      food (intake vs. target / recency of last meal) and pass it to the
+      card. The model already accepts it — just not fed yet.
+- [ ] Energy trend + personal drivers: once a few weeks of check-ins exist,
+      correlate felt energy against its candidate drivers (mirrors the REM
+      sleep-driver analysis in `sleep-insights.ts`) and surface each user's
+      top levers.
+- [ ] Morning vs. evening framing: tailor the prompt/target to the part of
+      day (e.g. morning readiness vs. evening wind-down) rather than one
+      generic "right now" read.
+
 ## Equipment & exercises
 - [x] Free-weight exercise catalog expanded (16 added Apr–May 2026)
 - [x] Unify muscle-group *display* labels via `formatMuscleGroup`
