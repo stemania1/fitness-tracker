@@ -75,6 +75,13 @@ still open.
 - [x] Wire the fuel signal in: `deriveFuelState` reads the day's logged food
       (intake vs. target for the hour + recency of the last meal → under /
       adequate / over) and the dashboard feeds it to the card.
+- [x] Caffeine: log intake (`caffeine_logs`, Quick Log Caffeine with drink
+      presets). `src/lib/caffeine.ts` models on-board mg via a ~5.5h half-life
+      → an alertness/crash driver on the energy read, plus a forward-looking
+      "late caffeine may hurt tonight's sleep" warning surfaced on the card.
+- [ ] Sharpen caffeine: personal half-life / sensitivity from the check-in
+      history; tie the late-caffeine cutoff to the user's actual bedtime
+      instead of the fixed 2pm default.
 - [ ] Energy trend + personal drivers: once a few weeks of check-ins exist,
       correlate felt energy against its candidate drivers (mirrors the REM
       sleep-driver analysis in `sleep-insights.ts`) and surface each user's

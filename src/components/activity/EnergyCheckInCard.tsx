@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { BatteryCharging, Sparkles } from "lucide-react"
+import { BatteryCharging, Sparkles, Moon } from "lucide-react"
 import {
   assessEnergy,
   partOfDay,
@@ -15,6 +15,7 @@ import {
   type EnergyReadout,
 } from "@/lib/energy"
 import type { HrvStatus } from "@/lib/recovery"
+import type { CaffeineLevel } from "@/lib/caffeine"
 
 const supabase = createClient()
 
@@ -36,6 +37,10 @@ export interface EnergyCheckInCardProps {
   trainedHardToday?: boolean | null
   /** Fuel state for the day so far, when known. */
   fuel?: FuelState | null
+  /** Current caffeine state, when caffeine has been logged today. */
+  caffeine?: CaffeineLevel | null
+  /** Forward-looking "late caffeine may hurt tonight's sleep" note, if any. */
+  caffeineWarning?: string | null
 }
 
 const LEVELS: Array<{ value: EnergyLevel; label: string }> = [
@@ -70,6 +75,8 @@ export function EnergyCheckInCard({
   hrvStatus,
   trainedHardToday,
   fuel,
+  caffeine,
+  caffeineWarning,
 }: EnergyCheckInCardProps) {
   const queryClient = useQueryClient()
   const [reselecting, setReselecting] = useState(false)
@@ -129,6 +136,7 @@ export function EnergyCheckInCard({
       hrvStatus,
       trainedHardToday,
       fuel,
+      caffeine,
     },
     felt
   )
@@ -213,6 +221,15 @@ export function EnergyCheckInCard({
             </button>
           </div>
         ) : null}
+
+        {/* Forward-looking sleep note: shown whenever caffeine ran late today,
+            independent of the current energy read. */}
+        {caffeineWarning && (
+          <div className="mt-3 flex items-start gap-2 rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+            <Moon className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" aria-hidden="true" />
+            <p className="text-xs text-indigo-800">{caffeineWarning}</p>
+          </div>
+        )}
       </CardContent>
     </Card>
   )

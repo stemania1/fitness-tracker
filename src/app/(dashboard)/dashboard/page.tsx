@@ -70,7 +70,9 @@ import { RemInsightsCard } from "@/components/activity/RemInsightsCard"
 import { RecoveryWatchCard } from "@/components/activity/RecoveryWatchCard"
 import { EnergyCheckInCard } from "@/components/activity/EnergyCheckInCard"
 import { deriveFuelState } from "@/lib/energy"
+import { caffeineStatus, lateCaffeineFlag } from "@/lib/caffeine"
 import { QuickLogFood } from "@/components/activity/QuickLogFood"
+import { QuickLogCaffeine } from "@/components/activity/QuickLogCaffeine"
 import { NutritionCard } from "@/components/activity/NutritionCard"
 import { RingBatteryIndicator } from "@/components/activity/RingBatteryIndicator"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
@@ -529,6 +531,47 @@ export default function DashboardPage() {
     })
   }, [todaysFuelLogs, nutritionTargets])
 
+  // Today's caffeine, for the energy read (alertness/crash) and the
+  // late-caffeine sleep warning.
+  const { data: todaysCaffeine } = useQuery({
+    queryKey: ["caffeine-today"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
+      const dayStart = new Date()
+      dayStart.setHours(0, 0, 0, 0)
+      const { data, error } = await supabase
+        .from("caffeine_logs")
+        .select("mg, logged_at")
+        .eq("user_id", user.id)
+        .gte("logged_at", dayStart.toISOString())
+        .order("logged_at", { ascending: true })
+      if (error) throw error
+      return data ?? []
+    },
+  })
+
+  const { caffeineLevel, caffeineWarning } = useMemo(() => {
+    if (!todaysCaffeine || todaysCaffeine.length === 0) {
+      return { caffeineLevel: null, caffeineWarning: null }
+    }
+    const now = Date.now()
+    const doses = todaysCaffeine.map((c) => {
+      const t = new Date(c.logged_at)
+      return {
+        mg: c.mg,
+        minutesAgo: Math.round((now - t.getTime()) / 60000),
+        hour: t.getHours(),
+      }
+    })
+    const status = caffeineStatus(doses)
+    const flag = lateCaffeineFlag(doses)
+    return {
+      caffeineLevel: status.level === "none" ? null : status.level,
+      caffeineWarning: flag.late ? flag.message : null,
+    }
+  }, [todaysCaffeine])
+
   // All strength sets the user has ever logged. Used to derive both the
   // recent PRs and the weekly volume trend without firing extra queries.
   const { data: allStrengthSets, isLoading: strengthSetsLoading } = useQuery({
@@ -647,6 +690,7 @@ export default function DashboardPage() {
         </div>
         <div className="flex gap-2">
           <QuickLogFood />
+          <QuickLogCaffeine />
         </div>
       </div>
 
@@ -667,6 +711,8 @@ export default function DashboardPage() {
           readinessScore={ouraSummary?.readiness?.score}
           trainedHardToday={trainedToday}
           fuel={fuelState}
+          caffeine={caffeineLevel}
+          caffeineWarning={caffeineWarning}
         />
       </ErrorBoundary>
 

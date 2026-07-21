@@ -510,6 +510,36 @@ export interface Database {
         }
         Relationships: []
       }
+      caffeine_logs: {
+        Row: {
+          id: string
+          user_id: string
+          mg: number
+          source: string | null
+          logged_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          mg: number
+          source?: string | null
+          logged_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          mg?: number
+          source?: string | null
+          logged_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -530,3 +560,4 @@ export type WeightLog = Database["public"]["Tables"]["weight_logs"]["Row"]
 export type UserGoal = Database["public"]["Tables"]["user_goals"]["Row"]
 export type OuraToken = Database["public"]["Tables"]["oura_tokens"]["Row"]
 export type EnergyCheckin = Database["public"]["Tables"]["energy_checkins"]["Row"]
+export type CaffeineLog = Database["public"]["Tables"]["caffeine_logs"]["Row"]

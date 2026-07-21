@@ -167,6 +167,32 @@ describe("expectedEnergy — training, fuel, circadian", () => {
   })
 })
 
+describe("expectedEnergy — caffeine", () => {
+  it("nudges energy up while caffeine is on board", () => {
+    const e = expectedEnergy(base({ caffeine: "active" }))
+    expect(e.score).toBeGreaterThan(3)
+    expect(e.signalCount).toBe(1)
+    expect(e.drivers[0]).toEqual({ label: "Caffeine on board", direction: "up" })
+  })
+
+  it("dips energy as a dose wears off", () => {
+    const e = expectedEnergy(base({ caffeine: "fading" }))
+    expect(e.score).toBeLessThan(3)
+    expect(e.drivers[0]).toEqual({ label: "Caffeine wearing off", direction: "down" })
+  })
+
+  it("treats no caffeine as no signal", () => {
+    expect(expectedEnergy(base({ caffeine: "none" })).signalCount).toBe(0)
+    expect(expectedEnergy(base({ caffeine: null })).signalCount).toBe(0)
+  })
+
+  it("keeps the caffeine effect smaller than a full night's sleep swing", () => {
+    const caffeine = expectedEnergy(base({ caffeine: "active" })).score - 3
+    const sleep = expectedEnergy(base({ sleepScore: 90 })).score - 3
+    expect(Math.abs(caffeine)).toBeLessThan(Math.abs(sleep))
+  })
+})
+
 describe("expectedEnergy — drivers", () => {
   it("surfaces the biggest movers first, capped at three", () => {
     const e = expectedEnergy(

@@ -18,6 +18,7 @@
  */
 
 import type { HrvStatus } from "@/lib/recovery"
+import type { CaffeineLevel } from "@/lib/caffeine"
 
 /** Subjective energy, 1 (drained) … 5 (energized). */
 export type EnergyLevel = 1 | 2 | 3 | 4 | 5
@@ -44,6 +45,8 @@ export interface EnergyInputs {
   trainedHardToday?: boolean | null
   /** Fuel state for the day so far. */
   fuel?: FuelState | null
+  /** Current caffeine state: alertness on board vs. a dose wearing off. */
+  caffeine?: CaffeineLevel | null
 }
 
 /** One reason the expectation moved off baseline, with its direction. */
@@ -212,6 +215,17 @@ export function expectedEnergy(inputs: EnergyInputs): EnergyExpectation {
   } else if (inputs.fuel === "over") {
     signalCount++
     add(-0.25, "Just ate a large meal")
+  }
+
+  // Caffeine masks fatigue rather than adding real energy, so the effect is
+  // deliberately small: a nudge up while it's on board, a mild dip as a real
+  // dose wears off (the crash).
+  if (inputs.caffeine === "active") {
+    signalCount++
+    add(0.4, "Caffeine on board")
+  } else if (inputs.caffeine === "fading") {
+    signalCount++
+    add(-0.3, "Caffeine wearing off")
   }
 
   // Circadian shape. Evening wind-down and the early-afternoon dip are normal.
