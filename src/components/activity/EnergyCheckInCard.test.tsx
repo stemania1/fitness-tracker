@@ -94,4 +94,19 @@ describe("EnergyCheckInCard", () => {
     fireEvent.click(await screen.findByRole("button", { name: /update how i feel/i }))
     expect(await screen.findByText(/how's your energy right now/i)).toBeInTheDocument()
   })
+
+  it("shows the late-caffeine sleep warning when one is passed", async () => {
+    renderWithClient(
+      <EnergyCheckInCard caffeineWarning="Caffeine after 2pm can cut into tonight's deep sleep." />
+    )
+    expect(
+      await screen.findByText(/can cut into tonight's deep sleep/i)
+    ).toBeInTheDocument()
+  })
+
+  it("does not show a caffeine warning when none is passed", async () => {
+    renderWithClient(<EnergyCheckInCard />)
+    await screen.findByText(/expected:/i)
+    expect(screen.queryByText(/deep sleep/i)).toBeNull()
+  })
 })
