@@ -61,8 +61,11 @@ still open.
       weigh-in) into time-gated, prioritized nudges shown on the dashboard
       (`RemindersCard`), dismissible per day. No infra/migration — computed
       from data already loaded.
-- [ ] Reminders phase 2: server-side preferences (toggle categories, quiet
-      hours) instead of the localStorage per-day dismissal.
+- [x] Reminder preferences (server-side): master switch, per-category
+      toggles, and quiet hours stored on `user_profiles.reminder_settings`
+      (`src/lib/reminder-settings.ts`), surfaced as a Reminders card in the
+      profile and honored by `computeReminders`. Syncs across devices (the
+      per-day localStorage dismissal on the dashboard still handles "not now").
 - [ ] Web-push reminders (deferred — needs a service worker + a scheduled
       sender, and is unreliable on iOS PWAs; the in-app nudges + calendar
       export cover this for now). Would pull the user back in rather than

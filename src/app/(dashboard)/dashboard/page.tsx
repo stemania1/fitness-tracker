@@ -72,6 +72,7 @@ import { EnergyCheckInCard } from "@/components/activity/EnergyCheckInCard"
 import { deriveFuelState } from "@/lib/energy"
 import { caffeineStatus, lateCaffeineFlag } from "@/lib/caffeine"
 import { computeReminders } from "@/lib/reminders"
+import { normalizeReminderSettings } from "@/lib/reminder-settings"
 import { RemindersCard } from "@/components/activity/RemindersCard"
 import { QuickLogFood } from "@/components/activity/QuickLogFood"
 import { QuickLogCaffeine } from "@/components/activity/QuickLogCaffeine"
@@ -717,15 +718,25 @@ export default function DashboardPage() {
           ? null
           : dayDiff(lastWeighInAt)
 
-    return computeReminders({
-      hour: now.getHours(),
-      mealsLoggedToday: todaysFuelLogs === undefined ? 99 : todaysFuelLogs.length,
-      workedOutToday: trainedToday,
-      daysSinceLastWorkout,
-      energyCheckedInToday: energyCheckedInToday ?? true,
-      daysSinceLastWeighIn,
-    })
-  }, [allWorkoutLogs, lastWeighInAt, todaysFuelLogs, trainedToday, energyCheckedInToday])
+    return computeReminders(
+      {
+        hour: now.getHours(),
+        mealsLoggedToday: todaysFuelLogs === undefined ? 99 : todaysFuelLogs.length,
+        workedOutToday: trainedToday,
+        daysSinceLastWorkout,
+        energyCheckedInToday: energyCheckedInToday ?? true,
+        daysSinceLastWeighIn,
+      },
+      normalizeReminderSettings(profile?.reminder_settings)
+    )
+  }, [
+    allWorkoutLogs,
+    lastWeighInAt,
+    todaysFuelLogs,
+    trainedToday,
+    energyCheckedInToday,
+    profile?.reminder_settings,
+  ])
 
   const workoutTarget = profile?.workout_days ?? 4
   const completedWorkouts = weeklyWorkouts?.length ?? 0

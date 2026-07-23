@@ -1,5 +1,18 @@
 import { describe, it, expect } from "vitest"
 import { computeReminders, type ReminderContext } from "./reminders"
+import { defaultReminderSettings } from "./reminder-settings"
+
+/** All reminders overdue at once, for settings/prioritization tests. */
+function allOverdue(): ReminderContext {
+  return {
+    hour: 21,
+    mealsLoggedToday: 0,
+    workedOutToday: false,
+    daysSinceLastWorkout: 5,
+    energyCheckedInToday: false,
+    daysSinceLastWeighIn: 10,
+  }
+}
 
 /** A neutral mid-morning context with nothing overdue. */
 function base(overrides: Partial<ReminderContext> = {}): ReminderContext {
@@ -115,18 +128,32 @@ describe("computeReminders — prioritization & capping", () => {
   })
 
   it("caps the list to the requested maximum", () => {
-    const r = computeReminders(
-      base({
-        hour: 21,
-        workedOutToday: false,
-        daysSinceLastWorkout: 5,
-        mealsLoggedToday: 0,
-        energyCheckedInToday: false,
-        daysSinceLastWeighIn: 10,
-      }),
-      2
-    )
+    const r = computeReminders(allOverdue(), defaultReminderSettings(), 2)
     expect(r).toHaveLength(2)
     expect(r[0].type).toBe("log_workout")
+  })
+})
+
+describe("computeReminders — settings", () => {
+  it("returns nothing when the master switch is off", () => {
+    const s = { ...defaultReminderSettings(), enabled: false }
+    expect(computeReminders(allOverdue(), s)).toEqual([])
+  })
+
+  it("suppresses everything inside quiet hours (wrapping midnight)", () => {
+    const s = { ...defaultReminderSettings(), quietStartHour: 22, quietEndHour: 7 }
+    // 6am is inside 22→7.
+    expect(computeReminders({ ...allOverdue(), hour: 6 }, s)).toEqual([])
+    // 9am is outside.
+    expect(computeReminders({ ...allOverdue(), hour: 9 }, s).length).toBeGreaterThan(0)
+  })
+
+  it("filters out categories the user disabled", () => {
+    const s = defaultReminderSettings()
+    s.types.log_workout = false
+    const r = computeReminders(allOverdue(), s)
+    expect(r.some((x) => x.type === "log_workout")).toBe(false)
+    // Other categories still come through.
+    expect(r.some((x) => x.type === "log_meal")).toBe(true)
   })
 })

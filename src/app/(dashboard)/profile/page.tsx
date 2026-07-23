@@ -32,6 +32,8 @@ import {
   KeyRound,
 } from "lucide-react"
 import type { UserProfileUpdate } from "@/types/database"
+import { ReminderSettingsCard } from "@/components/activity/ReminderSettingsCard"
+import { normalizeReminderSettings } from "@/lib/reminder-settings"
 
 const supabase = createClient()
 
@@ -809,6 +811,11 @@ export default function ProfilePage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Reminder preferences */}
+      <ReminderSettingsCard
+        initial={normalizeReminderSettings(profile?.reminder_settings)}
+      />
 
       {/* Account Section */}
       <Card>

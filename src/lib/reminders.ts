@@ -12,6 +12,12 @@
  * "now".
  */
 
+import {
+  defaultReminderSettings,
+  isQuietHour,
+  type ReminderSettings,
+} from "./reminder-settings"
+
 export type ReminderType =
   | "log_workout"
   | "log_meal"
@@ -52,12 +58,21 @@ const WEIGH_IN_DAYS = 7
 
 /**
  * Compute the active reminders for the given moment, most urgent first.
- * Returns at most `max` (default 3) so the surface stays a nudge, not a wall.
+ * Honors the user's settings (master switch, per-category toggles, quiet
+ * hours) and returns at most `max` (default 3) so the surface stays a nudge,
+ * not a wall.
  */
 export function computeReminders(
   ctx: ReminderContext,
+  settings: ReminderSettings = defaultReminderSettings(),
   max = 3
 ): Reminder[] {
+  // Master switch off, or inside quiet hours → nothing at all.
+  if (!settings.enabled) return []
+  if (isQuietHour(ctx.hour, settings.quietStartHour, settings.quietEndHour)) {
+    return []
+  }
+
   const out: Reminder[] = []
 
   // Workout gap — the most consequential miss.
@@ -115,5 +130,8 @@ export function computeReminders(
     })
   }
 
-  return out.sort((a, b) => b.priority - a.priority).slice(0, max)
+  return out
+    .filter((r) => settings.types[r.type] !== false)
+    .sort((a, b) => b.priority - a.priority)
+    .slice(0, max)
 }
