@@ -66,10 +66,13 @@ still open.
       (`src/lib/reminder-settings.ts`), surfaced as a Reminders card in the
       profile and honored by `computeReminders`. Syncs across devices (the
       per-day localStorage dismissal on the dashboard still handles "not now").
-- [ ] Web-push reminders (deferred — needs a service worker + a scheduled
-      sender, and is unreliable on iOS PWAs; the in-app nudges + calendar
-      export cover this for now). Would pull the user back in rather than
-      only nudging once they open the app.
+- [x] Web-push reminders: service worker + `push_subscriptions` + subscribe/
+      unsubscribe API + an hourly Vercel-cron sender (`/api/cron/reminders`)
+      that reasons in each user's stored timezone and respects their
+      preferences, quiet hours, and a once-per-local-day guard. Push toggle
+      lives in the Reminders settings card. Requires VAPID keys, a service-
+      role key, and CRON_SECRET — see `docs/PUSH_NOTIFICATIONS.md`. Unreliable
+      on iOS unless the app is installed to the Home Screen.
 
 ## Nutrition — photo calorie & macro logging
 - [x] "Snap Meal" photo → Claude vision (claude-sonnet-5) calorie + macro

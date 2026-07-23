@@ -1,9 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
 import type { Json } from "@/types/database"
+import {
+  isPushSupported,
+  isPushSubscribed,
+  enablePush,
+  disablePush,
+} from "@/lib/push-client"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Select, SelectOption } from "@/components/ui/select"
@@ -65,6 +71,33 @@ function Toggle({
 export function ReminderSettingsCard({ initial }: { initial: ReminderSettings }) {
   const [settings, setSettings] = useState<ReminderSettings>(initial)
   const queryClient = useQueryClient()
+
+  // Web-push state (browser capability + current subscription).
+  const [pushSupported, setPushSupported] = useState(false)
+  const [pushOn, setPushOn] = useState(false)
+  const [pushBusy, setPushBusy] = useState(false)
+  const [pushError, setPushError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setPushSupported(isPushSupported())
+    isPushSubscribed()
+      .then(setPushOn)
+      .catch(() => {})
+  }, [])
+
+  async function togglePush(next: boolean) {
+    setPushBusy(true)
+    setPushError(null)
+    try {
+      if (next) await enablePush()
+      else await disablePush()
+      setPushOn(next)
+    } catch (e) {
+      setPushError((e as Error).message)
+    } finally {
+      setPushBusy(false)
+    }
+  }
 
   const mutation = useMutation({
     mutationFn: async (next: ReminderSettings) => {
@@ -205,6 +238,29 @@ export function ReminderSettingsCard({ initial }: { initial: ReminderSettings })
               </div>
             </div>
           )}
+        </div>
+
+        {/* Push notifications */}
+        <div className="space-y-2 border-t border-gray-100 pt-4">
+          <div className="flex items-center justify-between">
+            <div className="pr-3">
+              <p className="text-sm font-medium text-gray-900">
+                Push notifications
+              </p>
+              <p className="text-xs text-gray-500">
+                {pushSupported
+                  ? "Get a nudge on your phone even when the app is closed."
+                  : "Not available on this browser. On iPhone, add the app to your Home Screen first."}
+              </p>
+            </div>
+            <Toggle
+              label="Enable push notifications"
+              checked={pushOn}
+              disabled={!pushSupported || !settings.enabled || pushBusy}
+              onChange={togglePush}
+            />
+          </div>
+          {pushError && <p className="text-sm text-red-600">{pushError}</p>}
         </div>
 
         {mutation.isError && (
