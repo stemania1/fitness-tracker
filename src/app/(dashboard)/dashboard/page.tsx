@@ -71,6 +71,8 @@ import { RecoveryWatchCard } from "@/components/activity/RecoveryWatchCard"
 import { EnergyCheckInCard } from "@/components/activity/EnergyCheckInCard"
 import { deriveFuelState } from "@/lib/energy"
 import { caffeineStatus, lateCaffeineFlag } from "@/lib/caffeine"
+import { computeReminders } from "@/lib/reminders"
+import { RemindersCard } from "@/components/activity/RemindersCard"
 import { QuickLogFood } from "@/components/activity/QuickLogFood"
 import { QuickLogCaffeine } from "@/components/activity/QuickLogCaffeine"
 import { NutritionCard } from "@/components/activity/NutritionCard"
@@ -653,6 +655,78 @@ export default function DashboardPage() {
     [allWorkoutLogs, profile?.workout_days]
   )
 
+  // --- Reminders: small extra signals the other cards don't already fetch ---
+  const todayStr = new Date().toLocaleDateString("en-CA")
+
+  const { data: energyCheckedInToday } = useQuery({
+    queryKey: ["energy-checkin-exists", todayStr],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
+      const { data, error } = await supabase
+        .from("energy_checkins")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("logged_on", todayStr)
+        .limit(1)
+      if (error) throw error
+      return (data?.length ?? 0) > 0
+    },
+  })
+
+  const { data: lastWeighInAt } = useQuery({
+    queryKey: ["last-weigh-in"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
+      const { data, error } = await supabase
+        .from("weight_logs")
+        .select("logged_at")
+        .eq("user_id", user.id)
+        .order("logged_at", { ascending: false })
+        .limit(1)
+      if (error) throw error
+      return (data?.[0]?.logged_at ?? null) as string | null
+    },
+  })
+
+  const reminders = useMemo(() => {
+    const now = new Date()
+    const startOfDayMs = (d: Date) => {
+      const x = new Date(d)
+      x.setHours(0, 0, 0, 0)
+      return x.getTime()
+    }
+    const today0 = startOfDayMs(now)
+    const dayDiff = (iso: string) =>
+      Math.round((today0 - startOfDayMs(new Date(iso))) / 86_400_000)
+
+    // While a query is still loading, feed a value that suppresses its nudge
+    // so nothing flashes before the data lands.
+    const daysSinceLastWorkout =
+      allWorkoutLogs === undefined
+        ? 0
+        : allWorkoutLogs.length === 0
+          ? null
+          : dayDiff(allWorkoutLogs[allWorkoutLogs.length - 1].started_at)
+
+    const daysSinceLastWeighIn =
+      lastWeighInAt === undefined
+        ? 0
+        : lastWeighInAt === null
+          ? null
+          : dayDiff(lastWeighInAt)
+
+    return computeReminders({
+      hour: now.getHours(),
+      mealsLoggedToday: todaysFuelLogs === undefined ? 99 : todaysFuelLogs.length,
+      workedOutToday: trainedToday,
+      daysSinceLastWorkout,
+      energyCheckedInToday: energyCheckedInToday ?? true,
+      daysSinceLastWeighIn,
+    })
+  }, [allWorkoutLogs, lastWeighInAt, todaysFuelLogs, trainedToday, energyCheckedInToday])
+
   const workoutTarget = profile?.workout_days ?? 4
   const completedWorkouts = weeklyWorkouts?.length ?? 0
   const weeklyProgress = workoutTarget > 0
@@ -673,6 +747,11 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold text-gray-900">{greeting}</h1>
         )}
       </div>
+
+      {/* Smart nudges for anything not yet logged today */}
+      <ErrorBoundary>
+        <RemindersCard reminders={reminders} startWorkoutHref={startWorkoutHref} />
+      </ErrorBoundary>
 
       {/* Quick Actions */}
       <div className="space-y-2">

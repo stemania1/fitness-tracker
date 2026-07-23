@@ -56,8 +56,17 @@ still open.
 - [x] "Training This Week" card (strength volume + Zone 2 minutes)
 - [x] Post-workout Session Recap (each lift vs. previous sessions)
 - [x] Calendar (.ics) export of plan sessions with reminders
-- [ ] In-app web-push reminders (deferred — calendar export covers this
-      more reliably on iOS; revisit if in-app notifications are wanted)
+- [x] Smart in-app reminders: `src/lib/reminders.ts` turns the day's state
+      (workout gap, meals not logged, evening energy check-in, weekly
+      weigh-in) into time-gated, prioritized nudges shown on the dashboard
+      (`RemindersCard`), dismissible per day. No infra/migration — computed
+      from data already loaded.
+- [ ] Reminders phase 2: server-side preferences (toggle categories, quiet
+      hours) instead of the localStorage per-day dismissal.
+- [ ] Web-push reminders (deferred — needs a service worker + a scheduled
+      sender, and is unreliable on iOS PWAs; the in-app nudges + calendar
+      export cover this for now). Would pull the user back in rather than
+      only nudging once they open the app.
 
 ## Nutrition — photo calorie & macro logging
 - [x] "Snap Meal" photo → Claude vision (claude-sonnet-5) calorie + macro
