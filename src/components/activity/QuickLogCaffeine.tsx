@@ -16,30 +16,17 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Coffee } from "lucide-react"
 import { CAFFEINE_PRESETS } from "@/lib/caffeine"
+import { BackdateChips, nowLocalDatetimeString } from "./BackdateChips"
 
 const supabase = createClient()
-
-/** Current local time as HH:MM for the default "when" value. */
-function localTimeNow(): string {
-  return new Date().toLocaleTimeString("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-  })
-}
-
-/** Combine today's date with an HH:MM time into an ISO timestamp. */
-function isoForToday(hhmm: string): string {
-  const [h, m] = hhmm.split(":").map((n) => parseInt(n, 10))
-  const d = new Date()
-  d.setHours(h, m, 0, 0)
-  return d.toISOString()
-}
 
 export function QuickLogCaffeine() {
   const [open, setOpen] = useState(false)
   const [source, setSource] = useState<string | null>("Coffee")
   const [mg, setMg] = useState("95")
-  const [time, setTime] = useState(localTimeNow)
+  // When it was consumed. Defaults to now; can be backdated to a drink you
+  // forgot to log. datetime-local (local) string; converted to UTC on save.
+  const [loggedAt, setLoggedAt] = useState(nowLocalDatetimeString)
   const queryClient = useQueryClient()
 
   function selectPreset(label: string, presetMg: number) {
@@ -59,18 +46,21 @@ export function QuickLogCaffeine() {
       } = await supabase.auth.getUser()
       if (!user) throw new Error("Not authenticated")
 
+      const when = loggedAt ? new Date(loggedAt) : new Date()
+      if (Number.isNaN(when.getTime())) throw new Error("Invalid date")
+
       const { error } = await supabase.from("caffeine_logs").insert({
         user_id: user.id,
         mg: mgNum,
         source,
-        logged_at: isoForToday(time),
+        logged_at: when.toISOString(),
       })
       if (error) throw error
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["caffeine-today"] })
       setOpen(false)
-      setTime(localTimeNow())
+      setLoggedAt(nowLocalDatetimeString())
     },
   })
 
@@ -116,31 +106,25 @@ export function QuickLogCaffeine() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="qlc-mg">Caffeine (mg)</Label>
-              <Input
-                id="qlc-mg"
-                type="number"
-                min={1}
-                max={1000}
-                step="1"
-                value={mg}
-                onChange={(e) => {
-                  setMg(e.target.value)
-                  setSource(null)
-                }}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="qlc-time">When</Label>
-              <Input
-                id="qlc-time"
-                type="time"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="qlc-mg">Caffeine (mg)</Label>
+            <Input
+              id="qlc-mg"
+              type="number"
+              min={1}
+              max={1000}
+              step="1"
+              value={mg}
+              onChange={(e) => {
+                setMg(e.target.value)
+                setSource(null)
+              }}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>When</Label>
+            <BackdateChips value={loggedAt} onChange={setLoggedAt} />
           </div>
 
           {mutation.isError && (

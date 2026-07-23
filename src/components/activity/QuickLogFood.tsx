@@ -22,6 +22,7 @@ import {
   type FoodEstimate,
 } from "@/lib/food-estimate"
 import { classifyMealGl, GL_WALK_TIP } from "@/lib/glycemic-load"
+import { BackdateChips, nowLocalDatetimeString } from "./BackdateChips"
 
 const supabase = createClient()
 
@@ -46,6 +47,9 @@ export function QuickLogFood() {
   const [factor, setFactor] = useState(1)
   const [reestimating, setReestimating] = useState(false)
   const [reestimateError, setReestimateError] = useState<string | null>(null)
+  // When the meal was eaten. Defaults to now; the user can backdate a meal
+  // they forgot to log. datetime-local (local) string; converted to UTC on save.
+  const [loggedAt, setLoggedAt] = useState(nowLocalDatetimeString)
   const fileRef = useRef<HTMLInputElement>(null)
   const queryClient = useQueryClient()
 
@@ -59,6 +63,7 @@ export function QuickLogFood() {
     setMealType("meal")
     setFactor(1)
     setReestimateError(null)
+    setLoggedAt(nowLocalDatetimeString())
   }
 
   /** Scale the original estimate by a portion multiplier. */
@@ -202,6 +207,9 @@ export function QuickLogFood() {
           original.sugar_g !== estimate.sugar_g ||
           original.description !== estimate.description)
 
+      const when = loggedAt ? new Date(loggedAt) : new Date()
+      if (Number.isNaN(when.getTime())) throw new Error("Invalid date")
+
       const { error: insErr } = await supabase.from("food_logs").insert({
         user_id: user.id,
         description: estimate.description,
@@ -215,6 +223,7 @@ export function QuickLogFood() {
         image_path: imagePath,
         confidence: estimate.confidence,
         edited,
+        logged_at: when.toISOString(),
       })
       if (insErr) throw insErr
     },
@@ -521,6 +530,11 @@ export function QuickLogFood() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>When</Label>
+              <BackdateChips value={loggedAt} onChange={setLoggedAt} />
             </div>
 
             {saveMutation.isError && (
