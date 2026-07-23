@@ -342,4 +342,29 @@ describe("QuickLogFood", () => {
       (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length
     ).toBe(2)
   })
+
+  it("logs the meal at the current time by default", async () => {
+    renderWithClient(<QuickLogFood />)
+    await openAndEstimate()
+    fireEvent.click(screen.getByRole("button", { name: /save meal/i }))
+
+    await waitFor(() => expect(mocks.insert).toHaveBeenCalledTimes(1))
+    const row = mocks.insert.mock.calls[0][0]
+    expect(typeof row.logged_at).toBe("string")
+    // Within a few minutes of now.
+    expect(Math.abs(Date.now() - Date.parse(row.logged_at))).toBeLessThan(5 * 60 * 1000)
+  })
+
+  it("backdates the meal to yesterday when the Yesterday chip is used", async () => {
+    renderWithClient(<QuickLogFood />)
+    await openAndEstimate()
+    fireEvent.click(screen.getByRole("button", { name: /^yesterday$/i }))
+    fireEvent.click(screen.getByRole("button", { name: /save meal/i }))
+
+    await waitFor(() => expect(mocks.insert).toHaveBeenCalledTimes(1))
+    const logged = new Date(mocks.insert.mock.calls[0][0].logged_at)
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    expect(logged.toDateString()).toBe(yesterday.toDateString())
+  })
 })
