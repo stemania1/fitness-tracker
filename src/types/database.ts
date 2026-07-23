@@ -17,6 +17,7 @@ export interface Database {
           workout_days: number | null
           limitations: string | null
           onboarding_done: boolean
+          reminder_settings: Json
           created_at: string
           updated_at: string
         }
@@ -33,6 +34,7 @@ export interface Database {
           workout_days?: number | null
           limitations?: string | null
           onboarding_done?: boolean
+          reminder_settings?: Json
           created_at?: string
           updated_at?: string
         }
@@ -49,6 +51,7 @@ export interface Database {
           workout_days?: number | null
           limitations?: string | null
           onboarding_done?: boolean
+          reminder_settings?: Json
           created_at?: string
           updated_at?: string
         }
