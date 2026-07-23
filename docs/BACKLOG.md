@@ -23,8 +23,8 @@ still open.
 ## Logging UX
 - [x] Quick Log Strength (set-by-set entry of a session you just finished)
 - [x] Backdating chips (Today / Yesterday / Earlier…) on the strength,
-      exercise, and meal (Snap Meal) quick logs — for meals you forgot to
-      log in the moment
+      exercise, meal (Snap Meal), and caffeine quick logs — for anything you
+      forgot to log in the moment
 - [x] Treadmill: time + distance → computed Avg mph + optional incline
 - [x] Outdoor Run: time + distance → computed pace (min/mi)
 - [x] Incline contributes to calorie estimate at walking speeds

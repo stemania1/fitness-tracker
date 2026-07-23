@@ -88,6 +88,19 @@ describe("QuickLogCaffeine", () => {
     expect(row.source).toBeNull()
   })
 
+  it("backdates the drink to yesterday when the Yesterday chip is used", async () => {
+    renderWithClient(<QuickLogCaffeine />)
+    await openDialog()
+    fireEvent.click(screen.getByRole("button", { name: /^yesterday$/i }))
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }))
+
+    await waitFor(() => expect(mocks.insert).toHaveBeenCalledTimes(1))
+    const logged = new Date(mocks.insert.mock.calls[0][0].logged_at)
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    expect(logged.toDateString()).toBe(yesterday.toDateString())
+  })
+
   it("shows an insert error and keeps the dialog open", async () => {
     mocks.insert.mockResolvedValue({ error: { message: "row violates RLS" } })
     renderWithClient(<QuickLogCaffeine />)
