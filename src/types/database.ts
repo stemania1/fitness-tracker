@@ -18,6 +18,8 @@ export interface Database {
           limitations: string | null
           onboarding_done: boolean
           reminder_settings: Json
+          timezone: string | null
+          last_push_sent_on: string | null
           created_at: string
           updated_at: string
         }
@@ -35,6 +37,8 @@ export interface Database {
           limitations?: string | null
           onboarding_done?: boolean
           reminder_settings?: Json
+          timezone?: string | null
+          last_push_sent_on?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -52,6 +56,8 @@ export interface Database {
           limitations?: string | null
           onboarding_done?: boolean
           reminder_settings?: Json
+          timezone?: string | null
+          last_push_sent_on?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -508,6 +514,36 @@ export interface Database {
           part_of_day?: "morning" | "afternoon" | "evening"
           logged_on?: string
           notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          id: string
+          user_id: string
+          endpoint: string
+          p256dh: string
+          auth: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          endpoint: string
+          p256dh: string
+          auth: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          endpoint?: string
+          p256dh?: string
+          auth?: string
           created_at?: string
           updated_at?: string
         }
