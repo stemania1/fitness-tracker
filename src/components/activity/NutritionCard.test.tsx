@@ -86,6 +86,47 @@ const TARGETS = {
   goalNote: "a 500 cal/day deficit (~1 lb/week) for your weight-loss goal",
 }
 
+const DONUT = {
+  id: "meal-2",
+  description: "Chocolate donut",
+  meal_type: "meal",
+  calories: 520,
+  protein_g: 6,
+  carbs_g: 62,
+  fat_g: 28,
+  sugar_g: 28,
+  glycemic_load: 32, // high per-meal (>=20), but low for a whole day
+  confidence: "low" as const,
+  image_path: null,
+  logged_at: "2026-07-11T14:00:00.000Z",
+}
+
+describe("NutritionCard — glucose impact surfacing", () => {
+  it("shows a High GL chip on a high-impact meal without expanding it", async () => {
+    mocks.rows = [DONUT]
+    renderWithClient(<NutritionCard />)
+    expect(await screen.findByText("Chocolate donut")).toBeInTheDocument()
+    expect(screen.getByText("High GL")).toBeInTheDocument()
+  })
+
+  it("calls out a high-impact meal even when the daily total is low", async () => {
+    mocks.rows = [DONUT]
+    renderWithClient(<NutritionCard />)
+    await screen.findByText("Chocolate donut")
+    // Daily total (GL 32) is 'low', but the high meal is surfaced on its own.
+    expect(screen.getByText(/1 high-impact meal/i)).toBeInTheDocument()
+    expect(screen.getByText(/doesn't undo a big spike/i)).toBeInTheDocument()
+  })
+
+  it("does not flag or chip a low-impact day", async () => {
+    mocks.rows = [FISH] // GL 8
+    renderWithClient(<NutritionCard />)
+    await screen.findByText("Fried fish")
+    expect(screen.queryByText("High GL")).toBeNull()
+    expect(screen.queryByText(/high-impact meal/i)).toBeNull()
+  })
+})
+
 describe("NutritionCard — targets", () => {
   it("shows consumption vs recommended targets with progress bars", async () => {
     renderWithClient(<NutritionCard targets={TARGETS} />)

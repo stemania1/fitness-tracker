@@ -16,6 +16,7 @@ import type { MacroTargets } from "@/lib/macro-targets"
 import {
   classifyDailyGl,
   classifyMealGl,
+  highImpactMealCount,
   GL_WALK_TIP,
 } from "@/lib/glycemic-load"
 
@@ -47,6 +48,13 @@ const confidenceBadge: Record<string, string> = {
   low: "bg-amber-100 text-amber-700",
   medium: "bg-blue-100 text-blue-700",
   high: "bg-emerald-100 text-emerald-700",
+}
+
+/** Per-meal glucose-impact chip (only shown for medium/high). Labeled "GL"
+ *  so it reads as glycemic load, distinct from the estimate-confidence badge. */
+const glImpactBadge: Record<"medium" | "high", { cls: string; label: string }> = {
+  medium: { cls: "bg-amber-100 text-amber-800", label: "Med GL" },
+  high: { cls: "bg-red-100 text-red-700", label: "High GL" },
 }
 
 interface NutritionCardProps {
@@ -334,28 +342,44 @@ export function NutritionCard({
               )}
             </div>
 
-            {/* Day-level glucose impact from summed glycemic load, with the
-                post-meal-walk nudge when any single meal ran high. */}
-            {totals.gl > 0 && (
-              <p className="text-xs text-gray-500">
-                Glucose impact today:{" "}
-                <span
-                  className={`font-semibold capitalize ${
-                    classifyDailyGl(totals.gl) === "high"
-                      ? "text-red-600"
-                      : classifyDailyGl(totals.gl) === "medium"
-                        ? "text-amber-600"
-                        : "text-emerald-600"
-                  }`}
-                >
-                  {classifyDailyGl(totals.gl)}
-                </span>{" "}
-                (GL {totals.gl}).
-                {(logs ?? []).some(
-                  (m) => classifyMealGl(m.glycemic_load ?? 0) === "high"
-                ) && ` ${GL_WALK_TIP}`}
-              </p>
-            )}
+            {/* Day-level glucose impact from summed glycemic load. A "today:
+                low" total can hide a single high-impact meal, so when any meal
+                ran high we call it out on its own line rather than burying it. */}
+            {totals.gl > 0 && (() => {
+              const dailyImpact = classifyDailyGl(totals.gl)
+              const highCount = highImpactMealCount(
+                (logs ?? []).map((m) => m.glycemic_load ?? 0)
+              )
+              return (
+                <div className="space-y-1.5">
+                  <p className="text-xs text-gray-500">
+                    Glucose impact today:{" "}
+                    <span
+                      className={`font-semibold capitalize ${
+                        dailyImpact === "high"
+                          ? "text-red-600"
+                          : dailyImpact === "medium"
+                            ? "text-amber-600"
+                            : "text-emerald-600"
+                      }`}
+                    >
+                      {dailyImpact}
+                    </span>{" "}
+                    {highCount > 0 && dailyImpact !== "high" ? "so far " : ""}
+                    (GL {totals.gl}).
+                  </p>
+                  {highCount > 0 && (
+                    <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
+                      <span className="font-semibold">
+                        {highCount} high-impact {highCount === 1 ? "meal" : "meals"}
+                      </span>{" "}
+                      today — a low daily total doesn&apos;t undo a big spike.{" "}
+                      {GL_WALK_TIP}
+                    </p>
+                  )}
+                </div>
+              )
+            })()}
 
             {targets && (
               <p className="text-xs text-gray-400">
@@ -392,9 +416,21 @@ export function NutritionCard({
                       }`}
                     />
                   </button>
+                  {(() => {
+                    const impact = classifyMealGl(m.glycemic_load ?? 0)
+                    return impact !== "low" ? (
+                      <Badge
+                        className={`${glImpactBadge[impact].cls} shrink-0 text-[10px]`}
+                        title={`Glucose impact: ${impact} (GL ${m.glycemic_load ?? 0})`}
+                      >
+                        {glImpactBadge[impact].label}
+                      </Badge>
+                    ) : null
+                  })()}
                   {m.confidence && (
                     <Badge
                       className={`${confidenceBadge[m.confidence]} shrink-0 text-[10px]`}
+                      title={`Estimate confidence: ${m.confidence}`}
                     >
                       {m.confidence}
                     </Badge>

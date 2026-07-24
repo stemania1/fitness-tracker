@@ -27,6 +27,11 @@ export function classifyDailyGl(totalGl: number): GlImpact {
   return "low"
 }
 
+/** How many of the given per-meal glycemic loads are high-impact. */
+export function highImpactMealCount(gls: number[]): number {
+  return gls.filter((gl) => classifyMealGl(gl) === "high").length
+}
+
 /**
  * The one activity lever with solid evidence behind it — shown alongside
  * high-impact meals.
