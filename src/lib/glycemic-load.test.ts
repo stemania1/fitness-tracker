@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest"
-import { classifyMealGl, classifyDailyGl } from "./glycemic-load"
+import {
+  classifyMealGl,
+  classifyDailyGl,
+  highImpactMealCount,
+} from "./glycemic-load"
 
 describe("classifyMealGl", () => {
   it("uses the conventional per-meal thresholds", () => {
@@ -23,5 +27,17 @@ describe("classifyDailyGl", () => {
     expect(classifyDailyGl(80)).toBe("medium")
     expect(classifyDailyGl(120)).toBe("medium")
     expect(classifyDailyGl(121)).toBe("high")
+  })
+})
+
+describe("highImpactMealCount", () => {
+  it("counts meals at or over the per-meal high threshold", () => {
+    // 32 (a donut) and 25 are high; 8 and 15 are not.
+    expect(highImpactMealCount([8, 15, 32, 25])).toBe(2)
+  })
+
+  it("is zero when nothing is high, even if the daily total is large", () => {
+    // Four medium meals: daily GL 60 but no single meal is high-impact.
+    expect(highImpactMealCount([15, 15, 15, 15])).toBe(0)
   })
 })
