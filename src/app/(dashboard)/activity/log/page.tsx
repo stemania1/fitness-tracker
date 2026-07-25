@@ -33,6 +33,7 @@ import { RestTimer } from "@/components/activity/rest-timer"
 import { HoldTimer } from "@/components/activity/hold-timer"
 import { PreviousPerformance } from "@/components/activity/PreviousPerformance"
 import { AdaptiveTargetBanner } from "@/components/activity/AdaptiveTargetBanner"
+import { ExerciseInfo } from "@/components/activity/ExerciseInfo"
 import { adaptiveTarget } from "@/lib/adaptive-target"
 import { suggestedIncrement } from "@/lib/progressive-overload"
 import { useExerciseHistory } from "@/hooks/useExerciseHistory"
@@ -958,6 +959,13 @@ export default function LogWorkoutPage() {
                     </Button>
                   </div>
                 </div>
+
+                {/* About this exercise: diagram + description + rest */}
+                <ExerciseInfo
+                  exerciseId={currentExercise.exerciseId}
+                  muscleGroups={currentExercise.muscleGroups}
+                  restSeconds={currentExercise.restSeconds}
+                />
 
                 {/* Progressive overload suggestion (only when there's a
                     rep target and last session cleared it on all sets) */}
