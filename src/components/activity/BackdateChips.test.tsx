@@ -67,20 +67,29 @@ describe("BackdateChips — initial chip selection", () => {
     expect(screen.getByText("Today")).not.toHaveClass("bg-purple-600")
   })
 
-  it("marks 'Earlier' active and reveals the datetime input for older dates", () => {
-    const past = "2020-01-01T10:00"
-    render(<BackdateChips value={past} onChange={() => {}} />)
+  it("marks 'Earlier' active and reveals a date picker for older dates", () => {
+    render(<BackdateChips value="2020-01-01T10:00" onChange={() => {}} />)
     expect(screen.getByText(/Earlier/)).toHaveClass("bg-purple-600")
-    // datetime-local input is visible.
-    const input = screen.getByDisplayValue(past) as HTMLInputElement
-    expect(input.type).toBe("datetime-local")
+    // The date picker is visible and shows the date half of the value.
+    const dateInput = screen.getByLabelText("Date") as HTMLInputElement
+    expect(dateInput.type).toBe("date")
+    expect(dateInput.value).toBe("2020-01-01")
   })
 
-  it("hides the datetime input by default when active chip is Today", () => {
+  it("always shows the time input, seeded with the value's time", () => {
+    render(<BackdateChips value="2020-01-01T10:00" onChange={() => {}} />)
+    const timeInput = screen.getByLabelText("Time") as HTMLInputElement
+    expect(timeInput.type).toBe("time")
+    expect(timeInput.value).toBe("10:00")
+  })
+
+  it("hides the date picker by default when active chip is Today", () => {
     render(
       <BackdateChips value={nowLocalDatetimeString()} onChange={() => {}} />
     )
-    expect(screen.queryByDisplayValue(nowLocalDatetimeString())).toBeNull()
+    expect(screen.queryByLabelText("Date")).toBeNull()
+    // The time input is still there.
+    expect(screen.getByLabelText("Time")).toBeInTheDocument()
   })
 })
 
@@ -96,7 +105,7 @@ describe("BackdateChips — chip clicks", () => {
     expect(emitted.slice(0, 10)).toBe(nowLocalDatetimeString().slice(0, 10))
   })
 
-  it("emits yesterday at 6pm when 'Yesterday' is clicked", () => {
+  it("preserves the time-of-day when 'Yesterday' is clicked", () => {
     const onChange = vi.fn()
     render(<BackdateChips value="2020-01-01T10:00" onChange={onChange} />)
     fireEvent.click(screen.getByText("Yesterday"))
@@ -108,33 +117,41 @@ describe("BackdateChips — chip clicks", () => {
     const expectedDate = `${y.getFullYear()}-${pad(y.getMonth() + 1)}-${pad(
       y.getDate()
     )}`
-    expect(emitted).toBe(`${expectedDate}T18:00`)
+    // Date changes to yesterday; the 10:00 time carries over.
+    expect(emitted).toBe(`${expectedDate}T10:00`)
   })
 
-  it("reveals the datetime input when 'Earlier' is clicked", () => {
+  it("reveals the date picker when 'Earlier' is clicked", () => {
     render(
       <BackdateChips value={nowLocalDatetimeString()} onChange={() => {}} />
     )
-    // Not visible initially.
-    expect(screen.queryByDisplayValue(nowLocalDatetimeString())).toBeNull()
+    // Not visible initially (Today is active).
+    expect(screen.queryByLabelText("Date")).toBeNull()
     fireEvent.click(screen.getByText(/Earlier/))
-    // Now visible (and bound to the current value).
-    const input = screen.getByDisplayValue(nowLocalDatetimeString())
-    expect(input).toBeInTheDocument()
+    expect(screen.getByLabelText("Date")).toBeInTheDocument()
   })
 
-  it("propagates datetime-local edits via onChange", () => {
+  it("changes only the time when the time input is edited", () => {
     const onChange = vi.fn()
     render(<BackdateChips value="2020-01-01T10:00" onChange={onChange} />)
-    const input = screen.getByDisplayValue("2020-01-01T10:00")
-    fireEvent.change(input, { target: { value: "2021-06-15T08:30" } })
-    expect(onChange).toHaveBeenCalledWith("2021-06-15T08:30")
+    fireEvent.change(screen.getByLabelText("Time"), {
+      target: { value: "14:30" },
+    })
+    expect(onChange).toHaveBeenCalledWith("2020-01-01T14:30")
   })
 
-  it("caps the datetime-local input at the current time via the max attribute", () => {
+  it("changes only the date when the date picker is edited", () => {
+    const onChange = vi.fn()
+    render(<BackdateChips value="2020-01-01T10:00" onChange={onChange} />)
+    fireEvent.change(screen.getByLabelText("Date"), {
+      target: { value: "2021-06-15" },
+    })
+    expect(onChange).toHaveBeenCalledWith("2021-06-15T10:00")
+  })
+
+  it("caps the date picker at today via the max attribute", () => {
     render(<BackdateChips value="2020-01-01T10:00" onChange={() => {}} />)
-    const input = screen.getByDisplayValue("2020-01-01T10:00")
-    const max = input.getAttribute("max")
-    expect(max).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)
+    const max = screen.getByLabelText("Date").getAttribute("max")
+    expect(max).toMatch(/^\d{4}-\d{2}-\d{2}$/)
   })
 })

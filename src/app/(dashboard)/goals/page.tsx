@@ -686,7 +686,8 @@ export default function GoalsPage() {
                 </div>
                 <Progress value={weightProgress} />
                 <p className="text-xs text-gray-500">
-                  {Math.abs(currentWeight - targetWeight)} lbs to go
+                  {Math.round(Math.abs(currentWeight - targetWeight) * 10) / 10}{" "}
+                  lbs to go
                 </p>
                 {projection?.onTrack ? (
                   <div className="rounded-md bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
