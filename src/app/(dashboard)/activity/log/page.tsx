@@ -35,7 +35,7 @@ import { AdaptiveTargetBanner } from "@/components/activity/AdaptiveTargetBanner
 import { adaptiveTarget } from "@/lib/adaptive-target"
 import { suggestedIncrement } from "@/lib/progressive-overload"
 import { useExerciseHistory } from "@/hooks/useExerciseHistory"
-import { isNewPersonalRecord } from "@/lib/personal-records"
+import { isNewPersonalRecord, isNewAssistedRecord } from "@/lib/personal-records"
 import {
   estimateStrengthCalories,
   estimateCardioCalories,
@@ -64,6 +64,8 @@ interface ActiveExercise {
   name: string
   muscleGroups: string[]
   exerciseType: "strength" | "cardio" | "flexibility"
+  /** True when logged "weight" is machine assistance (higher = easier). */
+  assisted: boolean
   equipmentId: string | null
   /** Prescribed rep range string from the template (e.g. "8-12"). Null for
    *  freestyle workouts. Drives the progressive-overload suggestion. */
@@ -104,6 +106,7 @@ function makeExercise(
     exerciseId: def.id,
     name: def.name,
     muscleGroups: def.muscleGroups,
+    assisted: def.assisted ?? false,
     exerciseType: def.exerciseType,
     equipmentId: def.equipmentId,
     // Freestyle adds fall back to the catalog default so the card still
@@ -253,6 +256,7 @@ export default function LogWorkoutPage() {
                 exerciseId: def.id,
                 name: def.name,
                 muscleGroups: def.muscleGroups,
+                assisted: def.assisted ?? false,
                 exerciseType: def.exerciseType,
                 equipmentId: def.equipmentId,
                 repsTarget: p.reps,
@@ -319,6 +323,7 @@ export default function LogWorkoutPage() {
               exerciseId: def.id,
               name: def.name,
               muscleGroups: def.muscleGroups,
+              assisted: def.assisted ?? false,
               exerciseType: def.exerciseType,
               equipmentId: def.equipmentId,
               repsTarget: te.reps ?? null,
@@ -351,6 +356,7 @@ export default function LogWorkoutPage() {
               exerciseId: def.id,
               name: def.name,
               muscleGroups: def.muscleGroups,
+              assisted: def.assisted ?? false,
               exerciseType: def.exerciseType,
               equipmentId: def.equipmentId,
               repsTarget: p.reps,
@@ -531,6 +537,7 @@ export default function LogWorkoutPage() {
           exerciseId: def.id,
           name: def.name,
           muscleGroups: def.muscleGroups,
+          assisted: def.assisted ?? false,
           exerciseType: def.exerciseType,
           equipmentId: def.equipmentId,
         }
@@ -701,6 +708,7 @@ export default function LogWorkoutPage() {
     currentExercise?.exerciseId ?? ""
   )
   const allTimeMaxWeight = currentHistory?.allTimeMaxWeight ?? null
+  const allTimeMinWeight = currentHistory?.allTimeMinWeight ?? null
 
   // Pre-fill set weights from the previous session. Runs once per exercise
   // per session, only if every set is still untouched (no weight typed, no
@@ -731,6 +739,7 @@ export default function LogWorkoutPage() {
       previousSets: prevSets.map((s) => ({ weight: s.weight, reps: s.reps })),
       repRange: currentExercise.repsTarget,
       increment: suggestedIncrement(currentExercise.muscleGroups ?? []),
+      assisted: currentExercise.assisted,
     })
     const fillWeight = target.weight
     if (fillWeight == null) {
@@ -944,6 +953,7 @@ export default function LogWorkoutPage() {
                     exerciseId={currentExercise.exerciseId}
                     repsTarget={currentExercise.repsTarget}
                     muscleGroups={currentExercise.muscleGroups}
+                    assisted={currentExercise.assisted}
                   />
                 )}
 
@@ -986,26 +996,31 @@ export default function LogWorkoutPage() {
 
                 {/* Set rows */}
                 {currentExercise.sets.map((set, si) => {
-                  // PR = strictly heavier than the all-time max AND
-                  // heavier than any earlier completed set this session.
-                  const earlierMaxThisSession = currentExercise.sets
+                  // PR = beats the all-time best AND every earlier completed set
+                  // this session. For assisted exercises "best" is the LEAST
+                  // weight (assistance), so the comparison flips.
+                  const assisted = currentExercise.assisted
+                  const earlierWeights = currentExercise.sets
                     .slice(0, si)
                     .filter((s) => s.completed && s.weight != null)
-                    .reduce(
-                      (m, s) => (s.weight! > m ? s.weight! : m),
-                      0
-                    )
-                  const threshold = Math.max(
-                    allTimeMaxWeight ?? 0,
-                    earlierMaxThisSession
-                  )
+                    .map((s) => s.weight!)
+                  const allTimeBest = assisted ? allTimeMinWeight : allTimeMaxWeight
+                  const candidates = [
+                    ...(allTimeBest != null ? [allTimeBest] : []),
+                    ...earlierWeights,
+                  ]
+                  const threshold = candidates.length
+                    ? assisted
+                      ? Math.min(...candidates)
+                      : Math.max(...candidates)
+                    : null
+                  const setForPR = { weight: set.weight, reps: set.reps }
                   const isPR =
                     !isCardio &&
                     set.completed &&
-                    isNewPersonalRecord(
-                      { weight: set.weight, reps: set.reps },
-                      threshold > 0 ? threshold : null
-                    )
+                    (assisted
+                      ? isNewAssistedRecord(setForPR, threshold)
+                      : isNewPersonalRecord(setForPR, threshold))
 
                   return (
                   <div

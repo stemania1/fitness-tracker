@@ -75,6 +75,42 @@ describe("adaptiveTarget", () => {
     expect(t.weight).toBe(75)
   })
 
+  it("assisted: progress DROPS assistance when you clear the top of the range", () => {
+    // 3×8 at 150 lb assist, range 6-8 → drop to 145 (less help).
+    const t = adaptiveTarget({
+      previousSets: sets([150, 8], [150, 8], [150, 8]),
+      repRange: "6-8",
+      increment: 5,
+      assisted: true,
+    })
+    expect(t.reason).toBe("progress")
+    expect(t.weight).toBe(145)
+    expect(t.label).toMatch(/−5 lb assist/)
+  })
+
+  it("assisted: holds the most-assistance level when you fall short", () => {
+    // Mixed assistance; worst set 5 reps (< bottom 6). Keep the most help (150).
+    const t = adaptiveTarget({
+      previousSets: sets([100, 8], [130, 7], [150, 5]),
+      repRange: "6-8",
+      increment: 5,
+      assisted: true,
+    })
+    expect(t.reason).toBe("hold")
+    expect(t.weight).toBe(150)
+  })
+
+  it("assisted: never drops assistance below zero", () => {
+    const t = adaptiveTarget({
+      previousSets: sets([3, 8], [3, 8]),
+      repRange: "6-8",
+      increment: 5,
+      assisted: true,
+    })
+    expect(t.reason).toBe("progress")
+    expect(t.weight).toBe(0)
+  })
+
   it("repeats (not progress) when there's no usable rep range", () => {
     const t = adaptiveTarget({
       previousSets: sets([50, 30], [50, 30]),

@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
 import { exercises as exerciseCatalog } from "@/data/exercises"
-import { findHeaviestWeight } from "@/lib/personal-records"
+import { findHeaviestWeight, findLightestWeight } from "@/lib/personal-records"
 
 export interface PreviousSetRow {
   set_number: number
@@ -19,6 +19,8 @@ export interface ExerciseHistory {
   previousSets: PreviousSetRow[]
   /** All-time heaviest weight ever logged for this exercise (any reps). */
   allTimeMaxWeight: number | null
+  /** All-time lightest weight logged (the "best" for assisted exercises). */
+  allTimeMinWeight: number | null
 }
 
 async function fetchExerciseHistory(
@@ -74,6 +76,7 @@ async function fetchExerciseHistory(
   // Two-step (RLS-friendly) lookup: list exercise_log ids, then read the
   // weights from set_logs.
   let allTimeMaxWeight: number | null = null
+  let allTimeMinWeight: number | null = null
   if (recentExLogs && recentExLogs.length > 0) {
     // We need every exercise_log for this exercise, not just the 20 above.
     const { data: allExLogs } = await supabase
@@ -89,16 +92,16 @@ async function fetchExerciseHistory(
         .in("exercise_log_id", ids)
         .not("weight", "is", null)
 
-      allTimeMaxWeight = findHeaviestWeight(
-        (allSets ?? []) as Array<{
-          weight: number | null
-          reps: number | null
-        }>
-      )
+      const weightedSets = (allSets ?? []) as Array<{
+        weight: number | null
+        reps: number | null
+      }>
+      allTimeMaxWeight = findHeaviestWeight(weightedSets)
+      allTimeMinWeight = findLightestWeight(weightedSets)
     }
   }
 
-  return { previousSets, allTimeMaxWeight }
+  return { previousSets, allTimeMaxWeight, allTimeMinWeight }
 }
 
 /**

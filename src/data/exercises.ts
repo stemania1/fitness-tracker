@@ -7,6 +7,12 @@ export interface ExerciseDefinition {
   difficulty: "beginner" | "intermediate" | "advanced"
   defaultSets: number
   defaultReps: string
+  /**
+   * True when the logged "weight" is COUNTERWEIGHT/assistance, not load — so
+   * higher weight means an easier set. Inverts progression (progress = drop
+   * assistance) and PR detection (a PR is less assistance at the same reps).
+   */
+  assisted?: boolean
 }
 
 export const exercises: ExerciseDefinition[] = [
@@ -162,6 +168,8 @@ export const exercises: ExerciseDefinition[] = [
     difficulty: "beginner",
     defaultSets: 3,
     defaultReps: "8-10",
+    // Machine counterweight: more weight = more help = easier.
+    assisted: true,
   },
   {
     id: "pull-up",

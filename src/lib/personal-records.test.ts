@@ -2,10 +2,45 @@ import { describe, it, expect } from "vitest"
 import {
   estimateOneRepMax,
   findHeaviestWeight,
+  findLightestWeight,
   findRecentPRs,
   findRecentRepPRs,
   isNewPersonalRecord,
+  isNewAssistedRecord,
 } from "./personal-records"
+
+describe("findLightestWeight", () => {
+  it("returns the lightest valid weight (the best for assisted lifts)", () => {
+    expect(
+      findLightestWeight([
+        { weight: 150, reps: 8 },
+        { weight: 100, reps: 8 },
+        { weight: 130, reps: 6 },
+      ])
+    ).toBe(100)
+  })
+  it("ignores invalid sets and returns null when empty", () => {
+    expect(findLightestWeight([{ weight: 0, reps: 5 }])).toBeNull()
+    expect(findLightestWeight([])).toBeNull()
+  })
+})
+
+describe("isNewAssistedRecord", () => {
+  it("is a PR when assistance is lower than the previous minimum", () => {
+    expect(isNewAssistedRecord({ weight: 100, reps: 8 }, 130)).toBe(true)
+  })
+  it("is not a PR when assistance is equal or higher", () => {
+    expect(isNewAssistedRecord({ weight: 130, reps: 8 }, 130)).toBe(false)
+    expect(isNewAssistedRecord({ weight: 150, reps: 8 }, 130)).toBe(false)
+  })
+  it("counts the first valid set as a PR", () => {
+    expect(isNewAssistedRecord({ weight: 150, reps: 8 }, null)).toBe(true)
+  })
+  it("rejects invalid sets", () => {
+    expect(isNewAssistedRecord({ weight: 0, reps: 8 }, 130)).toBe(false)
+    expect(isNewAssistedRecord({ weight: 100, reps: 0 }, 130)).toBe(false)
+  })
+})
 
 describe("estimateOneRepMax", () => {
   it("returns the weight when reps = 1", () => {

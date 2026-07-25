@@ -43,6 +43,20 @@ export function findHeaviestWeight(sets: SetForPR[]): number | null {
 }
 
 /**
+ * Find the lightest weight (at any rep count ≥ 1) across the given sets.
+ * For assisted exercises, this is the "best" — the least assistance used.
+ */
+export function findLightestWeight(sets: SetForPR[]): number | null {
+  let min: number | null = null
+  for (const s of sets) {
+    if (s.weight == null || s.reps == null) continue
+    if (s.weight <= 0 || s.reps < 1) continue
+    if (min == null || s.weight < min) min = s.weight
+  }
+  return min
+}
+
+/**
  * Is `set` a new personal record compared to `previousMaxWeight`?
  * A PR requires beating the previous max strictly (equal weight doesn't
  * count, to avoid spamming notifications on routine working sets).
@@ -55,6 +69,20 @@ export function isNewPersonalRecord(
   if (set.weight <= 0 || set.reps < 1) return false
   if (previousMaxWeight == null) return true
   return set.weight > previousMaxWeight
+}
+
+/**
+ * PR check for assisted exercises, where LESS weight (assistance) at valid
+ * reps is the record. Mirrors isNewPersonalRecord with the comparison flipped.
+ */
+export function isNewAssistedRecord(
+  set: SetForPR,
+  previousMinWeight: number | null
+): boolean {
+  if (set.weight == null || set.reps == null) return false
+  if (set.weight <= 0 || set.reps < 1) return false
+  if (previousMinWeight == null) return true
+  return set.weight < previousMinWeight
 }
 
 export interface SetWithMeta {

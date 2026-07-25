@@ -39,6 +39,8 @@ export interface AdaptiveTargetInput {
   increment: number
   /** Weight to use when there's no usable history (the plan's preset). */
   fallbackWeight?: number | null
+  /** When true, "weight" is machine assistance: progress means DROPPING it. */
+  assisted?: boolean
 }
 
 export function adaptiveTarget({
@@ -46,18 +48,21 @@ export function adaptiveTarget({
   repRange,
   increment,
   fallbackWeight = null,
+  assisted = false,
 }: AdaptiveTargetInput): AdaptiveTarget {
   const range = parseRepRange(repRange)
 
-  // Progress: reuse the strict overload check (all sets hit the top of the
-  // range at one consistent weight).
-  const overload = getOverloadSuggestion(previousSets, range?.top ?? null, increment)
-  if (overload) {
-    return {
-      weight: overload.suggestedWeight,
-      reason: "progress",
-      label: `Progress +${increment} lb`,
-      note: `You cleared ${overload.repTarget}+ reps on every set at ${overload.previousWeight} lb last time — go for ${overload.suggestedWeight} lb.`,
+  // Progress (load exercises): reuse the strict overload check — all sets hit
+  // the top of the range at one consistent weight → add weight.
+  if (!assisted) {
+    const overload = getOverloadSuggestion(previousSets, range?.top ?? null, increment)
+    if (overload) {
+      return {
+        weight: overload.suggestedWeight,
+        reason: "progress",
+        label: `Progress +${increment} lb`,
+        note: `You cleared ${overload.repTarget}+ reps on every set at ${overload.previousWeight} lb last time — go for ${overload.suggestedWeight} lb.`,
+      }
     }
   }
 
@@ -74,26 +79,60 @@ export function adaptiveTarget({
     }
   }
 
-  // Use the weight sustained across the session (the lightest working set) and
-  // the worst set's reps, so one strong set can't mask a shortfall.
-  const lastWeight = Math.min(...valid.map((s) => s.weight))
   const minReps = Math.min(...valid.map((s) => s.reps))
+  // Conservative reference weight: for load, the lightest sustained set; for
+  // assistance, the MOST assistance used (so we don't jump to a set that's too
+  // hard). The worst set's reps decide whether progression is earned.
+  const reference = assisted
+    ? Math.max(...valid.map((s) => s.weight))
+    : Math.min(...valid.map((s) => s.weight))
 
-  if (range && minReps < range.bottom) {
+  const hitTop = range != null && minReps >= range.top
+  const missed = range != null && minReps < range.bottom
+
+  if (assisted) {
+    if (hitTop) {
+      const next = Math.max(0, reference - increment)
+      return {
+        weight: next,
+        reason: "progress",
+        label: `Progress −${increment} lb assist`,
+        note: `You cleared ${range!.top}+ reps at ${reference} lb of assistance — drop to ${next} lb (less help).`,
+      }
+    }
+    if (missed) {
+      return {
+        weight: reference,
+        reason: "hold",
+        label: "Hold",
+        note: `Last time you fell short of ${range!.bottom} reps — keep ${reference} lb of assistance and nail the reps first.`,
+      }
+    }
     return {
-      weight: lastWeight,
+      weight: reference,
+      reason: "repeat",
+      label: "Repeat",
+      note: range
+        ? `Stay at ${reference} lb of assistance and push toward ${range.top} reps before dropping it.`
+        : `Match last session at ${reference} lb of assistance.`,
+    }
+  }
+
+  if (missed) {
+    return {
+      weight: reference,
       reason: "hold",
       label: "Hold",
-      note: `Last time you came up short of ${range.bottom} reps — stay at ${lastWeight} lb and nail the reps before adding weight.`,
+      note: `Last time you came up short of ${range!.bottom} reps — stay at ${reference} lb and nail the reps before adding weight.`,
     }
   }
 
   return {
-    weight: lastWeight,
+    weight: reference,
     reason: "repeat",
     label: "Repeat",
     note: range
-      ? `Match last session at ${lastWeight} lb and push toward ${range.top} reps on every set.`
-      : `Match last session at ${lastWeight} lb.`,
+      ? `Match last session at ${reference} lb and push toward ${range.top} reps on every set.`
+      : `Match last session at ${reference} lb.`,
   }
 }
