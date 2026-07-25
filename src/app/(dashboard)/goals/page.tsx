@@ -198,7 +198,7 @@ function useExerciseBests() {
       const { data, error } = await supabase
         .from("workout_logs")
         .select(
-          "started_at, exercise_logs(exercises(name), set_logs(weight, duration_mins))"
+          "started_at, exercise_logs(exercises(name), set_logs(weight, reps, duration_mins))"
         )
         .eq("user_id", userId)
       if (error) throw error
@@ -212,6 +212,7 @@ function useExerciseBests() {
           exercises: { name: string } | { name: string }[] | null
           set_logs: Array<{
             weight: number | null
+            reps: number | null
             duration_mins: number | null
           }>
         }>
@@ -231,9 +232,7 @@ function useExerciseBests() {
           rows.push({
             staticExerciseId,
             date: wl.started_at,
-            weights: sets
-              .map((s) => s.weight)
-              .filter((w): w is number => w != null),
+            sets: sets.map((s) => ({ weight: s.weight, reps: s.reps })),
             sessionMinutes: sets.reduce(
               (sum, s) => sum + (s.duration_mins ?? 0),
               0
@@ -415,7 +414,7 @@ function AddGoalModal({
           {/* Target value */}
           <div className="space-y-2">
             <Label htmlFor="target-value">
-              Target{" "}
+              {form.goalType === "strength" ? "Target 1-rep max" : "Target"}{" "}
               <span className="text-gray-400">
                 ({unitForGoalType(form.goalType)})
               </span>
@@ -429,7 +428,7 @@ function AddGoalModal({
                 form.goalType === "weight"
                   ? "e.g. 180"
                   : form.goalType === "strength"
-                    ? "e.g. 185"
+                    ? "e.g. 225"
                     : form.goalType === "endurance"
                       ? "e.g. 30"
                       : "e.g. 4"
@@ -439,6 +438,12 @@ function AddGoalModal({
                 setForm({ ...form, targetValue: e.target.value })
               }
             />
+            {form.goalType === "strength" && (
+              <p className="text-xs text-gray-500">
+                Tracked as your estimated 1-rep max (Epley) — heavier weight
+                and more reps both move it, so sub-max sets count too.
+              </p>
+            )}
           </div>
 
           {/* Deadline */}
@@ -539,7 +544,7 @@ function GoalCard({
                 ? `Body Weight: ${goal.current_value ?? "?"} ${goal.unit} \u2192 ${goal.target_value} ${goal.unit}`
                 : goal.goal_type === "consistency"
                   ? `${goal.target_value} workouts per week`
-                  : `${exerciseName ? `${exerciseName}: ` : ""}${Math.round(liveCurrent)} ${goal.unit} \u2192 ${goal.target_value} ${goal.unit}`}
+                  : `${exerciseName ? `${exerciseName}: ` : ""}${Math.round(liveCurrent)} ${goal.unit} \u2192 ${goal.target_value} ${goal.unit}${goal.goal_type === "strength" ? " est. 1RM" : ""}`}
             </p>
             <Badge variant={isAchieved ? "success" : "default"}>
               {isAchieved ? "Achieved" : "In Progress"}
