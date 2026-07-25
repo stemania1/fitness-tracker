@@ -31,7 +31,9 @@ import { exercises as exerciseCatalog, type ExerciseDefinition } from "@/data/ex
 import { ExercisePicker } from "@/components/activity/exercise-picker"
 import { RestTimer } from "@/components/activity/rest-timer"
 import { PreviousPerformance } from "@/components/activity/PreviousPerformance"
-import { OverloadSuggestion } from "@/components/activity/OverloadSuggestion"
+import { AdaptiveTargetBanner } from "@/components/activity/AdaptiveTargetBanner"
+import { adaptiveTarget } from "@/lib/adaptive-target"
+import { suggestedIncrement } from "@/lib/progressive-overload"
 import { useExerciseHistory } from "@/hooks/useExerciseHistory"
 import { isNewPersonalRecord } from "@/lib/personal-records"
 import {
@@ -722,18 +724,26 @@ export default function LogWorkoutPage() {
       return
     }
     const exerciseId = currentExercise.exerciseId
+    // Pre-fill the adaptive target weight (progress / repeat / hold from last
+    // session) rather than mirroring each set's raw previous weight, so the
+    // prescribed session moves with recorded performance.
+    const target = adaptiveTarget({
+      previousSets: prevSets.map((s) => ({ weight: s.weight, reps: s.reps })),
+      repRange: currentExercise.repsTarget,
+      increment: suggestedIncrement(currentExercise.muscleGroups ?? []),
+    })
+    const fillWeight = target.weight
+    if (fillWeight == null) {
+      prefilledExercises.current.add(currentExercise.exerciseId)
+      return
+    }
     setWorkout((prev) => {
       if (!prev) return prev
       const idx = prev.exercises.findIndex((e) => e.exerciseId === exerciseId)
       if (idx === -1) return prev
       const exercises = [...prev.exercises]
       const ex = { ...exercises[idx] }
-      ex.sets = ex.sets.map((s, i) => {
-        const prevSet = prevSets[i] ?? prevSets[prevSets.length - 1]
-        return prevSet?.weight != null
-          ? { ...s, weight: prevSet.weight }
-          : s
-      })
+      ex.sets = ex.sets.map((s) => ({ ...s, weight: fillWeight }))
       exercises[idx] = ex
       return { ...prev, exercises }
     })
@@ -930,7 +940,7 @@ export default function LogWorkoutPage() {
                 {/* Progressive overload suggestion (only when there's a
                     rep target and last session cleared it on all sets) */}
                 {currentExercise.exerciseType === "strength" && (
-                  <OverloadSuggestion
+                  <AdaptiveTargetBanner
                     exerciseId={currentExercise.exerciseId}
                     repsTarget={currentExercise.repsTarget}
                     muscleGroups={currentExercise.muscleGroups}

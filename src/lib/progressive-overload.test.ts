@@ -1,9 +1,25 @@
 import { describe, it, expect } from "vitest"
 import {
   parseRepRangeTop,
+  parseRepRange,
   getOverloadSuggestion,
   suggestedIncrement,
 } from "./progressive-overload"
+
+describe("parseRepRange", () => {
+  it("parses bottom and top of a range", () => {
+    expect(parseRepRange("8-12")).toEqual({ bottom: 8, top: 12 })
+    expect(parseRepRange("  10 – 12 ")).toEqual({ bottom: 10, top: 12 })
+  })
+  it("treats a bare number as bottom == top", () => {
+    expect(parseRepRange("10")).toEqual({ bottom: 10, top: 10 })
+  })
+  it("returns null for word formats", () => {
+    expect(parseRepRange("30 sec")).toBeNull()
+    expect(parseRepRange(null)).toBeNull()
+    expect(parseRepRange("")).toBeNull()
+  })
+})
 
 describe("parseRepRangeTop", () => {
   it("parses ranges", () => {
