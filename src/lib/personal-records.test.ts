@@ -169,6 +169,39 @@ describe("findRecentPRs", () => {
     ]
     expect(findRecentPRs(sets, 30, now)).toEqual([])
   })
+
+  it("inverts weight PRs for assisted exercises (less assistance is a PR)", () => {
+    const sets = [
+      // 150 lbs of counterweight is the most help / least impressive.
+      { exerciseName: "Assisted Pull-Up", weight: 150, reps: 8, startedAt: day(20), assisted: true },
+      // Dropping to 100 lbs of help is a genuine PR.
+      { exerciseName: "Assisted Pull-Up", weight: 100, reps: 8, startedAt: day(5), assisted: true },
+    ]
+    const result = findRecentPRs(sets, 30, now)
+    expect(result).toHaveLength(1)
+    expect(result[0].weight).toBe(100)
+    expect(result[0].previousMaxWeight).toBe(150)
+    expect(result[0].assisted).toBe(true)
+  })
+
+  it("does not flag MORE assistance as a PR for assisted exercises", () => {
+    const sets = [
+      // Baseline of 100 lbs help set before the window (establishes the best).
+      { exerciseName: "Assisted Pull-Up", weight: 100, reps: 8, startedAt: day(45), assisted: true },
+      // Needing more help (120) is a regression, not a PR.
+      { exerciseName: "Assisted Pull-Up", weight: 120, reps: 8, startedAt: day(5), assisted: true },
+    ]
+    expect(findRecentPRs(sets, 30, now)).toEqual([])
+  })
+
+  it("marks non-assisted PRs as assisted: false", () => {
+    const sets = [
+      { exerciseName: "Bench", weight: 135, reps: 5, startedAt: day(20) },
+      { exerciseName: "Bench", weight: 145, reps: 5, startedAt: day(5) },
+    ]
+    const result = findRecentPRs(sets, 30, now)
+    expect(result[0].assisted).toBe(false)
+  })
 })
 
 describe("findRecentRepPRs", () => {

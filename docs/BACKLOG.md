@@ -17,10 +17,12 @@ still open.
       counterweight, e.g. Assisted Pull-Up) treat weight as help — progression
       DROPS assistance and the in-workout PR trophy fires on LESS assistance
       (`isNewAssistedRecord`, `allTimeMinWeight`).
-- [ ] Assisted inversion for the dashboard "Recent PRs" card: `findRecentPRs`
-      / `findRecentRepPRs` still use heaviest-weight logic, so an assisted
-      lift's weight PRs read backwards there. Needs the assisted flag threaded
-      into those helpers (they key off exercise name/id). at the same weight
+- [x] Assisted inversion for the dashboard "Recent PRs" card: `findRecentPRs`
+      now tracks the running *best* per exercise (lightest for assisted,
+      heaviest otherwise), so less counterweight registers as a weight PR and
+      more assistance no longer does. The set feed threads the catalog
+      `assisted` flag through, the card labels the weight as "assist" and
+      drops the meaningless Epley 1RM estimate for assisted lifts.
 - [x] Dashboard "Recent PRs" card showing the last 5 weight PRs (30-day window)
 - [x] Rep PR detection (most reps ever at a given weight, dashboard card)
 - [x] Workouts-per-week streak tracker

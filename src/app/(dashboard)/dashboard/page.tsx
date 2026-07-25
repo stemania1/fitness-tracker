@@ -607,12 +607,17 @@ export default function DashboardPage() {
       }
       const rows = (data ?? []) as unknown as Row[]
       return rows
-        .map((r) => ({
-          exerciseName: r.exercise_log?.exercise?.name ?? "",
-          weight: r.weight,
-          reps: r.reps,
-          startedAt: r.exercise_log?.workout_log?.started_at ?? "",
-        }))
+        .map((r) => {
+          const exerciseName = r.exercise_log?.exercise?.name ?? ""
+          return {
+            exerciseName,
+            weight: r.weight,
+            reps: r.reps,
+            startedAt: r.exercise_log?.workout_log?.started_at ?? "",
+            assisted:
+              exerciseNameMap.get(exerciseName.toLowerCase())?.assisted ?? false,
+          }
+        })
         .filter((s) => s.exerciseName && s.startedAt)
     },
   })
@@ -1440,7 +1445,11 @@ export default function DashboardPage() {
           ) : recentPRs.length > 0 ? (
             <div className="space-y-2">
               {recentPRs.map((pr) => {
-                const e1rm = estimateOneRepMax(pr.weight, pr.reps)
+                // Epley e1RM is load-based and meaningless when the weight is
+                // assistance, so skip it for assisted exercises.
+                const e1rm = pr.assisted
+                  ? null
+                  : estimateOneRepMax(pr.weight, pr.reps)
                 const date = new Date(pr.startedAt).toLocaleDateString(
                   "en-US",
                   { month: "short", day: "numeric" }
@@ -1469,7 +1478,10 @@ export default function DashboardPage() {
                         {date}
                         {pr.kind === "weight" &&
                           pr.previousMaxWeight != null && (
-                            <> · prev {pr.previousMaxWeight} lbs</>
+                            <>
+                              {" "}· prev {pr.previousMaxWeight} lbs
+                              {pr.assisted ? " assist" : ""}
+                            </>
                           )}
                         {pr.kind === "rep" &&
                           pr.previousMaxReps != null && (
@@ -1481,7 +1493,7 @@ export default function DashboardPage() {
                       </p>
                     </div>
                     <Badge variant="secondary" className="shrink-0">
-                      {pr.weight} lbs × {pr.reps}
+                      {pr.weight} lbs{pr.assisted ? " assist" : ""} × {pr.reps}
                     </Badge>
                   </div>
                 )
