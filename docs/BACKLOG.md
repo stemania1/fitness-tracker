@@ -7,7 +7,12 @@ still open.
 - [x] Personal-record detection during active workout (heaviest weight)
 - [x] Epley 1RM estimate on workout detail
 - [x] Progressive overload nudge ("Try +5 lbs") when last session cleared
-      the top of the rep range on all sets at the same weight
+      the top of the rep range on all sets
+- [x] Adaptive per-exercise targets (`src/lib/adaptive-target.ts`): last
+      session's logged sets → a recommended next weight (progress / repeat /
+      hold / new). The logger pre-fills that target weight and an
+      AdaptiveTargetBanner shows the reason, so the prescribed session moves
+      with recorded performance instead of using static preset weights. at the same weight
 - [x] Dashboard "Recent PRs" card showing the last 5 weight PRs (30-day window)
 - [x] Rep PR detection (most reps ever at a given weight, dashboard card)
 - [x] Workouts-per-week streak tracker

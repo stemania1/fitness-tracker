@@ -89,8 +89,8 @@ vi.mock("@/components/activity/rest-timer", () => ({
 vi.mock("@/components/activity/PreviousPerformance", () => ({
   PreviousPerformance: () => null,
 }))
-vi.mock("@/components/activity/OverloadSuggestion", () => ({
-  OverloadSuggestion: () => null,
+vi.mock("@/components/activity/AdaptiveTargetBanner", () => ({
+  AdaptiveTargetBanner: () => null,
 }))
 
 import LogWorkoutPage from "./page"

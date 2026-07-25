@@ -20,6 +20,23 @@ export function parseRepRangeTop(reps: string | null | undefined): number | null
   return Number.isFinite(n) && n > 0 ? n : null
 }
 
+/** Parse a rep range into its bottom and top, e.g. "8-12" → {bottom:8, top:12}.
+ *  A bare "10" yields {bottom:10, top:10}. Returns null for word formats. */
+export function parseRepRange(
+  reps: string | null | undefined
+): { bottom: number; top: number } | null {
+  if (!reps) return null
+  const trimmed = reps.trim()
+  if (/[a-zA-Z]/.test(trimmed)) return null
+  const match = trimmed.match(/(\d+)(?:\s*[-–]\s*(\d+))?/)
+  if (!match) return null
+  const bottom = parseInt(match[1], 10)
+  if (!Number.isFinite(bottom) || bottom <= 0) return null
+  const parsedTop = match[2] ? parseInt(match[2], 10) : bottom
+  const top = Number.isFinite(parsedTop) && parsedTop >= bottom ? parsedTop : bottom
+  return { bottom, top }
+}
+
 export interface PreviousSet {
   weight: number | null
   reps: number | null
