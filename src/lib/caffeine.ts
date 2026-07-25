@@ -18,6 +18,12 @@
 /** Elimination half-life of caffeine in a typical adult (~5.5h). */
 export const CAFFEINE_HALF_LIFE_MIN = 330
 
+/**
+ * Commonly cited daily ceiling for healthy adults (FDA). A reference for the
+ * daily tracker, not a hard limit or medical advice.
+ */
+export const DAILY_CAFFEINE_GUIDELINE_MG = 400
+
 /** One logged caffeine intake, relative to "now". */
 export interface CaffeineDose {
   /** Milligrams of caffeine. */

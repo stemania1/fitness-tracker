@@ -96,6 +96,9 @@ still open.
       presets). `src/lib/caffeine.ts` models on-board mg via a ~5.5h half-life
       → an alertness/crash driver on the energy read, plus a forward-looking
       "late caffeine may hurt tonight's sleep" warning surfaced on the card.
+- [x] Daily caffeine tracker card on the dashboard: total vs. the 400 mg
+      guideline, mg still active now, the late-caffeine warning, and the day's
+      drinks (with delete).
 - [ ] Sharpen caffeine: personal half-life / sensitivity from the check-in
       history; tie the late-caffeine cutoff to the user's actual bedtime
       instead of the fixed 2pm default.

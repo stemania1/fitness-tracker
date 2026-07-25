@@ -77,6 +77,7 @@ import { RemindersCard } from "@/components/activity/RemindersCard"
 import { QuickLogFood } from "@/components/activity/QuickLogFood"
 import { QuickLogCaffeine } from "@/components/activity/QuickLogCaffeine"
 import { NutritionCard } from "@/components/activity/NutritionCard"
+import { CaffeineCard } from "@/components/activity/CaffeineCard"
 import { RingBatteryIndicator } from "@/components/activity/RingBatteryIndicator"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 
@@ -812,6 +813,11 @@ export default function DashboardPage() {
           caloriesBurnedToday={ouraSummary?.activity?.total_calories}
           targets={nutritionTargets}
         />
+      </ErrorBoundary>
+
+      {/* Today's caffeine: total vs guideline, still-active, drinks */}
+      <ErrorBoundary>
+        <CaffeineCard />
       </ErrorBoundary>
 
       {/* This Week */}
