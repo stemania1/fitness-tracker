@@ -28,8 +28,13 @@
 }
 
 @layer base {
+  /* Use overflow-x: clip, not hidden. `hidden` forces overflow-y to compute
+     to `auto`, making <html> a scroll container — which re-anchors
+     position: fixed to <html> so the bottom nav drifts up as the page
+     scrolls. `clip` prevents horizontal scroll without that side effect,
+     keeping fixed elements pinned to the viewport. */
   html, body {
-    @apply overflow-x-hidden;
+    @apply overflow-x-clip;
   }
   * {
     @apply border-border;

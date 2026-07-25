@@ -92,6 +92,12 @@ export interface SetWithMeta {
   reps: number | null
   /** When the workout containing this set started, as an ISO string. */
   startedAt: string
+  /**
+   * True when the logged weight is COUNTERWEIGHT/assistance (e.g. Assisted
+   * Pull-Up): less weight is the better result, so weight PRs invert. Rep
+   * PRs are unaffected — more reps is an improvement either way.
+   */
+  assisted?: boolean
 }
 
 export interface RecentPR {
@@ -99,8 +105,11 @@ export interface RecentPR {
   weight: number
   reps: number
   startedAt: string
-  /** The previous max weight for this exercise before this PR was set. */
+  /** The previous best weight for this exercise before this PR was set.
+   *  For assisted exercises this is the previous (higher) assistance. */
   previousMaxWeight: number | null
+  /** Whether this is an assisted exercise (weight is assistance). */
+  assisted: boolean
 }
 
 /** Rep PRs track "most reps ever at this weight" for an exercise — a way
@@ -112,6 +121,8 @@ export interface RecentRepPR {
   startedAt: string
   /** The previous max reps at this same weight, before this PR was set. */
   previousMaxReps: number | null
+  /** Whether this is an assisted exercise (weight is assistance). */
+  assisted: boolean
 }
 
 /**
@@ -129,22 +140,26 @@ export function findRecentPRs(
 ): RecentPR[] {
   const cutoff = now.getTime() - sinceDays * 24 * 60 * 60 * 1000
 
-  // Walk all sets in chronological order, tracking the running max per
-  // exercise. A set that strictly beats its exercise's running max is
-  // a PR.
+  // Walk all sets in chronological order, tracking the running best per
+  // exercise. A set that strictly beats its exercise's running best is a
+  // PR. For a normal exercise "best" is the heaviest weight; for an
+  // assisted exercise it's the lightest (least assistance), so the
+  // comparison flips.
   const ordered = [...sets].sort((a, b) =>
     a.startedAt.localeCompare(b.startedAt)
   )
-  const runningMax = new Map<string, number>()
+  const runningBest = new Map<string, number>()
   const latestPRByExercise = new Map<string, RecentPR>()
 
   for (const s of ordered) {
     if (s.weight == null || s.reps == null) continue
     if (s.weight <= 0 || s.reps < 1) continue
-    const prevMax = runningMax.get(s.exerciseName) ?? null
-    const isPR = prevMax == null || s.weight > prevMax
+    const prevBest = runningBest.get(s.exerciseName) ?? null
+    const isPR =
+      prevBest == null ||
+      (s.assisted ? s.weight < prevBest : s.weight > prevBest)
     if (isPR) {
-      runningMax.set(s.exerciseName, s.weight)
+      runningBest.set(s.exerciseName, s.weight)
       const ts = new Date(s.startedAt).getTime()
       if (Number.isFinite(ts) && ts >= cutoff) {
         latestPRByExercise.set(s.exerciseName, {
@@ -152,7 +167,8 @@ export function findRecentPRs(
           weight: s.weight,
           reps: s.reps,
           startedAt: s.startedAt,
-          previousMaxWeight: prevMax,
+          previousMaxWeight: prevBest,
+          assisted: !!s.assisted,
         })
       }
     }
@@ -206,6 +222,7 @@ export function findRecentRepPRs(
           reps: s.reps,
           startedAt: s.startedAt,
           previousMaxReps: prevMax,
+          assisted: !!s.assisted,
         })
       }
     }
