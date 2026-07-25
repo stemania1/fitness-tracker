@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils"
 import { exercises as exerciseCatalog, type ExerciseDefinition } from "@/data/exercises"
 import { ExercisePicker } from "@/components/activity/exercise-picker"
 import { RestTimer } from "@/components/activity/rest-timer"
+import { HoldTimer } from "@/components/activity/hold-timer"
 import { PreviousPerformance } from "@/components/activity/PreviousPerformance"
 import { AdaptiveTargetBanner } from "@/components/activity/AdaptiveTargetBanner"
 import { adaptiveTarget } from "@/lib/adaptive-target"
@@ -190,6 +191,8 @@ export default function LogWorkoutPage() {
   const [showNotes, setShowNotes] = useState(false)
   const [showIncline, setShowIncline] = useState(false)
   const [restTimer, setRestTimer] = useState<number | null>(null)
+  // Index of the set currently being timed with the hold stopwatch, or null.
+  const [holdTimerSet, setHoldTimerSet] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [finishError, setFinishError] = useState<string | null>(null)
   // Set when Finish is tapped while some exercises have no checked sets — those
@@ -773,6 +776,16 @@ export default function LogWorkoutPage() {
   // held, so the header and placeholder must say so.
   const isTimedHold =
     !isCardio && isTimedTarget(currentExercise?.repsTarget)
+  // Bodyweight moves (no loadable equipment): there's no weight to enter, so
+  // the weight cell shows "Bodyweight" instead of an lbs input.
+  const isBodyweight =
+    !!currentExercise &&
+    !isCardio &&
+    currentExercise.equipmentId === null
+  // Target seconds for the hold timer, parsed from e.g. "20-30 sec".
+  const holdTargetSeconds = isTimedHold
+    ? Number(currentExercise?.repsTarget?.match(/(\d+)/g)?.slice(-1)[0]) || null
+    : null
   const isTreadmillExercise =
     !!currentExercise && isTreadmill(currentExercise)
   const isOutdoorRunExercise =
@@ -1139,20 +1152,37 @@ export default function LogWorkoutPage() {
                       </>
                     ) : (
                       <>
-                        <Input
-                          type="number"
-                          inputMode="decimal"
-                          placeholder="lbs"
-                          value={set.weight ?? ""}
-                          onChange={(e) =>
-                            updateSet(currentIdx, si, {
-                              weight: e.target.value
-                                ? Number(e.target.value)
-                                : null,
-                            })
-                          }
-                          className="h-10 text-center text-base"
-                        />
+                        {isTimedHold ? (
+                          // Timed holds are bodyweight — the weight cell becomes
+                          // the stopwatch trigger for this set.
+                          <button
+                            type="button"
+                            onClick={() => setHoldTimerSet(si)}
+                            className="flex h-10 items-center justify-center gap-1.5 rounded-md border border-purple-200 bg-purple-50 text-sm font-medium text-purple-700 transition-colors hover:bg-purple-100"
+                          >
+                            <Clock className="h-4 w-4" />
+                            Time
+                          </button>
+                        ) : isBodyweight ? (
+                          <span className="flex h-10 items-center justify-center rounded-md bg-gray-50 text-center text-xs font-medium text-gray-500">
+                            Bodyweight
+                          </span>
+                        ) : (
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            placeholder="lbs"
+                            value={set.weight ?? ""}
+                            onChange={(e) =>
+                              updateSet(currentIdx, si, {
+                                weight: e.target.value
+                                  ? Number(e.target.value)
+                                  : null,
+                              })
+                            }
+                            className="h-10 text-center text-base"
+                          />
+                        )}
                         <Input
                           type="number"
                           inputMode="numeric"
@@ -1507,6 +1537,17 @@ export default function LogWorkoutPage() {
             }
           }}
           onSkip={() => setRestTimer(null)}
+        />
+      )}
+
+      {holdTimerSet !== null && (
+        <HoldTimer
+          targetSeconds={holdTargetSeconds}
+          onDone={(secs) => {
+            updateSet(currentIdx, holdTimerSet, { reps: secs, completed: true })
+            setHoldTimerSet(null)
+          }}
+          onCancel={() => setHoldTimerSet(null)}
         />
       )}
     </div>
