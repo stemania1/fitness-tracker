@@ -32,7 +32,11 @@ still open.
 ## Goal tracking
 - [x] Weight goal: target + projected timeline based on actual rate
 - [x] Milestone celebrations (first workout, 10 workouts, first PR, four-week streak, goal achieved)
-- [ ] Strength goals: target 1RM per exercise, progress chart
+- [x] Strength goals: target 1RM per exercise, progress chart. Current
+      progress is the best **estimated 1-rep max** (Epley) from logged sets —
+      heavier weight and more reps both move it, so sub-max work counts —
+      falling back to heaviest weight when reps weren't logged. Per-goal trend
+      chart plots daily best e1RM toward the target.
 - [ ] Endurance goals: cardio duration / distance targets
 
 ## Logging UX

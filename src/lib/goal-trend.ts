@@ -1,15 +1,19 @@
 /**
  * Time series for a strength/endurance goal's exercise, for the progress
- * chart: one point per day, value = that day's top-set weight (strength) or
- * longest session in minutes (endurance). Pure so it's unit-tested; the Goals
- * page supplies dated logged rows already resolved to static catalog ids.
+ * chart: one point per day. Strength value = that day's best estimated 1-rep
+ * max (Epley); endurance = longest session in minutes. Pure so it's
+ * unit-tested; the Goals page supplies dated logged rows already resolved to
+ * static catalog ids.
  */
+
+import { estimateOneRepMax } from "./personal-records"
+import type { SetInput } from "./goal-progress"
 
 export interface DatedExerciseRow {
   staticExerciseId: string | null
   /** ISO timestamp of the session. */
   date: string
-  weights: number[]
+  sets: SetInput[]
   sessionMinutes: number
 }
 
@@ -17,6 +21,18 @@ export interface TrendPoint {
   /** YYYY-MM-DD. */
   date: string
   value: number
+}
+
+/** Best estimated 1-rep max across a session's sets (falls back to the
+ *  heaviest weight when reps weren't logged); 0 when there's no valid set. */
+function bestSessionE1RM(sets: SetInput[]): number {
+  let best = 0
+  for (const s of sets) {
+    if (s.weight == null || s.weight <= 0) continue
+    const e = estimateOneRepMax(s.weight, s.reps) ?? s.weight
+    if (e > best) best = e
+  }
+  return best
 }
 
 export function buildGoalTrend(
@@ -31,7 +47,7 @@ export function buildGoalTrend(
     const day = r.date.slice(0, 10)
     const value =
       goalType === "strength"
-        ? r.weights.reduce((m, w) => (w > m ? w : m), 0)
+        ? Math.round(bestSessionE1RM(r.sets))
         : r.sessionMinutes
     if (value <= 0) continue
     // Multiple entries the same day → keep the best.
