@@ -11,6 +11,8 @@ interface AdaptiveTargetBannerProps {
   repsTarget: string | null
   /** Muscle groups — sizes the progression increment. */
   muscleGroups?: string[]
+  /** True when "weight" is machine assistance (progress = drop it). */
+  assisted?: boolean
 }
 
 const style: Record<
@@ -31,6 +33,7 @@ export function AdaptiveTargetBanner({
   exerciseId,
   repsTarget,
   muscleGroups,
+  assisted = false,
 }: AdaptiveTargetBannerProps) {
   const { data } = useExerciseHistory(exerciseId)
 
@@ -41,6 +44,7 @@ export function AdaptiveTargetBanner({
     })),
     repRange: repsTarget,
     increment: muscleGroups ? suggestedIncrement(muscleGroups) : 5,
+    assisted,
   })
 
   if (target.reason === "new") return null

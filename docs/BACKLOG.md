@@ -12,7 +12,15 @@ still open.
       session's logged sets → a recommended next weight (progress / repeat /
       hold / new). The logger pre-fills that target weight and an
       AdaptiveTargetBanner shows the reason, so the prescribed session moves
-      with recorded performance instead of using static preset weights. at the same weight
+      with recorded performance instead of using static preset weights.
+- [x] Assisted-exercise inversion: exercises flagged `assisted` (machine
+      counterweight, e.g. Assisted Pull-Up) treat weight as help — progression
+      DROPS assistance and the in-workout PR trophy fires on LESS assistance
+      (`isNewAssistedRecord`, `allTimeMinWeight`).
+- [ ] Assisted inversion for the dashboard "Recent PRs" card: `findRecentPRs`
+      / `findRecentRepPRs` still use heaviest-weight logic, so an assisted
+      lift's weight PRs read backwards there. Needs the assisted flag threaded
+      into those helpers (they key off exercise name/id). at the same weight
 - [x] Dashboard "Recent PRs" card showing the last 5 weight PRs (30-day window)
 - [x] Rep PR detection (most reps ever at a given weight, dashboard card)
 - [x] Workouts-per-week streak tracker

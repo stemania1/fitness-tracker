@@ -126,6 +126,7 @@ describe("useExerciseHistory", () => {
     expect(result.current.data).toEqual({
       previousSets: [],
       allTimeMaxWeight: null,
+      allTimeMinWeight: null,
     })
   })
 
