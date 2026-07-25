@@ -47,6 +47,10 @@ still open.
 - [x] "Save without these?" confirmation when finishing with unchecked exercises
 - [x] Pre-fill new set weights from previous performance
 - [x] Rest-timer auto-advances to the next exercise when sets are complete
+- [x] Bodyweight exercises (no loadable equipment) show "Bodyweight" instead
+      of an empty lbs input
+- [x] Hold timer (count-up stopwatch) for timed holds (e.g. plank) — records
+      the elapsed seconds into the set instead of manual entry
 
 ## Workout builder
 - [x] Add Exercise button in template edit mode
