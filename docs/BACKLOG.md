@@ -51,6 +51,11 @@ still open.
       of an empty lbs input
 - [x] Hold timer (count-up stopwatch) for timed holds (e.g. plank) — records
       the elapsed seconds into the set instead of manual entry
+- [x] "About this exercise" panel in the logger: a plain-language description
+      (`src/data/exercise-descriptions.ts`), a generated front/back muscle-map
+      diagram driven by the exercise's muscle groups (`MuscleMap`), and the
+      recommended rest between sets — so an unfamiliar machine name isn't a
+      mystery mid-workout
 
 ## Workout builder
 - [x] Add Exercise button in template edit mode
