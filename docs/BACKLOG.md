@@ -65,6 +65,11 @@ still open.
       inline time-edit on the caffeine card's drink list (`meal-time.ts`
       helpers are shared) — timing drives the "still active" + late-caffeine
       sleep signals.
+- [x] Daily creatine tracker: dashboard card (by the caffeine card) with a
+      one-tap "Mark taken", a consecutive-day streak (`creatine-streak.ts`),
+      and dose carry-forward. Backed by a `creatine_logs` table (migration
+      `00016`, applied manually). An evening in-app + push reminder nudges if
+      it's not logged (new `log_creatine` reminder category, on by default).
 - [x] Day navigation on the dashboard's Today's Plan and Nutrition cards:
       swipe left/right (or ‹ › arrows) to step through days. The plan card
       looks ahead (today → future, stopping at the plan's end); the meal card

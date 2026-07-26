@@ -24,6 +24,7 @@ export const REMINDER_TYPE_LABELS: Record<ReminderType, string> = {
   log_meal: "Meal logging",
   energy_checkin: "Energy check-in",
   log_weight: "Weekly weigh-in",
+  log_creatine: "Daily creatine",
 }
 
 /** The reminder categories, in display order. */
@@ -32,6 +33,7 @@ export const REMINDER_TYPES: ReminderType[] = [
   "log_meal",
   "energy_checkin",
   "log_weight",
+  "log_creatine",
 ]
 
 export function defaultReminderSettings(): ReminderSettings {
@@ -42,6 +44,7 @@ export function defaultReminderSettings(): ReminderSettings {
       log_meal: true,
       energy_checkin: true,
       log_weight: true,
+      log_creatine: true,
     },
     quietStartHour: null,
     quietEndHour: null,

@@ -23,6 +23,7 @@ export type ReminderType =
   | "log_meal"
   | "energy_checkin"
   | "log_weight"
+  | "log_creatine"
 
 export interface ReminderContext {
   /** Local hour of day, 0-23. */
@@ -37,6 +38,8 @@ export interface ReminderContext {
   energyCheckedInToday: boolean
   /** Whole days since the last weigh-in; null if none ever. */
   daysSinceLastWeighIn: number | null
+  /** Has creatine been logged today? */
+  creatineTakenToday: boolean
 }
 
 export interface Reminder {
@@ -114,6 +117,17 @@ export function computeReminders(
       priority: 40,
       title: "How's your energy today?",
       detail: "A quick check-in sharpens tomorrow's read.",
+    })
+  }
+
+  // Daily creatine — a gentle evening nudge if it hasn't been logged, since
+  // consistency is what makes it work.
+  if (!ctx.creatineTakenToday && ctx.hour >= EVENING) {
+    out.push({
+      type: "log_creatine",
+      priority: 35,
+      title: "Haven't logged creatine today",
+      detail: "A daily dose keeps your levels topped up — mark it once you've taken it.",
     })
   }
 

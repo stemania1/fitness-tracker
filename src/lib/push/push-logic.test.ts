@@ -73,6 +73,7 @@ describe("dueReminderPush", () => {
     daysSinceLastWorkout: 5,
     energyCheckedInToday: false,
     daysSinceLastWeighIn: 10,
+    creatineTakenToday: true,
   }
 
   it("sends when reminders are due and none sent today", () => {

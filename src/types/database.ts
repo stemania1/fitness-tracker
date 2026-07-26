@@ -579,6 +579,33 @@ export interface Database {
         }
         Relationships: []
       }
+      creatine_logs: {
+        Row: {
+          id: string
+          user_id: string
+          taken_on: string
+          dose_g: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          taken_on: string
+          dose_g?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          taken_on?: string
+          dose_g?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>

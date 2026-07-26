@@ -78,6 +78,7 @@ import { QuickLogFood } from "@/components/activity/QuickLogFood"
 import { QuickLogCaffeine } from "@/components/activity/QuickLogCaffeine"
 import { NutritionCard } from "@/components/activity/NutritionCard"
 import { CaffeineCard } from "@/components/activity/CaffeineCard"
+import { CreatineCard } from "@/components/activity/CreatineCard"
 import { RingBatteryIndicator } from "@/components/activity/RingBatteryIndicator"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 
@@ -681,6 +682,22 @@ export default function DashboardPage() {
     },
   })
 
+  const { data: creatineTakenToday } = useQuery({
+    queryKey: ["creatine-today", todayStr],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
+      const { data, error } = await supabase
+        .from("creatine_logs")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("taken_on", todayStr)
+        .limit(1)
+      if (error) throw error
+      return (data?.length ?? 0) > 0
+    },
+  })
+
   const { data: lastWeighInAt } = useQuery({
     queryKey: ["last-weigh-in"],
     queryFn: async () => {
@@ -732,6 +749,8 @@ export default function DashboardPage() {
         daysSinceLastWorkout,
         energyCheckedInToday: energyCheckedInToday ?? true,
         daysSinceLastWeighIn,
+        // Suppress the creatine nudge until the query resolves.
+        creatineTakenToday: creatineTakenToday ?? true,
       },
       normalizeReminderSettings(profile?.reminder_settings)
     )
@@ -741,6 +760,7 @@ export default function DashboardPage() {
     todaysFuelLogs,
     trainedToday,
     energyCheckedInToday,
+    creatineTakenToday,
     profile?.reminder_settings,
   ])
 
@@ -823,6 +843,11 @@ export default function DashboardPage() {
       {/* Today's caffeine: total vs guideline, still-active, drinks */}
       <ErrorBoundary>
         <CaffeineCard />
+      </ErrorBoundary>
+
+      {/* Daily creatine: one-tap log + streak */}
+      <ErrorBoundary>
+        <CreatineCard />
       </ErrorBoundary>
 
       {/* This Week */}
