@@ -48,9 +48,14 @@ export async function updateSession(request: NextRequest) {
   const isCallbackPage = request.nextUrl.pathname.startsWith("/auth/callback") ||
     request.nextUrl.pathname.startsWith("/auth/confirm")
 
+  // The reminder cron authenticates itself with CRON_SECRET (Bearer token),
+  // not a user session — so it must not be bounced to /login. Vercel Cron
+  // sends no session cookie, so without this the job silently 307s to login
+  // and never sends a push.
   const isPublicPage = request.nextUrl.pathname.startsWith("/privacy") ||
     request.nextUrl.pathname.startsWith("/terms") ||
-    request.nextUrl.pathname.startsWith("/api/auth/oura")
+    request.nextUrl.pathname.startsWith("/api/auth/oura") ||
+    request.nextUrl.pathname.startsWith("/api/cron")
 
   if (!user && !isAuthPage && !isRootPage && !isCallbackPage && !isPublicPage) {
     const url = request.nextUrl.clone()
