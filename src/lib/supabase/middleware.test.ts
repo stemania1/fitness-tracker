@@ -95,6 +95,11 @@ describe("middleware — unauthenticated users", () => {
     expect(location).toBeNull()
   })
 
+  it("allows the /api/cron reminder job through (it authenticates via CRON_SECRET)", async () => {
+    const { location } = await run("/api/cron/reminders")
+    expect(location).toBeNull()
+  })
+
   it("does NOT allow /api/oura through (it requires auth)", async () => {
     // This is the protected Oura summary endpoint, not the OAuth callback.
     const { location } = await run("/api/oura")
