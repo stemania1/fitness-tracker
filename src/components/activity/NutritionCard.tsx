@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Utensils, Plus, Trash2, ChevronDown } from "lucide-react"
+import { Utensils, Plus, Trash2, ChevronDown, Pencil } from "lucide-react"
 import type { MacroTargets } from "@/lib/macro-targets"
 import {
   classifyDailyGl,
@@ -19,6 +19,7 @@ import {
   highImpactMealCount,
   GL_WALK_TIP,
 } from "@/lib/glycemic-load"
+import { localTimeValue, withLocalTime } from "@/lib/meal-time"
 
 const supabase = createClient()
 
@@ -77,6 +78,9 @@ export function NutritionCard({
   // Tap meal rows to expand their full stats (macros, sugar, time).
   // A set, not a single id — comparing two meals side by side is the point.
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  // Inline edit of a logged meal's time-of-day.
+  const [editingTimeId, setEditingTimeId] = useState<string | null>(null)
+  const [timeDraft, setTimeDraft] = useState("")
 
   function toggleExpanded(id: string) {
     setExpandedIds((prev) => {
@@ -170,6 +174,35 @@ export function NutritionCard({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["food-logs-today"] })
       queryClient.invalidateQueries({ queryKey: ["weekly-calories"] })
+    },
+  })
+
+  // Correct a meal's logged time-of-day in place (keeps its date, so it stays
+  // on today's list). Meal timing feeds the energy read, so it's worth fixing.
+  const updateMealTime = useMutation({
+    mutationFn: async ({
+      meal,
+      loggedAt,
+    }: {
+      meal: FoodLogRow
+      loggedAt: string
+    }) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
+      const { error } = await supabase
+        .from("food_logs")
+        .update({ logged_at: loggedAt })
+        .eq("id", meal.id)
+      if (error) throw error
+    },
+    onMutate: ({ meal }) => setPendingId(meal.id),
+    onSettled: () => setPendingId(null),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["food-logs-today"] })
+      queryClient.invalidateQueries({ queryKey: ["weekly-calories"] })
+      setEditingTimeId(null)
     },
   })
 
@@ -507,13 +540,60 @@ export function NutritionCard({
                           </div>
                         ))}
                       </div>
-                      <p className="mt-1.5 text-[10px] text-gray-400">
-                        Logged at{" "}
-                        {new Date(m.logged_at).toLocaleTimeString([], {
-                          hour: "numeric",
-                          minute: "2-digit",
-                        })}
-                      </p>
+                      <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-gray-400">
+                        {editingTimeId === m.id ? (
+                          <>
+                            <span>Logged at</span>
+                            <input
+                              type="time"
+                              value={timeDraft}
+                              onChange={(e) => setTimeDraft(e.target.value)}
+                              aria-label={`Logged time for ${m.description}`}
+                              className="rounded border border-gray-200 px-1.5 py-0.5 text-[11px] text-gray-700 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                            />
+                            <button
+                              onClick={() =>
+                                timeDraft &&
+                                updateMealTime.mutate({
+                                  meal: m,
+                                  loggedAt: withLocalTime(m.logged_at, timeDraft),
+                                })
+                              }
+                              disabled={pendingId === m.id || !timeDraft}
+                              className="font-medium text-purple-600 hover:underline disabled:opacity-40"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditingTimeId(null)}
+                              className="text-gray-400 hover:underline"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <span>
+                              Logged at{" "}
+                              {new Date(m.logged_at).toLocaleTimeString([], {
+                                hour: "numeric",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                            <button
+                              onClick={() => {
+                                setEditingTimeId(m.id)
+                                setTimeDraft(localTimeValue(m.logged_at))
+                              }}
+                              aria-label={`Edit logged time for ${m.description}`}
+                              className="inline-flex items-center gap-0.5 text-purple-600 hover:underline"
+                            >
+                              <Pencil className="h-2.5 w-2.5" />
+                              Edit
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   )}
                 </li>
