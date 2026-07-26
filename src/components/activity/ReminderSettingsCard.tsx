@@ -88,6 +88,7 @@ export function ReminderSettingsCard({ initial }: { initial: ReminderSettings })
   async function togglePush(next: boolean) {
     setPushBusy(true)
     setPushError(null)
+    setTestResult(null)
     try {
       if (next) await enablePush()
       else await disablePush()
@@ -96,6 +97,33 @@ export function ReminderSettingsCard({ initial }: { initial: ReminderSettings })
       setPushError((e as Error).message)
     } finally {
       setPushBusy(false)
+    }
+  }
+
+  // One-tap end-to-end delivery check (see /api/push/test).
+  const [testBusy, setTestBusy] = useState(false)
+  const [testResult, setTestResult] = useState<
+    { ok: true } | { ok: false; message: string } | null
+  >(null)
+
+  async function sendTest() {
+    setTestBusy(true)
+    setTestResult(null)
+    try {
+      const res = await fetch("/api/push/test", { method: "POST" })
+      const body = (await res.json()) as { error?: string }
+      if (!res.ok) {
+        setTestResult({
+          ok: false,
+          message: body.error ?? "Couldn't send the test notification.",
+        })
+      } else {
+        setTestResult({ ok: true })
+      }
+    } catch {
+      setTestResult({ ok: false, message: "Network error — try again." })
+    } finally {
+      setTestBusy(false)
     }
   }
 
@@ -261,6 +289,28 @@ export function ReminderSettingsCard({ initial }: { initial: ReminderSettings })
             />
           </div>
           {pushError && <p className="text-sm text-red-600">{pushError}</p>}
+
+          {/* End-to-end delivery check, shown once push is on. */}
+          {pushOn && (
+            <div className="space-y-1.5">
+              <button
+                type="button"
+                onClick={sendTest}
+                disabled={testBusy}
+                className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+              >
+                {testBusy ? "Sending…" : "Send test notification"}
+              </button>
+              {testResult?.ok && (
+                <p className="text-sm text-emerald-600">
+                  Sent — you should see it on your device in a moment.
+                </p>
+              )}
+              {testResult && !testResult.ok && (
+                <p className="text-sm text-red-600">{testResult.message}</p>
+              )}
+            </div>
+          )}
         </div>
 
         {mutation.isError && (
