@@ -1,8 +1,9 @@
 /**
- * Helpers for editing a logged meal's time in place. A meal's `logged_at` is
- * a full ISO timestamp; the Nutrition card lets you correct just the
- * time-of-day (the date stays put, so the meal stays on the day you logged
- * it). Local-time based — the user edits the clock time they see.
+ * Helpers for editing a logged entry's time in place — shared by the meal and
+ * caffeine cards. A `logged_at` is a full ISO timestamp; the cards let you
+ * correct just the time-of-day (the date stays put, so the entry stays on the
+ * day you logged it). Local-time based — the user edits the clock time they
+ * see.
  */
 
 function pad(n: number): string {

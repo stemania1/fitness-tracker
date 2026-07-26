@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Coffee, Trash2, Moon } from "lucide-react"
+import { Coffee, Trash2, Moon, Pencil } from "lucide-react"
 import {
   caffeineStatus,
   lateCaffeineFlag,
@@ -13,6 +13,7 @@ import {
   DAILY_CAFFEINE_GUIDELINE_MG,
   type CaffeineDose,
 } from "@/lib/caffeine"
+import { localTimeValue, withLocalTime } from "@/lib/meal-time"
 
 const supabase = createClient()
 
@@ -47,6 +48,9 @@ export function CaffeineCard() {
   const queryClient = useQueryClient()
   const [armedDeleteId, setArmedDeleteId] = useState<string | null>(null)
   const [pendingId, setPendingId] = useState<string | null>(null)
+  // Inline edit of a logged drink's time-of-day.
+  const [editingTimeId, setEditingTimeId] = useState<string | null>(null)
+  const [timeDraft, setTimeDraft] = useState("")
 
   const { data: logs, isLoading } = useQuery({
     queryKey: ["caffeine-today-list", dayStart],
@@ -87,6 +91,29 @@ export function CaffeineCard() {
       // Refresh both this card and the energy read's caffeine signal.
       queryClient.invalidateQueries({ queryKey: ["caffeine-today-list"] })
       queryClient.invalidateQueries({ queryKey: ["caffeine-today"] })
+    },
+  })
+
+  // Correct a drink's logged time in place — timing drives the "still active"
+  // and late-caffeine sleep signals, so a wrong time matters here.
+  const updateTimeMutation = useMutation({
+    mutationFn: async ({ id, loggedAt }: { id: string; loggedAt: string }) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
+      const { error } = await supabase
+        .from("caffeine_logs")
+        .update({ logged_at: loggedAt })
+        .eq("id", id)
+      if (error) throw error
+    },
+    onMutate: ({ id }) => setPendingId(id),
+    onSettled: () => setPendingId(null),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["caffeine-today-list"] })
+      queryClient.invalidateQueries({ queryKey: ["caffeine-today"] })
+      setEditingTimeId(null)
     },
   })
 
@@ -181,9 +208,53 @@ export function CaffeineCard() {
                     <p className="truncate text-sm font-medium text-gray-900">
                       {r.source ?? "Caffeine"}
                     </p>
-                    <p className="text-xs text-gray-400">
-                      {formatHour(new Date(r.logged_at).getHours())}
-                    </p>
+                    {editingTimeId === r.id ? (
+                      <div className="mt-0.5 flex items-center gap-1.5 text-xs text-gray-400">
+                        <input
+                          type="time"
+                          value={timeDraft}
+                          onChange={(e) => setTimeDraft(e.target.value)}
+                          aria-label={`Logged time for ${r.source ?? "caffeine"}`}
+                          className="rounded border border-gray-200 px-1.5 py-0.5 text-xs text-gray-700 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                        />
+                        <button
+                          onClick={() =>
+                            timeDraft &&
+                            updateTimeMutation.mutate({
+                              id: r.id,
+                              loggedAt: withLocalTime(r.logged_at, timeDraft),
+                            })
+                          }
+                          disabled={pendingId === r.id || !timeDraft}
+                          className="font-medium text-purple-600 hover:underline disabled:opacity-40"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setEditingTimeId(null)}
+                          className="text-gray-400 hover:underline"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                        <span>
+                          {formatHour(new Date(r.logged_at).getHours())}
+                        </span>
+                        <button
+                          onClick={() => {
+                            setEditingTimeId(r.id)
+                            setTimeDraft(localTimeValue(r.logged_at))
+                          }}
+                          aria-label={`Edit logged time for ${r.source ?? "caffeine"}`}
+                          className="inline-flex items-center gap-0.5 text-purple-600 hover:underline"
+                        >
+                          <Pencil className="h-2.5 w-2.5" />
+                          Edit
+                        </button>
+                      </div>
+                    )}
                   </div>
                   <span className="shrink-0 text-sm font-semibold text-gray-900">
                     {r.mg} mg
