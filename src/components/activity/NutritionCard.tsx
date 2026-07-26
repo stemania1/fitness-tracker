@@ -20,6 +20,9 @@ import {
   GL_WALK_TIP,
 } from "@/lib/glycemic-load"
 import { localTimeValue, withLocalTime } from "@/lib/meal-time"
+import { DayNav } from "./DayNav"
+import { dayLabel, dayWindow } from "@/lib/day-nav"
+import { useSwipe } from "@/hooks/useSwipe"
 
 const supabase = createClient()
 
@@ -36,13 +39,6 @@ interface FoodLogRow {
   confidence: "low" | "medium" | "high" | null
   image_path: string | null
   logged_at: string
-}
-
-/** Local midnight ISO for the "today" query window. */
-function startOfTodayIso(): string {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  return d.toISOString()
 }
 
 const confidenceBadge: Record<string, string> = {
@@ -69,7 +65,11 @@ export function NutritionCard({
   caloriesBurnedToday,
   targets,
 }: NutritionCardProps = {}) {
-  const dayStart = useMemo(() => startOfTodayIso(), [])
+  // Swipe / arrows step through days: 0 = today, -1 = yesterday, … Meals only
+  // exist in the past, so this looks back — forwards stops at today.
+  const [offset, setOffset] = useState(0)
+  const isToday = offset === 0
+  const { startIso, endIso } = useMemo(() => dayWindow(offset), [offset])
   const queryClient = useQueryClient()
   const [pendingId, setPendingId] = useState<string | null>(null)
   // Two-tap delete: first tap arms the row's trash button, second deletes.
@@ -92,7 +92,9 @@ export function NutritionCard({
   }
 
   const { data: logs, isLoading } = useQuery({
-    queryKey: ["food-logs-today", dayStart],
+    // Prefix stays "food-logs-today" so existing invalidations (after logging
+    // or editing a meal) still refresh this card whatever day it's showing.
+    queryKey: ["food-logs-today", startIso],
     queryFn: async (): Promise<FoodLogRow[]> => {
       const {
         data: { user },
@@ -104,7 +106,8 @@ export function NutritionCard({
           "id, description, meal_type, calories, protein_g, carbs_g, fat_g, sugar_g, glycemic_load, confidence, image_path, logged_at"
         )
         .eq("user_id", user.id)
-        .gte("logged_at", dayStart)
+        .gte("logged_at", startIso)
+        .lt("logged_at", endIso)
         .order("logged_at", { ascending: true })
       if (error) throw error
       return data ?? []
@@ -221,26 +224,41 @@ export function NutritionCard({
     )
   }, [logs])
 
+  // Calories-out (Oura) is only meaningful for today, so the net line hides
+  // when browsing past days.
   const net =
-    caloriesBurnedToday != null
+    isToday && caloriesBurnedToday != null
       ? totals.calories - caloriesBurnedToday
       : null
+
+  const swipe = useSwipe(
+    () => !isToday && setOffset((o) => o + 1),
+    () => setOffset((o) => o - 1)
+  )
 
   return (
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <Utensils className="h-5 w-5 text-orange-500" />
-          Today&apos;s Nutrition
+          <DayNav
+            label={`${dayLabel(offset)}'s Nutrition`}
+            onPrev={() => setOffset((o) => o - 1)}
+            onNext={isToday ? undefined : () => setOffset((o) => o + 1)}
+          />
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent {...swipe}>
         {isLoading ? (
           <Skeleton className="h-28 w-full" />
         ) : (logs ?? []).length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-4 text-center">
             <Utensils className="h-6 w-6 text-gray-300" />
-            <p className="text-sm text-gray-500">No meals logged today.</p>
+            <p className="text-sm text-gray-500">
+              {isToday
+                ? "No meals logged today."
+                : `Nothing logged for ${dayLabel(offset)}.`}
+            </p>
             <p className="text-xs text-gray-400">
               Tap <span className="font-medium">Snap Meal</span> above to
               photograph a meal and log its calories.
