@@ -43,6 +43,15 @@ Profile → **Reminders → Push notifications**. This registers the service
 worker (`public/sw.js`), asks for permission, subscribes, and stores your
 browser's timezone.
 
+## Verifying delivery
+Once push is enabled, Profile → Reminders shows a **Send test notification**
+button. It hits `POST /api/push/test`, which pushes an immediate "it's
+working" notification to your own devices — bypassing the cron's gates (quiet
+hours, once-per-day, an actual reminder existing). That's the definitive
+end-to-end check that the VAPID keys, service worker, and delivery all work;
+a green `curl …/api/cron/reminders` only proves the job can run, not that a
+notification lands.
+
 ## iOS note
 Safari only delivers web-push to **installed** PWAs (iOS 16.4+). Add the app
 to your Home Screen and open it from that icon first, or the toggle won't be
