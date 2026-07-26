@@ -172,6 +172,14 @@ async function gatherContext(
     (m) => localDateOf(m.logged_at) === localDate
   ).length
 
+  // Creatine today (taken_on is already a local date).
+  const { data: creatine } = await db
+    .from("creatine_logs")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("taken_on", localDate)
+    .limit(1)
+
   return {
     hour,
     mealsLoggedToday,
@@ -179,5 +187,6 @@ async function gatherContext(
     daysSinceLastWorkout,
     energyCheckedInToday: (energy?.length ?? 0) > 0,
     daysSinceLastWeighIn,
+    creatineTakenToday: (creatine?.length ?? 0) > 0,
   }
 }

@@ -11,6 +11,7 @@ function allOverdue(): ReminderContext {
     daysSinceLastWorkout: 5,
     energyCheckedInToday: false,
     daysSinceLastWeighIn: 10,
+    creatineTakenToday: false,
   }
 }
 
@@ -23,6 +24,7 @@ function base(overrides: Partial<ReminderContext> = {}): ReminderContext {
     daysSinceLastWorkout: 0,
     energyCheckedInToday: true,
     daysSinceLastWeighIn: 1,
+    creatineTakenToday: true,
     ...overrides,
   }
 }
@@ -101,6 +103,23 @@ describe("computeReminders — weigh-in", () => {
   it("stays quiet within the week", () => {
     const r = computeReminders(base({ daysSinceLastWeighIn: 3 }))
     expect(r.some((x) => x.type === "log_weight")).toBe(false)
+  })
+})
+
+describe("computeReminders — daily creatine", () => {
+  it("nudges in the evening when creatine isn't logged", () => {
+    const r = computeReminders(base({ hour: 19, creatineTakenToday: false }))
+    expect(r.some((x) => x.type === "log_creatine")).toBe(true)
+  })
+
+  it("stays quiet earlier in the day", () => {
+    const r = computeReminders(base({ hour: 11, creatineTakenToday: false }))
+    expect(r.some((x) => x.type === "log_creatine")).toBe(false)
+  })
+
+  it("stays quiet once creatine is logged", () => {
+    const r = computeReminders(base({ hour: 21, creatineTakenToday: true }))
+    expect(r.some((x) => x.type === "log_creatine")).toBe(false)
   })
 })
 
