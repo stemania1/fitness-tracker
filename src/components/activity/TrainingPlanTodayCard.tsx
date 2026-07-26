@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import Link from "next/link"
 import {
   Card,
@@ -11,9 +11,12 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { CalendarCheck, ChevronRight, Moon, Timer } from "lucide-react"
 import { PLAN_WEEKS } from "@/data/training-plan"
-import { todayPlan } from "@/lib/training-plan"
+import { todayPlan, planWeekNumber } from "@/lib/training-plan"
 import { readinessGate, type GateAction } from "@/lib/recovery"
 import type { PlanSuggestion } from "@/lib/plan-adaptation"
+import { DayNav } from "./DayNav"
+import { dayLabel, offsetDate } from "@/lib/day-nav"
+import { useSwipe } from "@/hooks/useSwipe"
 
 const typeStyles: Record<string, string> = {
   cardio: "bg-cyan-100 text-cyan-700",
@@ -43,10 +46,22 @@ export function TrainingPlanTodayCard({
   readinessScore,
   suggestion,
 }: TrainingPlanTodayCardProps = {}) {
-  const plan = useMemo(() => todayPlan(new Date()), [])
+  // Swipe / arrows step through days: 0 = today, +1 = tomorrow, … Backwards
+  // stops at today (this card looks ahead); forwards stops at the plan's end.
+  const [offset, setOffset] = useState(0)
+  const isToday = offset === 0
+
+  const plan = useMemo(() => todayPlan(offsetDate(offset)), [offset])
+  // Readiness gate and missed-session catch-up are about *today* specifically.
   const gate = useMemo(
-    () => readinessGate(plan.session, readinessScore),
-    [plan.session, readinessScore]
+    () => (isToday ? readinessGate(plan.session, readinessScore) : { action: "none" as const, headline: "", detail: "" }),
+    [isToday, plan.session, readinessScore]
+  )
+
+  const nextInPlan = planWeekNumber(offsetDate(offset + 1)) != null
+  const swipe = useSwipe(
+    () => nextInPlan && setOffset((o) => o + 1),
+    () => !isToday && setOffset((o) => o - 1)
   )
 
   return (
@@ -55,7 +70,11 @@ export function TrainingPlanTodayCard({
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-base">
             <CalendarCheck className="h-5 w-5 text-purple-500" />
-            Today&apos;s Plan
+            <DayNav
+              label={`${dayLabel(offset)}'s Plan`}
+              onPrev={isToday ? undefined : () => setOffset((o) => o - 1)}
+              onNext={nextInPlan ? () => setOffset((o) => o + 1) : undefined}
+            />
           </CardTitle>
           {plan.week != null ? (
             <Badge className="bg-purple-100 text-purple-700">
@@ -67,7 +86,7 @@ export function TrainingPlanTodayCard({
           )}
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3" {...swipe}>
         <div className="flex items-start gap-3">
           <div
             className={`mt-0.5 rounded-lg p-2 ${typeStyles[plan.session.type]}`}
@@ -96,8 +115,8 @@ export function TrainingPlanTodayCard({
         </div>
 
         {/* Missed-work catch-up, suggestion-only: the app proposes, the
-            user decides. */}
-        {suggestion && (
+            user decides. Only relevant to today. */}
+        {isToday && suggestion && (
           <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
             <p className="font-semibold">{suggestion.headline}</p>
             <p className="mt-0.5">{suggestion.detail}</p>

@@ -65,6 +65,11 @@ still open.
       inline time-edit on the caffeine card's drink list (`meal-time.ts`
       helpers are shared) — timing drives the "still active" + late-caffeine
       sleep signals.
+- [x] Day navigation on the dashboard's Today's Plan and Nutrition cards:
+      swipe left/right (or ‹ › arrows) to step through days. The plan card
+      looks ahead (today → future, stopping at the plan's end); the meal card
+      looks back (today → past). Shared helpers: `day-nav.ts` (offset →
+      label/window), `swipe.ts` + `useSwipe` (gesture), `DayNav` (arrows).
 - [x] "About this exercise" panel in the logger: a plain-language description
       (`src/data/exercise-descriptions.ts`), a generated front/back muscle-map
       diagram driven by the exercise's muscle groups (`MuscleMap`), and the

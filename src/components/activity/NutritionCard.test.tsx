@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   getUser: vi.fn(),
   insert: vi.fn(),
   deleteEq: vi.fn(),
+  updateEq: vi.fn(),
   removePhoto: vi.fn(),
   rows: [] as unknown[],
 }))
@@ -23,15 +24,18 @@ vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({
     auth: { getUser: mocks.getUser },
     from: (_t: string) => ({
-      // select().eq().gte().order() → today's rows
+      // select().eq().gte().lt().order() → the day's rows
       select: () => ({
         eq: () => ({
           gte: () => ({
-            order: () => Promise.resolve({ data: mocks.rows, error: null }),
+            lt: () => ({
+              order: () => Promise.resolve({ data: mocks.rows, error: null }),
+            }),
           }),
         }),
       }),
       insert: mocks.insert,
+      update: () => ({ eq: mocks.updateEq }),
       delete: () => ({ eq: mocks.deleteEq }),
     }),
     storage: { from: (_b: string) => ({ remove: mocks.removePhoto }) },
