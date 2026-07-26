@@ -59,6 +59,9 @@ still open.
       of an empty lbs input
 - [x] Hold timer (count-up stopwatch) for timed holds (e.g. plank) — records
       the elapsed seconds into the set instead of manual entry
+- [x] Edit a logged meal's time in place: the expanded meal card shows
+      "Logged at …" with an inline Edit → time input (keeps the date, so the
+      meal stays on today's list). Meal timing feeds the energy read.
 - [x] "About this exercise" panel in the logger: a plain-language description
       (`src/data/exercise-descriptions.ts`), a generated front/back muscle-map
       diagram driven by the exercise's muscle groups (`MuscleMap`), and the
