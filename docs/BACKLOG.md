@@ -165,6 +165,10 @@ still open.
       docs; pure + tested). The dashboard fires the sync once a day. Sleep
       score, sleep hours, and readiness now feed the energy-driver
       correlations; opens the door to long-term sleep/readiness trends.
+- [x] Sleep & recovery trend charts (`oura-trends.ts` + `SleepTrendCard`):
+      daily sleep-hours / sleep-score / readiness lines over 8 weeks from the
+      stored `oura_daily` history, with a 7-day-vs-prior-7 delta and a metric
+      toggle.
 - [ ] Sharpen caffeine: personal half-life / sensitivity from the check-in
       history; tie the late-caffeine cutoff to the user's actual bedtime
       instead of the fixed 2pm default.

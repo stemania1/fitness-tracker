@@ -70,6 +70,7 @@ import { RemInsightsCard } from "@/components/activity/RemInsightsCard"
 import { RecoveryWatchCard } from "@/components/activity/RecoveryWatchCard"
 import { EnergyCheckInCard } from "@/components/activity/EnergyCheckInCard"
 import { EnergyDriversCard } from "@/components/activity/EnergyDriversCard"
+import { SleepTrendCard } from "@/components/activity/SleepTrendCard"
 import { deriveFuelState } from "@/lib/energy"
 import { caffeineStatus, lateCaffeineFlag } from "@/lib/caffeine"
 import { computeReminders } from "@/lib/reminders"
@@ -856,6 +857,11 @@ export default function DashboardPage() {
       {/* What actually moves your energy: correlations from your logs */}
       <ErrorBoundary>
         <EnergyDriversCard />
+      </ErrorBoundary>
+
+      {/* Long-term sleep / readiness trends from stored Oura history */}
+      <ErrorBoundary>
+        <SleepTrendCard />
       </ErrorBoundary>
 
       {/* Photo-logged meals: calories in, macros, net vs Oura calories out */}
