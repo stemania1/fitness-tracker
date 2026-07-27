@@ -69,6 +69,7 @@ import { todaysWorkout } from "@/lib/todays-workout"
 import { RemInsightsCard } from "@/components/activity/RemInsightsCard"
 import { RecoveryWatchCard } from "@/components/activity/RecoveryWatchCard"
 import { EnergyCheckInCard } from "@/components/activity/EnergyCheckInCard"
+import { EnergyDriversCard } from "@/components/activity/EnergyDriversCard"
 import { deriveFuelState } from "@/lib/energy"
 import { caffeineStatus, lateCaffeineFlag } from "@/lib/caffeine"
 import { computeReminders } from "@/lib/reminders"
@@ -831,6 +832,11 @@ export default function DashboardPage() {
           caffeine={caffeineLevel}
           caffeineWarning={caffeineWarning}
         />
+      </ErrorBoundary>
+
+      {/* What actually moves your energy: correlations from your logs */}
+      <ErrorBoundary>
+        <EnergyDriversCard />
       </ErrorBoundary>
 
       {/* Photo-logged meals: calories in, macros, net vs Oura calories out */}
