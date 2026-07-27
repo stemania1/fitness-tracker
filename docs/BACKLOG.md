@@ -102,8 +102,11 @@ still open.
       saves it as a template to start/log. Built for a time-scarce schedule.
 - [ ] Schedule-aware weekly plan: propose realistic workout windows around a
       fixed early wake / commute (short weekday + longer weekend).
-- [ ] Sleep-anchored bedtime target: from the fixed wake time, recommend a
-      wind-down + last-safe-caffeine time.
+- [x] Sleep-anchored bedtime target (`bedtime.ts` + `BedtimeCard`): from the
+      profile's usual wake time + sleep goal, works backward to a target
+      bedtime, a wind-down time (30 min before bed), and a last-safe-caffeine
+      cutoff (8h before bed). Profile page gained wake-time + sleep-goal
+      fields (migration `00018`); dashboard card prompts to set it if unset.
 
 ## Workout builder
 - [x] Add Exercise button in template edit mode
