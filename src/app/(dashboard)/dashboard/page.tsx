@@ -72,6 +72,7 @@ import { EnergyCheckInCard } from "@/components/activity/EnergyCheckInCard"
 import { EnergyDriversCard } from "@/components/activity/EnergyDriversCard"
 import { SleepTrendCard } from "@/components/activity/SleepTrendCard"
 import { WeeklyDigestCard } from "@/components/activity/WeeklyDigestCard"
+import { ExpressWorkoutCard } from "@/components/activity/ExpressWorkoutCard"
 import { deriveFuelState } from "@/lib/energy"
 import { caffeineStatus, lateCaffeineFlag } from "@/lib/caffeine"
 import { computeReminders } from "@/lib/reminders"
@@ -816,6 +817,11 @@ export default function DashboardPage() {
       {/* Weekly coach digest: all three goals + this week's focus */}
       <ErrorBoundary>
         <WeeklyDigestCard />
+      </ErrorBoundary>
+
+      {/* Time-boxed "I have N minutes" workout generator */}
+      <ErrorBoundary>
+        <ExpressWorkoutCard />
       </ErrorBoundary>
 
       {/* Quick Actions */}

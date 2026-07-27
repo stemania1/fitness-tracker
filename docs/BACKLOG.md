@@ -94,6 +94,17 @@ still open.
       recommended rest between sets — so an unfamiliar machine name isn't a
       mystery mid-workout
 
+## Time-efficient training
+- [x] Express (time-boxed) workout: "I have N minutes" (15/20/30) → a
+      full-body compound circuit sized to fit (`expressPlanShape` in
+      `workout-generator.ts`: fewer/lighter sets and no cardio finisher for
+      short windows). Dashboard `ExpressWorkoutCard` generates, previews, and
+      saves it as a template to start/log. Built for a time-scarce schedule.
+- [ ] Schedule-aware weekly plan: propose realistic workout windows around a
+      fixed early wake / commute (short weekday + longer weekend).
+- [ ] Sleep-anchored bedtime target: from the fixed wake time, recommend a
+      wind-down + last-safe-caffeine time.
+
 ## Workout builder
 - [x] Add Exercise button in template edit mode
 - [x] Reorder template exercises (up / down)

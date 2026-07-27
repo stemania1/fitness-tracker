@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
-import { generateWorkout, type GenerateWorkoutInput } from "./workout-generator"
+import {
+  generateWorkout,
+  expressPlanShape,
+  type GenerateWorkoutInput,
+} from "./workout-generator"
 import { exercises } from "@/data/exercises"
 
 // Pin Math.random so shuffles + picks are deterministic across runs.
@@ -40,7 +44,26 @@ describe("generateWorkout — structural invariants", () => {
     )
     expect(out.length).toBe(1)
     expect(out[0].splitType).toBe("express")
-    expect(out[0].estimatedMins).toBe(30)
+    // Default express targets ~30 min.
+    expect(out[0].estimatedMins).toBeGreaterThan(20)
+    expect(out[0].estimatedMins).toBeLessThanOrEqual(32)
+  })
+
+  it("sizes the express circuit to the time budget", () => {
+    const short = generateWorkout(
+      baseInput({ splitType: "express", workoutDays: 1, targetMinutes: 15 })
+    )[0]
+    const long = generateWorkout(
+      baseInput({ splitType: "express", workoutDays: 1, targetMinutes: 30 })
+    )[0]
+    // A 15-min budget uses lighter 2-set work and no cardio finisher.
+    expect(short.exercises.filter((e) => e.restSeconds > 0).every((e) => e.sets === 2)).toBe(true)
+    expect(short.exercises.some((e) => e.restSeconds === 0)).toBe(false)
+    expect(short.name).toMatch(/15-Minute/)
+    // A 30-min budget uses 3-set strength work plus a cardio finisher.
+    expect(long.exercises.filter((e) => e.restSeconds > 0).every((e) => e.sets === 3)).toBe(true)
+    expect(long.exercises.some((e) => e.restSeconds === 0)).toBe(true)
+    expect(long.estimatedMins).toBeGreaterThan(short.estimatedMins)
   })
 
   it("uses full-body split for <=3 days", () => {
@@ -204,6 +227,43 @@ describe("generateWorkout — cardio + calisthenics composition", () => {
       // ±5 min slack: cardio is +20 if present.
       const expectedLower = Math.round(strengthSets * 2.5)
       expect(day.estimatedMins).toBeGreaterThanOrEqual(expectedLower)
+    }
+  })
+})
+
+describe("expressPlanShape", () => {
+  it("uses lighter 2-set work and no cardio for short windows", () => {
+    const s = expressPlanShape(15)
+    expect(s.sets).toBe(2)
+    expect(s.includeCardio).toBe(false)
+    expect(s.strengthCount).toBeGreaterThanOrEqual(2)
+    expect(s.estimatedMins).toBeLessThanOrEqual(18)
+  })
+
+  it("uses 3 sets and a cardio finisher for longer windows", () => {
+    const s = expressPlanShape(30)
+    expect(s.sets).toBe(3)
+    expect(s.includeCardio).toBe(true)
+  })
+
+  it("caps strength work at the 5 movement patterns", () => {
+    expect(expressPlanShape(45).strengthCount).toBeLessThanOrEqual(5)
+  })
+
+  it("gives more estimated content for a bigger budget", () => {
+    expect(expressPlanShape(30).estimatedMins).toBeGreaterThan(
+      expressPlanShape(15).estimatedMins
+    )
+  })
+
+  it("never drops below a 2-exercise floor", () => {
+    expect(expressPlanShape(10).strengthCount).toBeGreaterThanOrEqual(2)
+  })
+
+  it("estimated time is close to the budget in the express range", () => {
+    for (const m of [15, 20, 25, 30]) {
+      const s = expressPlanShape(m)
+      expect(Math.abs(s.estimatedMins - m)).toBeLessThanOrEqual(8)
     }
   })
 })
