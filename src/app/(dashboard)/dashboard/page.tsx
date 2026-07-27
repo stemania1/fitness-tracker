@@ -79,6 +79,7 @@ import { QuickLogCaffeine } from "@/components/activity/QuickLogCaffeine"
 import { NutritionCard } from "@/components/activity/NutritionCard"
 import { CaffeineCard } from "@/components/activity/CaffeineCard"
 import { CreatineCard } from "@/components/activity/CreatineCard"
+import { EnergyBalanceCard } from "@/components/activity/EnergyBalanceCard"
 import { RingBatteryIndicator } from "@/components/activity/RingBatteryIndicator"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 
@@ -838,6 +839,11 @@ export default function DashboardPage() {
           caloriesBurnedToday={ouraSummary?.activity?.total_calories}
           targets={nutritionTargets}
         />
+      </ErrorBoundary>
+
+      {/* Adaptive TDEE: learned maintenance + recommended target to hit goal */}
+      <ErrorBoundary>
+        <EnergyBalanceCard />
       </ErrorBoundary>
 
       {/* Today's caffeine: total vs guideline, still-active, drinks */}

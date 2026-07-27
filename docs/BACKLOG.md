@@ -30,6 +30,13 @@ still open.
 - [x] Deload week suggestion when 4 consecutive weeks of 5%+ volume climb
 
 ## Goal tracking
+- [x] Adaptive TDEE / energy-balance engine (`adaptive-tdee.ts`): learns
+      maintenance calories empirically from the weight trend vs logged intake
+      (TDEE = avg intake − weight-change × 3500), then recommends a daily
+      calorie target to reach the weight goal at a safe rate. Dashboard
+      `EnergyBalanceCard` shows maintenance, trend, target, and a confidence
+      level, with a "still learning" state until ~2–3 weeks of data. No new
+      tables — uses weigh-ins + food logs already collected.
 - [x] Weight goal: target + projected timeline based on actual rate
 - [x] Milestone celebrations (first workout, 10 workouts, first PR, four-week streak, goal achieved)
 - [x] Strength goals: target 1RM per exercise, progress chart. Current
