@@ -50,6 +50,9 @@ export async function POST() {
     title: "CraigFitness",
     body: "Test notification — push is working! 🎉",
     url: "/dashboard",
+    // Distinct tag per test so a repeat tap always shows a fresh banner
+    // instead of silently replacing the previous one.
+    tag: `craigfitness-test-${Date.now()}`,
   })
 
   let sent = 0
