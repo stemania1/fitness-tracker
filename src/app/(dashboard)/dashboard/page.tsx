@@ -75,6 +75,7 @@ import { BedtimeCard } from "@/components/activity/BedtimeCard"
 import { WeeklyDigestCard } from "@/components/activity/WeeklyDigestCard"
 import { ExpressWorkoutCard } from "@/components/activity/ExpressWorkoutCard"
 import { WeeklyScheduleCard } from "@/components/activity/WeeklyScheduleCard"
+import { MuscleBalanceCard } from "@/components/activity/MuscleBalanceCard"
 import { deriveFuelState } from "@/lib/energy"
 import { caffeineStatus, lateCaffeineFlag } from "@/lib/caffeine"
 import { computeReminders } from "@/lib/reminders"
@@ -829,6 +830,11 @@ export default function DashboardPage() {
       {/* A realistic week built from actual available time */}
       <ErrorBoundary>
         <WeeklyScheduleCard />
+      </ErrorBoundary>
+
+      {/* Volume share per muscle group + push:pull / upper:lower balance */}
+      <ErrorBoundary>
+        <MuscleBalanceCard />
       </ErrorBoundary>
 
       {/* Quick Actions */}

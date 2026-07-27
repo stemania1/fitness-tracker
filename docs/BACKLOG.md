@@ -29,6 +29,13 @@ still open.
 - [x] Volume trend chart (weekly total lifted, last 8 weeks)
 - [x] Deload week suggestion when 4 consecutive weeks of 5%+ volume climb
 
+## Training quality
+- [x] Muscle-group balance monitor (`muscle-balance.ts` +
+      `MuscleBalanceCard`): volume share per muscle group over the last 4
+      weeks (compound sets split evenly so shares sum to 100), the push:pull
+      and upper:lower ratios with a skew verdict, and under-trained groups
+      called out. Quiet until there's enough logged work.
+
 ## Goal tracking
 - [x] Weekly coach digest (`weekly-digest.ts` + `WeeklyDigestCard`): one
       readout across all three goals — workouts this week vs last (fitness),
