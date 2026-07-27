@@ -454,3 +454,109 @@ export function formatSleepDuration(seconds: number): string {
   const mins = Math.round((seconds % 3600) / 60)
   return `${hours}h ${mins}m`
 }
+
+/**
+ * One calendar day of stored Oura history — the durable slice we persist so
+ * sleep/readiness can join the energy correlations and long-term trends
+ * (the rest of the summary is fetched live and not stored). `day` is the
+ * Oura wake-up day, which lines up with that day's energy check-ins.
+ */
+export interface OuraDailyRecord {
+  day: string
+  sleepScore: number | null
+  /** Total sleep, minutes. */
+  sleepMinutes: number | null
+  readinessScore: number | null
+  averageHrv: number | null
+}
+
+/**
+ * Merge the daily-sleep, sleep-period, and daily-readiness documents into one
+ * record per day. Pure so it's unit-tested. Drops days with no useful metric.
+ */
+export function mergeOuraDaily(
+  sleeps: OuraDailySleep[],
+  periods: OuraSleepPeriod[],
+  readiness: OuraDailyReadiness[]
+): OuraDailyRecord[] {
+  const byDay = new Map<string, OuraDailyRecord>()
+  const ensure = (day: string): OuraDailyRecord => {
+    let r = byDay.get(day)
+    if (!r) {
+      r = {
+        day,
+        sleepScore: null,
+        sleepMinutes: null,
+        readinessScore: null,
+        averageHrv: null,
+      }
+      byDay.set(day, r)
+    }
+    return r
+  }
+
+  for (const s of sleeps) {
+    if (s.day) ensure(s.day).sleepScore = s.score
+  }
+
+  // The main sleep of each day (longest, preferring long_sleep/sleep types).
+  const bestPeriod = new Map<string, OuraSleepPeriod>()
+  for (const p of periods) {
+    if (!p.day) continue
+    if (p.type !== "long_sleep" && p.type !== "sleep") continue
+    const cur = bestPeriod.get(p.day)
+    if (
+      !cur ||
+      (p.total_sleep_duration ?? 0) > (cur.total_sleep_duration ?? 0)
+    ) {
+      bestPeriod.set(p.day, p)
+    }
+  }
+  for (const [day, p] of bestPeriod) {
+    const r = ensure(day)
+    r.sleepMinutes =
+      p.total_sleep_duration != null
+        ? Math.round(p.total_sleep_duration / 60)
+        : null
+    r.averageHrv = p.average_hrv
+  }
+
+  for (const rd of readiness) {
+    if (rd.day) ensure(rd.day).readinessScore = rd.score
+  }
+
+  return [...byDay.values()]
+    .filter(
+      (r) =>
+        r.sleepScore != null ||
+        r.sleepMinutes != null ||
+        r.readinessScore != null
+    )
+    .sort((a, b) => a.day.localeCompare(b.day))
+}
+
+/**
+ * Fetch a date range of daily sleep + readiness history (for backfilling the
+ * stored `oura_daily` table).
+ */
+export async function getOuraDailyHistory(
+  accessToken: string,
+  startDate: string,
+  endDate: string
+): Promise<OuraDailyRecord[]> {
+  const [sleeps, periods, readiness] = await Promise.all([
+    ouraFetchAll<OuraDailySleep>("daily_sleep", accessToken, {
+      start_date: startDate,
+      end_date: endDate,
+    }),
+    ouraFetchAll<OuraSleepPeriod>("sleep", accessToken, {
+      start_date: startDate,
+      end_date: endDate,
+    }),
+    ouraFetchAll<OuraDailyReadiness>("daily_readiness", accessToken, {
+      start_date: startDate,
+      end_date: endDate,
+    }),
+  ])
+  return mergeOuraDaily(sleeps, periods, readiness)
+}
