@@ -100,8 +100,12 @@ still open.
       `workout-generator.ts`: fewer/lighter sets and no cardio finisher for
       short windows). Dashboard `ExpressWorkoutCard` generates, previews, and
       saves it as a template to start/log. Built for a time-scarce schedule.
-- [ ] Schedule-aware weekly plan: propose realistic workout windows around a
-      fixed early wake / commute (short weekday + longer weekend).
+- [x] Schedule-aware weekly plan (`weekly-schedule.ts` + `WeeklyScheduleCard`):
+      lays out a realistic week from the time actually available — longer
+      sessions on weekend days, short ones spread across weekdays (Tue/Thu
+      first, so there's recovery between), with a post-wake AM slot suggested
+      when a wake time is set. Weekday/weekend minute budgets live on the
+      profile (migration `00019`). Complements the fixed 12-week plan.
 - [x] Sleep-anchored bedtime target (`bedtime.ts` + `BedtimeCard`): from the
       profile's usual wake time + sleep goal, works backward to a target
       bedtime, a wind-down time (30 min before bed), and a last-safe-caffeine
