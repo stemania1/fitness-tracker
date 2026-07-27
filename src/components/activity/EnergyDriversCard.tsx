@@ -28,6 +28,9 @@ function localDate(iso: string): string {
 }
 
 const SPECS: FactorSpec[] = [
+  { key: "sleepScore", kind: "numeric", whenHigh: "after better-scoring sleep" },
+  { key: "sleepHours", kind: "numeric", whenHigh: "after more sleep" },
+  { key: "readiness", kind: "numeric", whenHigh: "on higher-readiness days" },
   { key: "trained", kind: "boolean", whenHigh: "on days you train" },
   { key: "trainedYesterday", kind: "boolean", whenHigh: "the day after a workout" },
   { key: "creatine", kind: "boolean", whenHigh: "on days you take creatine" },
@@ -52,7 +55,7 @@ export function EnergyDriversCard() {
       const sinceIso = new Date(Date.now() - WINDOW_DAYS * 86_400_000).toISOString()
       const sinceDate = localDate(sinceIso)
 
-      const [energyRes, foodRes, caffRes, workoutRes, creatineRes] =
+      const [energyRes, foodRes, caffRes, workoutRes, creatineRes, ouraRes] =
         await Promise.all([
           supabase
             .from("energy_checkins")
@@ -79,6 +82,11 @@ export function EnergyDriversCard() {
             .select("taken_on")
             .eq("user_id", user.id)
             .gte("taken_on", sinceDate),
+          supabase
+            .from("oura_daily")
+            .select("day, sleep_score, sleep_minutes, readiness_score")
+            .eq("user_id", user.id)
+            .gte("day", sinceDate),
         ])
 
       // Average energy per day.
@@ -113,12 +121,26 @@ export function EnergyDriversCard() {
         (creatineRes.data ?? []).map((c) => c.taken_on as string)
       )
 
+      const sleepScoreByDay = new Map<string, number>()
+      const sleepHoursByDay = new Map<string, number>()
+      const readinessByDay = new Map<string, number>()
+      for (const o of ouraRes.data ?? []) {
+        if (o.sleep_score != null) sleepScoreByDay.set(o.day, o.sleep_score)
+        if (o.sleep_minutes != null)
+          sleepHoursByDay.set(o.day, o.sleep_minutes / 60)
+        if (o.readiness_score != null)
+          readinessByDay.set(o.day, o.readiness_score)
+      }
+
       const days: DayObservation[] = []
       for (const [date, agg] of energyByDay) {
         const foodLogged = calsByDay.has(date)
         days.push({
           energy: agg.sum / agg.n,
           factors: {
+            sleepScore: sleepScoreByDay.get(date) ?? null,
+            sleepHours: sleepHoursByDay.get(date) ?? null,
+            readiness: readinessByDay.get(date) ?? null,
             trained: trainedDays.has(date),
             trainedYesterday: trainedDays.has(shiftDate(date, -1)),
             creatine: creatineDays.has(date),
@@ -178,7 +200,7 @@ export function EnergyDriversCard() {
             ))}
             <li className="pt-1 text-[11px] text-gray-400">
               Patterns from your last {WINDOW_DAYS} days — associations, not
-              proof. Sleep isn&apos;t in the mix yet.
+              proof.
             </li>
           </ul>
         )}

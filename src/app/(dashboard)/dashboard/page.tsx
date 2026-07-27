@@ -1,8 +1,8 @@
 "use client"
 
-import { useMemo, useCallback } from "react"
+import { useMemo, useCallback, useEffect } from "react"
 import Link from "next/link"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
 import {
   Card,
@@ -667,6 +667,25 @@ export default function DashboardPage() {
 
   // --- Reminders: small extra signals the other cards don't already fetch ---
   const todayStr = new Date().toLocaleDateString("en-CA")
+  const queryClient = useQueryClient()
+
+  // Backfill stored Oura daily history once a day (idempotent upsert on the
+  // server; no-op when Oura isn't connected). Powers the energy correlations
+  // and long-term sleep/readiness trends.
+  const { data: ouraSync } = useQuery({
+    queryKey: ["oura-sync", todayStr],
+    queryFn: async () => {
+      const res = await fetch("/api/oura/sync", { method: "POST" })
+      return res.ok ? await res.json() : { synced: 0 }
+    },
+    staleTime: Infinity,
+    retry: false,
+  })
+  useEffect(() => {
+    if (ouraSync?.synced > 0) {
+      queryClient.invalidateQueries({ queryKey: ["energy-drivers"] })
+    }
+  }, [ouraSync, queryClient])
 
   const { data: energyCheckedInToday } = useQuery({
     queryKey: ["energy-checkin-exists", todayStr],

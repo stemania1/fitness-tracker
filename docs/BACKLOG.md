@@ -159,8 +159,12 @@ still open.
       language ("energy runs ~15% higher on days you train"). Dashboard
       `EnergyDriversCard`, with a learning state until ~2 weeks of check-ins.
       Sleep not included yet (Oura history isn't stored — see below).
-- [ ] Store Oura daily history (sleep/readiness) so it can join the energy
-      correlations and longer-term trends, instead of only the live fetch.
+- [x] Store Oura daily history (sleep/readiness): `oura_daily` table
+      (migration `00017`), backfilled ~90 days via `POST /api/oura/sync`
+      (`mergeOuraDaily` merges the daily-sleep, sleep-period, and readiness
+      docs; pure + tested). The dashboard fires the sync once a day. Sleep
+      score, sleep hours, and readiness now feed the energy-driver
+      correlations; opens the door to long-term sleep/readiness trends.
 - [ ] Sharpen caffeine: personal half-life / sensitivity from the check-in
       history; tie the late-caffeine cutoff to the user's actual bedtime
       instead of the fixed 2pm default.

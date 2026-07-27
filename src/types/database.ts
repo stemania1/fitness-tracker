@@ -606,6 +606,42 @@ export interface Database {
         }
         Relationships: []
       }
+      oura_daily: {
+        Row: {
+          id: string
+          user_id: string
+          day: string
+          sleep_score: number | null
+          sleep_minutes: number | null
+          readiness_score: number | null
+          average_hrv: number | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          day: string
+          sleep_score?: number | null
+          sleep_minutes?: number | null
+          readiness_score?: number | null
+          average_hrv?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          day?: string
+          sleep_score?: number | null
+          sleep_minutes?: number | null
+          readiness_score?: number | null
+          average_hrv?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
