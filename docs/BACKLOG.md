@@ -152,6 +152,15 @@ still open.
 - [x] Daily caffeine tracker card on the dashboard: total vs. the 400 mg
       guideline, mg still active now, the late-caffeine warning, and the day's
       drinks (with delete).
+- [x] Personal energy-driver correlations (`energy-correlations.ts`): mines
+      the energy check-ins against what you log — training (same day + day
+      after), caffeine, high-GL meals, total calories, creatine — via a robust
+      high-vs-low group comparison, and surfaces the strongest signals in plain
+      language ("energy runs ~15% higher on days you train"). Dashboard
+      `EnergyDriversCard`, with a learning state until ~2 weeks of check-ins.
+      Sleep not included yet (Oura history isn't stored — see below).
+- [ ] Store Oura daily history (sleep/readiness) so it can join the energy
+      correlations and longer-term trends, instead of only the live fetch.
 - [ ] Sharpen caffeine: personal half-life / sensitivity from the check-in
       history; tie the late-caffeine cutoff to the user's actual bedtime
       instead of the fixed 2pm default.
