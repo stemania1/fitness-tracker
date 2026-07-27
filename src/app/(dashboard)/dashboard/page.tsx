@@ -71,6 +71,7 @@ import { RecoveryWatchCard } from "@/components/activity/RecoveryWatchCard"
 import { EnergyCheckInCard } from "@/components/activity/EnergyCheckInCard"
 import { EnergyDriversCard } from "@/components/activity/EnergyDriversCard"
 import { SleepTrendCard } from "@/components/activity/SleepTrendCard"
+import { WeeklyDigestCard } from "@/components/activity/WeeklyDigestCard"
 import { deriveFuelState } from "@/lib/energy"
 import { caffeineStatus, lateCaffeineFlag } from "@/lib/caffeine"
 import { computeReminders } from "@/lib/reminders"
@@ -810,6 +811,11 @@ export default function DashboardPage() {
       {/* Smart nudges for anything not yet logged today */}
       <ErrorBoundary>
         <RemindersCard reminders={reminders} startWorkoutHref={startWorkoutHref} />
+      </ErrorBoundary>
+
+      {/* Weekly coach digest: all three goals + this week's focus */}
+      <ErrorBoundary>
+        <WeeklyDigestCard />
       </ErrorBoundary>
 
       {/* Quick Actions */}
