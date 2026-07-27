@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { shiftDate, currentStreak } from "./creatine-streak"
+import { shiftDate, currentStreak, creatineProgress } from "./creatine-streak"
 
 describe("shiftDate", () => {
   it("moves forward and back across month boundaries", () => {
@@ -40,5 +40,53 @@ describe("currentStreak", () => {
 
   it("is 0 with no history", () => {
     expect(currentStreak([], today)).toBe(0)
+  })
+})
+
+describe("creatineProgress", () => {
+  it("reports partial progress toward a 10 g target", () => {
+    const p = creatineProgress(5, 10)
+    expect(p.totalG).toBe(5)
+    expect(p.targetG).toBe(10)
+    expect(p.pct).toBe(50)
+    expect(p.met).toBe(false)
+    expect(p.remainingG).toBe(5)
+  })
+
+  it("marks the target met and stops counting remaining", () => {
+    const p = creatineProgress(10, 10)
+    expect(p.met).toBe(true)
+    expect(p.pct).toBe(100)
+    expect(p.remainingG).toBe(0)
+  })
+
+  it("caps percent at 100 when over target", () => {
+    const p = creatineProgress(15, 10)
+    expect(p.pct).toBe(100)
+    expect(p.met).toBe(true)
+    expect(p.remainingG).toBe(0)
+    // The real total is still reported.
+    expect(p.totalG).toBe(15)
+  })
+
+  it("accumulates split doses (2.5 + 5 = 7.5 of 10)", () => {
+    const p = creatineProgress(2.5 + 5, 10)
+    expect(p.totalG).toBe(7.5)
+    expect(p.remainingG).toBe(2.5)
+    expect(p.met).toBe(false)
+  })
+
+  it("defaults the target to 5 g and guards non-positive targets", () => {
+    expect(creatineProgress(5).met).toBe(true)
+    expect(creatineProgress(5, 0).targetG).toBe(5)
+    expect(creatineProgress(5, -2).targetG).toBe(5)
+  })
+
+  it("treats nothing logged as zero progress", () => {
+    const p = creatineProgress(0, 10)
+    expect(p.totalG).toBe(0)
+    expect(p.pct).toBe(0)
+    expect(p.met).toBe(false)
+    expect(p.remainingG).toBe(10)
   })
 })

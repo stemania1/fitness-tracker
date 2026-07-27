@@ -79,10 +79,14 @@ still open.
       helpers are shared) — timing drives the "still active" + late-caffeine
       sleep signals.
 - [x] Daily creatine tracker: dashboard card (by the caffeine card) with a
-      one-tap "Mark taken", a consecutive-day streak (`creatine-streak.ts`),
-      and dose carry-forward. Backed by a `creatine_logs` table (migration
-      `00016`, applied manually). An evening in-app + push reminder nudges if
-      it's not logged (new `log_creatine` reminder category, on by default).
+      consecutive-day streak (`creatine-streak.ts`). Backed by a
+      `creatine_logs` table (migration `00016`, applied manually). An evening
+      in-app + push reminder nudges if it's not logged (new `log_creatine`
+      reminder category, on by default).
+- [x] Multi-dose creatine + configurable target: doses accumulate across the
+      day (+2.5/+5/+10 g) toward a per-user daily target on the profile
+      (migration `00020`, default 5 g — some protocols use ~10 g split up),
+      with a progress bar and "target hit" state (`creatineProgress`).
 - [x] Day navigation on the dashboard's Today's Plan and Nutrition cards:
       swipe left/right (or ‹ › arrows) to step through days. The plan card
       looks ahead (today → future, stopping at the plan's end); the meal card
