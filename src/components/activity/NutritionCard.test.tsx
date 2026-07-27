@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   insert: vi.fn(),
   deleteEq: vi.fn(),
   updateEq: vi.fn(),
+  updateValues: vi.fn(),
   removePhoto: vi.fn(),
   rows: [] as unknown[],
 }))
@@ -35,7 +36,10 @@ vi.mock("@/lib/supabase/client", () => ({
         }),
       }),
       insert: mocks.insert,
-      update: () => ({ eq: mocks.updateEq }),
+      update: (values: Record<string, unknown>) => {
+        mocks.updateValues(values)
+        return { eq: mocks.updateEq }
+      },
       delete: () => ({ eq: mocks.deleteEq }),
     }),
     storage: { from: (_b: string) => ({ remove: mocks.removePhoto }) },
@@ -64,6 +68,8 @@ beforeEach(() => {
   mocks.insert.mockReset().mockResolvedValue({ error: null })
   mocks.deleteEq.mockReset().mockResolvedValue({ error: null })
   mocks.removePhoto.mockReset().mockResolvedValue({ error: null })
+  mocks.updateEq.mockReset().mockResolvedValue({ error: null })
+  mocks.updateValues.mockReset()
   mocks.rows = [FISH]
 })
 
@@ -297,5 +303,64 @@ describe("NutritionCard — log another serving", () => {
     // Not carrying over the original id or timestamp — it's a new row.
     expect(row.id).toBeUndefined()
     expect(row.logged_at).toBeUndefined()
+  })
+})
+
+describe("NutritionCard — portion rescale", () => {
+  it("halves every nutrient and relabels the description", async () => {
+    renderWithClient(<NutritionCard />)
+    expect(await screen.findByText("Fried fish")).toBeInTheDocument()
+    // Expand the meal, then open the portion chips.
+    fireEvent.click(
+      screen.getByRole("button", { name: /show stats for fried fish/i })
+    )
+    fireEvent.click(
+      screen.getByRole("button", { name: /adjust portion for fried fish/i })
+    )
+    fireEvent.click(
+      screen.getByRole("button", { name: /rescale fried fish to ½/i })
+    )
+
+    await waitFor(() => expect(mocks.updateValues).toHaveBeenCalled())
+    const values = mocks.updateValues.mock.calls[0][0]
+    expect(values.calories).toBe(160)
+    expect(values.protein_g).toBe(11)
+    expect(values.carbs_g).toBe(7)
+    expect(values.fat_g).toBe(9)
+    expect(values.sugar_g).toBe(2.5)
+    // Glycemic load scales with the carbs eaten.
+    expect(values.glycemic_load).toBe(4)
+    expect(values.description).toBe("½ of Fried fish")
+    expect(values.edited).toBe(true)
+  })
+
+  it("scales up for a larger portion", async () => {
+    renderWithClient(<NutritionCard />)
+    expect(await screen.findByText("Fried fish")).toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole("button", { name: /show stats for fried fish/i })
+    )
+    fireEvent.click(
+      screen.getByRole("button", { name: /adjust portion for fried fish/i })
+    )
+    fireEvent.click(
+      screen.getByRole("button", { name: /rescale fried fish to 2×/i })
+    )
+
+    await waitFor(() => expect(mocks.updateValues).toHaveBeenCalled())
+    expect(mocks.updateValues.mock.calls[0][0].calories).toBe(640)
+  })
+
+  it("leaves the meal alone until a portion is chosen", async () => {
+    renderWithClient(<NutritionCard />)
+    expect(await screen.findByText("Fried fish")).toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole("button", { name: /show stats for fried fish/i })
+    )
+    fireEvent.click(
+      screen.getByRole("button", { name: /adjust portion for fried fish/i })
+    )
+    fireEvent.click(screen.getByRole("button", { name: /^cancel$/i }))
+    expect(mocks.updateValues).not.toHaveBeenCalled()
   })
 })
