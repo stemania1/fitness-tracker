@@ -30,6 +30,12 @@ still open.
 - [x] Deload week suggestion when 4 consecutive weeks of 5%+ volume climb
 
 ## Goal tracking
+- [x] Weekly coach digest (`weekly-digest.ts` + `WeeklyDigestCard`): one
+      readout across all three goals — workouts this week vs last (fitness),
+      adaptive-TDEE weight trend vs target (weight), avg energy + sleep
+      (energy) — plus the 1–2 highest-impact actions for the week ahead,
+      prioritized (zero-workouts > intake-off-target > low-sleep > energy
+      driver). In-app on the dashboard; weekly push delivery is a follow-up.
 - [x] Adaptive TDEE / energy-balance engine (`adaptive-tdee.ts`): learns
       maintenance calories empirically from the weight trend vs logged intake
       (TDEE = avg intake − weight-change × 3500), then recommends a daily
