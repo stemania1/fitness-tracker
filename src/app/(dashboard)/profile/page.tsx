@@ -35,6 +35,7 @@ import type { UserProfileUpdate } from "@/types/database"
 import { ReminderSettingsCard } from "@/components/activity/ReminderSettingsCard"
 import { normalizeReminderSettings } from "@/lib/reminder-settings"
 import { DEFAULT_SLEEP_GOAL_HOURS } from "@/lib/bedtime"
+import { DEFAULT_CREATINE_TARGET_G } from "@/lib/creatine-streak"
 
 const supabase = createClient()
 
@@ -127,6 +128,9 @@ export default function ProfilePage() {
   const [limitations, setLimitations] = useState("")
   const [wakeTime, setWakeTime] = useState("")
   const [sleepGoalHours, setSleepGoalHours] = useState("")
+  const [weekdayMinutes, setWeekdayMinutes] = useState("")
+  const [weekendMinutes, setWeekendMinutes] = useState("")
+  const [creatineTargetG, setCreatineTargetG] = useState("")
 
   // Fetch auth user
   const { data: authUser } = useQuery({
@@ -322,6 +326,9 @@ export default function ProfilePage() {
     setLimitations(profile.limitations ?? "")
     setWakeTime(profile.wake_time ?? "")
     setSleepGoalHours(profile.sleep_goal_hours?.toString() ?? "")
+    setWeekdayMinutes(profile.weekday_workout_minutes?.toString() ?? "")
+    setWeekendMinutes(profile.weekend_workout_minutes?.toString() ?? "")
+    setCreatineTargetG(profile.creatine_target_g?.toString() ?? "")
   }, [profile])
 
   useEffect(() => {
@@ -444,6 +451,20 @@ export default function ProfilePage() {
       : DEFAULT_SLEEP_GOAL_HOURS
     if (newSleepGoalHours !== profile.sleep_goal_hours)
       updates.sleep_goal_hours = newSleepGoalHours
+
+    const newWeekdayMinutes = weekdayMinutes ? parseInt(weekdayMinutes, 10) : 25
+    if (newWeekdayMinutes !== profile.weekday_workout_minutes)
+      updates.weekday_workout_minutes = newWeekdayMinutes
+
+    const newWeekendMinutes = weekendMinutes ? parseInt(weekendMinutes, 10) : 60
+    if (newWeekendMinutes !== profile.weekend_workout_minutes)
+      updates.weekend_workout_minutes = newWeekendMinutes
+
+    const newCreatineTargetG = creatineTargetG
+      ? parseFloat(creatineTargetG)
+      : DEFAULT_CREATINE_TARGET_G
+    if (newCreatineTargetG !== profile.creatine_target_g)
+      updates.creatine_target_g = newCreatineTargetG
 
     if (Object.keys(updates).length === 0) {
       setFeedback({ type: "success", text: "No changes to save." })
@@ -740,6 +761,61 @@ export default function ProfilePage() {
               Set your usual wake time and the dashboard will work backward to
               a target bedtime and caffeine cutoff.
             </p>
+
+            {/* Realistic time budget, for the weekly schedule */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="weekdayMinutes">Weekday minutes</Label>
+                <Input
+                  id="weekdayMinutes"
+                  type="number"
+                  min="10"
+                  max="180"
+                  step="5"
+                  placeholder="25"
+                  value={weekdayMinutes}
+                  onChange={(e) => setWeekdayMinutes(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="weekendMinutes">Weekend minutes</Label>
+                <Input
+                  id="weekendMinutes"
+                  type="number"
+                  min="10"
+                  max="240"
+                  step="5"
+                  placeholder="60"
+                  value={weekendMinutes}
+                  onChange={(e) => setWeekendMinutes(e.target.value)}
+                />
+              </div>
+            </div>
+            <p className="-mt-3 text-xs text-gray-400">
+              How much time you realistically have to train. The weekly plan
+              puts short sessions on weekdays and the longer work on weekends.
+            </p>
+
+            {/* Daily creatine target */}
+            <div className="space-y-1.5">
+              <Label htmlFor="creatineTargetG">
+                Daily creatine target (g)
+              </Label>
+              <Input
+                id="creatineTargetG"
+                type="number"
+                min="1"
+                max="30"
+                step="0.5"
+                placeholder={DEFAULT_CREATINE_TARGET_G.toString()}
+                value={creatineTargetG}
+                onChange={(e) => setCreatineTargetG(e.target.value)}
+              />
+              <p className="text-xs text-gray-400">
+                5 g is the classic maintenance dose; some protocols use ~10 g,
+                often split across the day. Doses add up toward this target.
+              </p>
+            </div>
 
             {/* Limitations */}
             <div className="space-y-1.5">

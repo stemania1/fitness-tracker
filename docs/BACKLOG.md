@@ -79,10 +79,14 @@ still open.
       helpers are shared) — timing drives the "still active" + late-caffeine
       sleep signals.
 - [x] Daily creatine tracker: dashboard card (by the caffeine card) with a
-      one-tap "Mark taken", a consecutive-day streak (`creatine-streak.ts`),
-      and dose carry-forward. Backed by a `creatine_logs` table (migration
-      `00016`, applied manually). An evening in-app + push reminder nudges if
-      it's not logged (new `log_creatine` reminder category, on by default).
+      consecutive-day streak (`creatine-streak.ts`). Backed by a
+      `creatine_logs` table (migration `00016`, applied manually). An evening
+      in-app + push reminder nudges if it's not logged (new `log_creatine`
+      reminder category, on by default).
+- [x] Multi-dose creatine + configurable target: doses accumulate across the
+      day (+2.5/+5/+10 g) toward a per-user daily target on the profile
+      (migration `00020`, default 5 g — some protocols use ~10 g split up),
+      with a progress bar and "target hit" state (`creatineProgress`).
 - [x] Day navigation on the dashboard's Today's Plan and Nutrition cards:
       swipe left/right (or ‹ › arrows) to step through days. The plan card
       looks ahead (today → future, stopping at the plan's end); the meal card
@@ -100,8 +104,12 @@ still open.
       `workout-generator.ts`: fewer/lighter sets and no cardio finisher for
       short windows). Dashboard `ExpressWorkoutCard` generates, previews, and
       saves it as a template to start/log. Built for a time-scarce schedule.
-- [ ] Schedule-aware weekly plan: propose realistic workout windows around a
-      fixed early wake / commute (short weekday + longer weekend).
+- [x] Schedule-aware weekly plan (`weekly-schedule.ts` + `WeeklyScheduleCard`):
+      lays out a realistic week from the time actually available — longer
+      sessions on weekend days, short ones spread across weekdays (Tue/Thu
+      first, so there's recovery between), with a post-wake AM slot suggested
+      when a wake time is set. Weekday/weekend minute budgets live on the
+      profile (migration `00019`). Complements the fixed 12-week plan.
 - [x] Sleep-anchored bedtime target (`bedtime.ts` + `BedtimeCard`): from the
       profile's usual wake time + sleep goal, works backward to a target
       bedtime, a wind-down time (30 min before bed), and a last-safe-caffeine

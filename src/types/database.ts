@@ -22,6 +22,9 @@ export interface Database {
           last_push_sent_on: string | null
           wake_time: string | null
           sleep_goal_hours: number
+          weekday_workout_minutes: number
+          weekend_workout_minutes: number
+          creatine_target_g: number
           created_at: string
           updated_at: string
         }
@@ -43,6 +46,9 @@ export interface Database {
           last_push_sent_on?: string | null
           wake_time?: string | null
           sleep_goal_hours?: number
+          weekday_workout_minutes?: number
+          weekend_workout_minutes?: number
+          creatine_target_g?: number
           created_at?: string
           updated_at?: string
         }
@@ -64,6 +70,9 @@ export interface Database {
           last_push_sent_on?: string | null
           wake_time?: string | null
           sleep_goal_hours?: number
+          weekday_workout_minutes?: number
+          weekend_workout_minutes?: number
+          creatine_target_g?: number
           created_at?: string
           updated_at?: string
         }

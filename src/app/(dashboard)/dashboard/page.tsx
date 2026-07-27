@@ -74,6 +74,7 @@ import { SleepTrendCard } from "@/components/activity/SleepTrendCard"
 import { BedtimeCard } from "@/components/activity/BedtimeCard"
 import { WeeklyDigestCard } from "@/components/activity/WeeklyDigestCard"
 import { ExpressWorkoutCard } from "@/components/activity/ExpressWorkoutCard"
+import { WeeklyScheduleCard } from "@/components/activity/WeeklyScheduleCard"
 import { deriveFuelState } from "@/lib/energy"
 import { caffeineStatus, lateCaffeineFlag } from "@/lib/caffeine"
 import { computeReminders } from "@/lib/reminders"
@@ -823,6 +824,11 @@ export default function DashboardPage() {
       {/* Time-boxed "I have N minutes" workout generator */}
       <ErrorBoundary>
         <ExpressWorkoutCard />
+      </ErrorBoundary>
+
+      {/* A realistic week built from actual available time */}
+      <ErrorBoundary>
+        <WeeklyScheduleCard />
       </ErrorBoundary>
 
       {/* Quick Actions */}
