@@ -34,6 +34,7 @@ import {
 import type { UserProfileUpdate } from "@/types/database"
 import { ReminderSettingsCard } from "@/components/activity/ReminderSettingsCard"
 import { normalizeReminderSettings } from "@/lib/reminder-settings"
+import { DEFAULT_SLEEP_GOAL_HOURS } from "@/lib/bedtime"
 
 const supabase = createClient()
 
@@ -124,6 +125,8 @@ export default function ProfilePage() {
   const [targetWeight, setTargetWeight] = useState("")
   const [workoutDays, setWorkoutDays] = useState("")
   const [limitations, setLimitations] = useState("")
+  const [wakeTime, setWakeTime] = useState("")
+  const [sleepGoalHours, setSleepGoalHours] = useState("")
 
   // Fetch auth user
   const { data: authUser } = useQuery({
@@ -317,6 +320,8 @@ export default function ProfilePage() {
     setTargetWeight(profile.target_weight?.toString() ?? "")
     setWorkoutDays(profile.workout_days?.toString() ?? "")
     setLimitations(profile.limitations ?? "")
+    setWakeTime(profile.wake_time ?? "")
+    setSleepGoalHours(profile.sleep_goal_hours?.toString() ?? "")
   }, [profile])
 
   useEffect(() => {
@@ -430,6 +435,15 @@ export default function ProfilePage() {
     const newLimitations = limitations.trim() || null
     if (newLimitations !== profile.limitations)
       updates.limitations = newLimitations
+
+    const newWakeTime = wakeTime || null
+    if (newWakeTime !== profile.wake_time) updates.wake_time = newWakeTime
+
+    const newSleepGoalHours = sleepGoalHours
+      ? parseFloat(sleepGoalHours)
+      : DEFAULT_SLEEP_GOAL_HOURS
+    if (newSleepGoalHours !== profile.sleep_goal_hours)
+      updates.sleep_goal_hours = newSleepGoalHours
 
     if (Object.keys(updates).length === 0) {
       setFeedback({ type: "success", text: "No changes to save." })
@@ -696,6 +710,36 @@ export default function ProfilePage() {
                 ))}
               </Select>
             </div>
+
+            {/* Wake time + sleep goal, for the bedtime target */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="wakeTime">Usual wake time</Label>
+                <Input
+                  id="wakeTime"
+                  type="time"
+                  value={wakeTime}
+                  onChange={(e) => setWakeTime(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="sleepGoalHours">Sleep goal (hrs)</Label>
+                <Input
+                  id="sleepGoalHours"
+                  type="number"
+                  min="4"
+                  max="12"
+                  step="0.5"
+                  placeholder={DEFAULT_SLEEP_GOAL_HOURS.toString()}
+                  value={sleepGoalHours}
+                  onChange={(e) => setSleepGoalHours(e.target.value)}
+                />
+              </div>
+            </div>
+            <p className="-mt-3 text-xs text-gray-400">
+              Set your usual wake time and the dashboard will work backward to
+              a target bedtime and caffeine cutoff.
+            </p>
 
             {/* Limitations */}
             <div className="space-y-1.5">

@@ -71,6 +71,7 @@ import { RecoveryWatchCard } from "@/components/activity/RecoveryWatchCard"
 import { EnergyCheckInCard } from "@/components/activity/EnergyCheckInCard"
 import { EnergyDriversCard } from "@/components/activity/EnergyDriversCard"
 import { SleepTrendCard } from "@/components/activity/SleepTrendCard"
+import { BedtimeCard } from "@/components/activity/BedtimeCard"
 import { WeeklyDigestCard } from "@/components/activity/WeeklyDigestCard"
 import { ExpressWorkoutCard } from "@/components/activity/ExpressWorkoutCard"
 import { deriveFuelState } from "@/lib/energy"
@@ -874,6 +875,11 @@ export default function DashboardPage() {
       {/* Long-term sleep / readiness trends from stored Oura history */}
       <ErrorBoundary>
         <SleepTrendCard />
+      </ErrorBoundary>
+
+      {/* Sleep-anchored bedtime target: wind-down + caffeine cutoff from wake time */}
+      <ErrorBoundary>
+        <BedtimeCard />
       </ErrorBoundary>
 
       {/* Photo-logged meals: calories in, macros, net vs Oura calories out */}
