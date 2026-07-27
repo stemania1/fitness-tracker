@@ -79,6 +79,11 @@ still open.
       of an empty lbs input
 - [x] Hold timer (count-up stopwatch) for timed holds (e.g. plank) — records
       the elapsed seconds into the set instead of manual entry
+- [x] Adjust a logged meal's portion (`meal-portion.ts`): ¼ / ½ / ¾ / 1½ / 2×
+      chips rescale every nutrient — including glycemic load, which tracks the
+      carbs actually eaten — and relabel the description ("½ of …", replacing
+      any existing prefix rather than stacking). For when the photo estimate
+      sized the plate, not what you ate.
 - [x] Edit a logged meal's time in place: the expanded meal card shows
       "Logged at …" with an inline Edit → time input (keeps the date, so the
       meal stays on today's list). Meal timing feeds the energy read. Same

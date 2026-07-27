@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Utensils, Plus, Trash2, ChevronDown, Pencil } from "lucide-react"
+import { Utensils, Plus, Trash2, ChevronDown, Pencil, Scale } from "lucide-react"
 import type { MacroTargets } from "@/lib/macro-targets"
 import {
   classifyDailyGl,
@@ -20,6 +20,11 @@ import {
   GL_WALK_TIP,
 } from "@/lib/glycemic-load"
 import { localTimeValue, withLocalTime } from "@/lib/meal-time"
+import {
+  scaleMealNutrients,
+  describePortion,
+  PORTION_OPTIONS,
+} from "@/lib/meal-portion"
 import { DayNav } from "./DayNav"
 import { dayLabel, dayWindow } from "@/lib/day-nav"
 import { useSwipe } from "@/hooks/useSwipe"
@@ -81,6 +86,8 @@ export function NutritionCard({
   // Inline edit of a logged meal's time-of-day.
   const [editingTimeId, setEditingTimeId] = useState<string | null>(null)
   const [timeDraft, setTimeDraft] = useState("")
+  // Which meal is showing the portion-rescale chips.
+  const [portionMealId, setPortionMealId] = useState<string | null>(null)
 
   function toggleExpanded(id: string) {
     setExpandedIds((prev) => {
@@ -206,6 +213,39 @@ export function NutritionCard({
       queryClient.invalidateQueries({ queryKey: ["food-logs-today"] })
       queryClient.invalidateQueries({ queryKey: ["weekly-calories"] })
       setEditingTimeId(null)
+    },
+  })
+
+  // Rescale a meal to the portion actually eaten. A photo estimate describes
+  // the plate; eating half of it should halve the numbers, not need a re-log.
+  const rescaleMeal = useMutation({
+    mutationFn: async ({
+      meal,
+      factor,
+    }: {
+      meal: FoodLogRow
+      factor: number
+    }) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
+      const { error } = await supabase
+        .from("food_logs")
+        .update({
+          ...scaleMealNutrients(meal, factor),
+          description: describePortion(meal.description, factor),
+          edited: true,
+        })
+        .eq("id", meal.id)
+      if (error) throw error
+    },
+    onMutate: ({ meal }) => setPendingId(meal.id),
+    onSettled: () => setPendingId(null),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["food-logs-today"] })
+      queryClient.invalidateQueries({ queryKey: ["weekly-calories"] })
+      setPortionMealId(null)
     },
   })
 
@@ -610,6 +650,44 @@ export function NutritionCard({
                               Edit
                             </button>
                           </>
+                        )}
+                      </div>
+
+                      {/* Ate more or less than the estimate assumed? Rescale
+                          it rather than re-logging the meal. */}
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px] text-gray-400">
+                        {portionMealId === m.id ? (
+                          <>
+                            <span>I ate</span>
+                            {PORTION_OPTIONS.map((p) => (
+                              <button
+                                key={p.label}
+                                onClick={() =>
+                                  rescaleMeal.mutate({ meal: m, factor: p.factor })
+                                }
+                                disabled={pendingId === m.id}
+                                aria-label={`Rescale ${m.description} to ${p.label}`}
+                                className="rounded border border-gray-200 px-1.5 py-0.5 text-[11px] font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                              >
+                                {p.label}
+                              </button>
+                            ))}
+                            <button
+                              onClick={() => setPortionMealId(null)}
+                              className="text-gray-400 hover:underline"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => setPortionMealId(m.id)}
+                            aria-label={`Adjust portion for ${m.description}`}
+                            className="inline-flex items-center gap-0.5 text-purple-600 hover:underline"
+                          >
+                            <Scale className="h-2.5 w-2.5" />
+                            Adjust portion
+                          </button>
                         )}
                       </div>
                     </div>
