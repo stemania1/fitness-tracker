@@ -29,6 +29,23 @@ still open.
 - [x] Volume trend chart (weekly total lifted, last 8 weeks)
 - [x] Deload week suggestion when 4 consecutive weeks of 5%+ volume climb
 
+## Code & UI hygiene
+- [x] Shared local-date helpers (`lib/dates.ts`): the local YYYY-MM-DD
+      formatter had been reimplemented in eight files under four names, plus
+      two copies each of `epochDay` and the date-string shift. All callers now
+      use one module (net -55 lines).
+- [x] Prioritized dashboard: the multi-week analytical cards moved to a new
+      `/insights` page grouped into sections (Weight · Energy & sleep ·
+      Training · Planning), reached via a "More insights" link. The dashboard
+      keeps only what's actionable today — 25 cards down to 16, and its bundle
+      from 55.5 kB to 43.2 kB.
+- [ ] Dashboard still holds ~800 lines of inline analytical JSX (This Week,
+      Oura summary, weight/volume trends, recent workouts, recent PRs) that
+      depend on page-local queries. Extracting those into components + hooks
+      is the remaining half of the split.
+- [ ] `activity/log/page.tsx` (1,563 lines) and `profile/page.tsx` (1,019)
+      are the next files worth breaking up.
+
 ## Training quality
 - [x] Muscle-group balance monitor (`muscle-balance.ts` +
       `MuscleBalanceCard`): volume share per muscle group over the last 4

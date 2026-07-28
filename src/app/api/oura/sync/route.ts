@@ -2,16 +2,12 @@ import { NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { getOuraDailyHistory } from "@/lib/oura"
 import { resolveOuraAccessToken } from "@/lib/oura-token"
+import { localDateString as ymd } from "@/lib/dates"
 
 export const runtime = "nodejs"
 
 /** How far back to backfill on each sync. */
 const BACKFILL_DAYS = 90
-
-function ymd(d: Date): string {
-  const pad = (n: number) => n.toString().padStart(2, "0")
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-}
 
 /**
  * POST /api/oura/sync — backfill/refresh the caller's stored Oura daily

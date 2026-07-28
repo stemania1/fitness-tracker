@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Pill, Check, Flame, Undo2 } from "lucide-react"
+import { localToday, daysAgoDateString } from "@/lib/dates"
 import {
   currentStreak,
   creatineProgress,
@@ -14,13 +15,6 @@ import {
 } from "@/lib/creatine-streak"
 
 const supabase = createClient()
-
-/** Local YYYY-MM-DD (not UTC, so "today" matches the user's clock). */
-function localToday(): string {
-  const d = new Date()
-  const pad = (n: number) => n.toString().padStart(2, "0")
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-}
 
 interface CreatineRow {
   taken_on: string
@@ -45,9 +39,7 @@ export function CreatineCard() {
       } = await supabase.auth.getUser()
       if (!user) throw new Error("Not authenticated")
       // A window wide enough to cover any realistic streak.
-      const since = new Date(Date.now() - 400 * 24 * 60 * 60 * 1000)
-      const pad = (n: number) => n.toString().padStart(2, "0")
-      const sinceStr = `${since.getFullYear()}-${pad(since.getMonth() + 1)}-${pad(since.getDate())}`
+      const sinceStr = daysAgoDateString(400)
       const [logsRes, profileRes] = await Promise.all([
         supabase
           .from("creatine_logs")

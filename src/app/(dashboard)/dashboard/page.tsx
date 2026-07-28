@@ -62,20 +62,12 @@ import type { OuraInsight } from "@/lib/oura-insights"
 import { QuickLogExercise } from "@/components/activity/QuickLogExercise"
 import { QuickLogStrength } from "@/components/activity/QuickLogStrength"
 import { QuickLogWeight } from "@/components/activity/QuickLogWeight"
-import { Vo2MaxTrendCard } from "@/components/activity/Vo2MaxTrendCard"
 import { TrainingPlanTodayCard } from "@/components/activity/TrainingPlanTodayCard"
-import { WeeklyTrainingCard } from "@/components/activity/WeeklyTrainingCard"
 import { todaysWorkout } from "@/lib/todays-workout"
-import { RemInsightsCard } from "@/components/activity/RemInsightsCard"
-import { RecoveryWatchCard } from "@/components/activity/RecoveryWatchCard"
 import { EnergyCheckInCard } from "@/components/activity/EnergyCheckInCard"
-import { EnergyDriversCard } from "@/components/activity/EnergyDriversCard"
-import { SleepTrendCard } from "@/components/activity/SleepTrendCard"
 import { BedtimeCard } from "@/components/activity/BedtimeCard"
 import { WeeklyDigestCard } from "@/components/activity/WeeklyDigestCard"
 import { ExpressWorkoutCard } from "@/components/activity/ExpressWorkoutCard"
-import { WeeklyScheduleCard } from "@/components/activity/WeeklyScheduleCard"
-import { MuscleBalanceCard } from "@/components/activity/MuscleBalanceCard"
 import { deriveFuelState } from "@/lib/energy"
 import { caffeineStatus, lateCaffeineFlag } from "@/lib/caffeine"
 import { computeReminders } from "@/lib/reminders"
@@ -86,7 +78,6 @@ import { QuickLogCaffeine } from "@/components/activity/QuickLogCaffeine"
 import { NutritionCard } from "@/components/activity/NutritionCard"
 import { CaffeineCard } from "@/components/activity/CaffeineCard"
 import { CreatineCard } from "@/components/activity/CreatineCard"
-import { EnergyBalanceCard } from "@/components/activity/EnergyBalanceCard"
 import { RingBatteryIndicator } from "@/components/activity/RingBatteryIndicator"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 
@@ -827,16 +818,6 @@ export default function DashboardPage() {
         <ExpressWorkoutCard />
       </ErrorBoundary>
 
-      {/* A realistic week built from actual available time */}
-      <ErrorBoundary>
-        <WeeklyScheduleCard />
-      </ErrorBoundary>
-
-      {/* Volume share per muscle group + push:pull / upper:lower balance */}
-      <ErrorBoundary>
-        <MuscleBalanceCard />
-      </ErrorBoundary>
-
       {/* Quick Actions */}
       <div className="space-y-2">
         <Link
@@ -879,16 +860,6 @@ export default function DashboardPage() {
         />
       </ErrorBoundary>
 
-      {/* What actually moves your energy: correlations from your logs */}
-      <ErrorBoundary>
-        <EnergyDriversCard />
-      </ErrorBoundary>
-
-      {/* Long-term sleep / readiness trends from stored Oura history */}
-      <ErrorBoundary>
-        <SleepTrendCard />
-      </ErrorBoundary>
-
       {/* Sleep-anchored bedtime target: wind-down + caffeine cutoff from wake time */}
       <ErrorBoundary>
         <BedtimeCard />
@@ -900,11 +871,6 @@ export default function DashboardPage() {
           caloriesBurnedToday={ouraSummary?.activity?.total_calories}
           targets={nutritionTargets}
         />
-      </ErrorBoundary>
-
-      {/* Adaptive TDEE: learned maintenance + recommended target to hit goal */}
-      <ErrorBoundary>
-        <EnergyBalanceCard />
       </ErrorBoundary>
 
       {/* Today's caffeine: total vs guideline, still-active, drinks */}
@@ -974,11 +940,6 @@ export default function DashboardPage() {
             )}
           </CardContent>
         </Card>
-      </ErrorBoundary>
-
-      {/* Weekly strength volume + Zone 2 minutes */}
-      <ErrorBoundary>
-        <WeeklyTrainingCard />
       </ErrorBoundary>
 
       {/* Oura Ring Summary */}
@@ -1250,21 +1211,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       )}
-      </ErrorBoundary>
-
-      {/* VO2 Max trend: Cooper-test results + Oura estimates over time */}
-      <ErrorBoundary>
-        <Vo2MaxTrendCard age={profile?.age} sex={profile?.sex} />
-      </ErrorBoundary>
-
-      {/* REM sleep trend + correlations with activity/stress/sleep/readiness */}
-      <ErrorBoundary>
-        <RemInsightsCard />
-      </ErrorBoundary>
-
-      {/* HRV baseline vs recent — early overreaching signal */}
-      <ErrorBoundary>
-        <RecoveryWatchCard />
       </ErrorBoundary>
 
       {/* Oura Insights */}
@@ -1599,6 +1545,21 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
       </ErrorBoundary>
+
+      {/* The multi-week analytical reads live on their own page, so the
+          dashboard stays about what's actionable today. */}
+      <Link
+        href="/insights"
+        className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-50"
+      >
+        <span>
+          More insights
+          <span className="ml-1 font-normal text-gray-500">
+            — trends, balance, and energy patterns
+          </span>
+        </span>
+        <ChevronRight className="h-4 w-4 shrink-0 text-gray-400" />
+      </Link>
     </div>
   )
 }

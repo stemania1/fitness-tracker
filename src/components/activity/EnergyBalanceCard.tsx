@@ -15,17 +15,11 @@ import {
   type TdeeConfidence,
 } from "@/lib/adaptive-tdee"
 import type { WeightPoint } from "@/lib/weight-projection"
+import { epochDay } from "@/lib/dates"
 
 const supabase = createClient()
 
 const WINDOW_DAYS = 70
-
-/** Local-day index (days since epoch), shared basis for weigh-ins and intake. */
-function epochDay(iso: string): number {
-  const d = new Date(iso)
-  d.setHours(0, 0, 0, 0)
-  return Math.floor(d.getTime() / 86_400_000)
-}
 
 const confidenceStyle: Record<Exclude<TdeeConfidence, "insufficient">, string> = {
   low: "bg-gray-100 text-gray-600",
