@@ -31,9 +31,12 @@
   /* Deliberately NO overflow constraint on html/body. iOS Safari breaks
      `position: fixed` when the root element has any overflow value other
      than visible — the fixed bottom nav starts scrolling with the page and
-     strands itself mid-screen. `clip` doesn't dodge the bug either. Runaway
-     horizontal content is contained on <main> instead (see the dashboard
-     layout), which is a descendant and so can't re-anchor the nav. */
+     strands itself mid-screen. `clip` on the root doesn't dodge that bug
+     either. Runaway horizontal content is contained on <main> instead (see
+     the dashboard layout), using `overflow-x: clip` specifically — plain
+     `overflow-x: hidden` there would coerce the computed `overflow-y` to
+     `auto` and make <main> its own scroll container, which re-anchors the
+     fixed nav on iOS. `clip` leaves <main> a non-scroller. */
   * {
     @apply border-border;
   }

@@ -1,11 +1,23 @@
 /* CraigFitness service worker — handles web-push reminder notifications. */
 
+// Bump on every meaningful change to this file. It doubles as a cache-buster
+// (changed bytes trigger the browser's SW update) and a diagnostic: the worker
+// broadcasts it on activate so a client can confirm which version is live.
+const SW_VERSION = 2
+
 // Take over as soon as a new version is available. Without this the previous
 // worker keeps handling pushes until every tab closes, so notification fixes
 // wouldn't reach an installed PWA that's never fully quit.
 self.addEventListener("install", () => self.skipWaiting())
 self.addEventListener("activate", (event) =>
-  event.waitUntil(self.clients.claim())
+  event.waitUntil(
+    self.clients.claim().then(async () => {
+      const clients = await self.clients.matchAll({ includeUncontrolled: true })
+      for (const client of clients) {
+        client.postMessage({ type: "sw-activated", version: SW_VERSION })
+      }
+    })
+  )
 )
 
 self.addEventListener("push", (event) => {
