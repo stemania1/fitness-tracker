@@ -55,7 +55,7 @@ export function OfflineSyncManager() {
   if (pendingCount === 0) return null
 
   return (
-    <div className="fixed bottom-20 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full bg-gray-900 px-4 py-2 text-sm font-medium text-white shadow-lg">
+    <div className="fixed bottom-[calc(var(--bottom-nav-h)+0.75rem)] left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full bg-gray-900 px-4 py-2 text-sm font-medium text-white shadow-lg">
       {syncing ? (
         <RefreshCw className="h-4 w-4 animate-spin" />
       ) : (

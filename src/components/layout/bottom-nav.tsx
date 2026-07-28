@@ -23,7 +23,10 @@ export function BottomNav() {
   const pathname = usePathname()
 
   return (
-    <nav aria-label="Main navigation" className="fixed bottom-0 left-0 right-0 z-10 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)]">
+    /* Laid out in flow as the shell's last flex child — deliberately NOT
+       `position: fixed`, which iOS strands mid-screen after the keyboard
+       opens and closes. See the note in globals.css. */
+    <nav aria-label="Main navigation" className="z-10 shrink-0 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)]">
       <div className="flex items-center justify-around py-2">
         {tabs.map((tab) => {
           const isActive = pathname.startsWith(tab.href)
