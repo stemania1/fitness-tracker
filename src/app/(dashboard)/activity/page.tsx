@@ -316,7 +316,7 @@ export default function ActivityPage() {
       <Link href="/activity/log">
         <Button
           size="lg"
-          className="fixed bottom-24 right-4 z-40 h-14 w-14 rounded-full shadow-lg shadow-purple-200"
+          className="fixed bottom-[calc(var(--bottom-nav-h)+1rem)] right-4 z-40 h-14 w-14 rounded-full shadow-lg shadow-purple-200"
         >
           <Plus className="h-6 w-6" />
           <span className="sr-only">Log Workout</span>
