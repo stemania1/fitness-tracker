@@ -10,7 +10,6 @@ import {
   CardTitle,
   CardContent,
 } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Dumbbell,
@@ -36,8 +35,6 @@ import {
   ReferenceArea,
   ResponsiveContainer,
 } from "recharts"
-import { exercises as exerciseCatalog } from "@/data/exercises"
-import { estimateStrengthCalories, estimateCardioCalories } from "@/lib/calories"
 import type { OuraSummary } from "@/lib/oura"
 import { formatSleepDuration } from "@/lib/oura"
 import { generateInsights } from "@/lib/oura-insights"
@@ -54,6 +51,7 @@ import { EnergyCheckInCard } from "@/components/activity/EnergyCheckInCard"
 import { BedtimeCard } from "@/components/activity/BedtimeCard"
 import { WeeklyDigestCard } from "@/components/activity/WeeklyDigestCard"
 import { ExpressWorkoutCard } from "@/components/activity/ExpressWorkoutCard"
+import { ThisWeekCard } from "@/components/activity/ThisWeekCard"
 import { deriveFuelState } from "@/lib/energy"
 import { caffeineStatus, lateCaffeineFlag } from "@/lib/caffeine"
 import { computeReminders } from "@/lib/reminders"
@@ -68,55 +66,6 @@ import { RingBatteryIndicator } from "@/components/activity/RingBatteryIndicator
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 
 const supabase = createClient()
-
-function getWeekLabel(dateStr: string): string {
-  const d = new Date(dateStr)
-  const startOfYear = new Date(d.getFullYear(), 0, 1)
-  const weekNum = Math.ceil(
-    ((d.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7
-  )
-  return `W${weekNum}`
-}
-
-function calcWeeklyStreak(
-  workoutLogs: { started_at: string }[],
-  targetPerWeek: number
-): number {
-  if (!workoutLogs.length || targetPerWeek <= 0) return 0
-
-  // Group workouts by ISO week
-  const weekMap = new Map<string, number>()
-  for (const log of workoutLogs) {
-    const d = new Date(log.started_at)
-    const yearWeek = `${d.getFullYear()}-${getWeekLabel(log.started_at)}`
-    weekMap.set(yearWeek, (weekMap.get(yearWeek) ?? 0) + 1)
-  }
-
-  // Get sorted weeks
-  const sortedWeeks = [...weekMap.entries()].sort((a, b) =>
-    a[0].localeCompare(b[0])
-  )
-
-  // Count consecutive weeks from the most recent that hit the target
-  let streak = 0
-  for (let i = sortedWeeks.length - 1; i >= 0; i--) {
-    if (sortedWeeks[i][1] >= targetPerWeek) {
-      streak++
-    } else {
-      break
-    }
-  }
-  return streak
-}
-
-function getStartOfWeek() {
-  const now = new Date()
-  const day = now.getDay()
-  const diff = now.getDate() - day + (day === 0 ? -6 : 1)
-  const monday = new Date(now.setDate(diff))
-  monday.setHours(0, 0, 0, 0)
-  return monday.toISOString()
-}
 
 const insightIconMap: Record<OuraInsight["icon"], typeof Heart> = {
   dumbbell: Dumbbell,
@@ -167,8 +116,6 @@ export default function DashboardPage() {
     },
   })
 
-  const weekStart = useMemo(() => getStartOfWeek(), [])
-
   // Start Workout opens the day's session in the logger (weights + previous
   // performance) on training days; rest days go to the lightweight rest screen.
   const startWorkoutHref = useMemo(
@@ -179,22 +126,7 @@ export default function DashboardPage() {
     []
   )
 
-  const { data: weeklyWorkouts, isLoading: weeklyLoading } = useQuery({
-    queryKey: ["weekly-workouts", weekStart],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
-      const { data, error } = await supabase
-        .from("workout_logs")
-        .select("id")
-        .eq("user_id", user.id)
-        .gte("started_at", weekStart)
-      if (error) throw error
-      return data
-    },
-  })
-
-  const { data: allWorkoutLogs, isLoading: allWorkoutsLoading } = useQuery({
+  const { data: allWorkoutLogs } = useQuery({
     queryKey: ["workout-logs-all"],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -240,106 +172,6 @@ export default function DashboardPage() {
         .gte("tested_at", since.toISOString().slice(0, 10))
       if (error) throw error
       return data ?? []
-    },
-  })
-
-  const exerciseNameMap = useMemo(
-    () => new Map(exerciseCatalog.map((e) => [e.name.toLowerCase(), e])),
-    []
-  )
-
-  const { data: weeklyCalories, isLoading: caloriesLoading } = useQuery({
-    queryKey: ["weekly-calories", weekStart],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
-
-      // Get user weight + profile fields for the RMR calorie correction
-      const { data: prof } = await supabase
-        .from("user_profiles")
-        .select("current_weight, age, sex, height_inches")
-        .eq("id", user.id)
-        .single()
-      const weightLbs = prof?.current_weight ?? 170
-      const calorieProfile = {
-        age: prof?.age,
-        sex: prof?.sex,
-        heightInches: prof?.height_inches,
-      }
-
-      // Get this week's workout IDs
-      const { data: logs } = await supabase
-        .from("workout_logs")
-        .select("id")
-        .eq("user_id", user.id)
-        .gte("started_at", weekStart)
-
-      if (!logs || logs.length === 0) return 0
-
-      const logIds = logs.map((l) => l.id)
-
-      // Get exercise logs
-      const { data: exLogs } = await supabase
-        .from("exercise_logs")
-        .select("id, exercise_id")
-        .in("workout_log_id", logIds)
-
-      if (!exLogs || exLogs.length === 0) return 0
-
-      const exIds = exLogs.map((e) => e.id)
-      const exerciseUuids = [...new Set(exLogs.map((e) => e.exercise_id))]
-
-      // Fetch exercise names from DB to bridge UUIDs to the static catalog
-      const { data: dbExercises } = await supabase
-        .from("exercises")
-        .select("id, name")
-        .in("id", exerciseUuids)
-
-      const uuidToName = new Map<string, string>(
-        (dbExercises ?? []).map((e) => [e.id as string, e.name as string])
-      )
-
-      // Get set logs
-      const { data: setLogs } = await supabase
-        .from("set_logs")
-        .select("exercise_log_id, reps, weight, duration_mins")
-        .in("exercise_log_id", exIds)
-
-      // Group sets by exercise log
-      const setsByEx = new Map<string, typeof setLogs>()
-      setLogs?.forEach((s) => {
-        const list = setsByEx.get(s.exercise_log_id) ?? []
-        list.push(s)
-        setsByEx.set(s.exercise_log_id, list)
-      })
-
-      let totalCal = 0
-      exLogs.forEach((ex) => {
-        const name = uuidToName.get(ex.exercise_id)
-        const def = name ? exerciseNameMap.get(name.toLowerCase()) : undefined
-        const sets = setsByEx.get(ex.id) ?? []
-        const catalogId = def?.id ?? ex.exercise_id
-        if (def?.exerciseType === "cardio") {
-          const totalMins = sets.reduce((s, set) => s + (set.duration_mins ?? 0), 0)
-          totalCal += estimateCardioCalories(
-            catalogId,
-            totalMins,
-            weightLbs,
-            null,
-            null,
-            calorieProfile
-          )
-        } else {
-          totalCal += estimateStrengthCalories(
-            catalogId,
-            sets.length,
-            weightLbs,
-            calorieProfile
-          )
-        }
-      })
-
-      return totalCal
     },
   })
 
@@ -492,14 +324,6 @@ export default function DashboardPage() {
     }
   }, [todaysCaffeine])
 
-  const weeklyStreak = useMemo(
-    () =>
-      allWorkoutLogs
-        ? calcWeeklyStreak(allWorkoutLogs, profile?.workout_days ?? 4)
-        : 0,
-    [allWorkoutLogs, profile?.workout_days]
-  )
-
   // --- Reminders: small extra signals the other cards don't already fetch ---
   const todayStr = new Date().toLocaleDateString("en-CA")
   const queryClient = useQueryClient()
@@ -620,12 +444,6 @@ export default function DashboardPage() {
     profile?.reminder_settings,
   ])
 
-  const workoutTarget = profile?.workout_days ?? 4
-  const completedWorkouts = weeklyWorkouts?.length ?? 0
-  const weeklyProgress = workoutTarget > 0
-    ? Math.round((completedWorkouts / workoutTarget) * 100)
-    : 0
-
   const greeting = profile?.display_name
     ? `Welcome, ${profile.display_name}!`
     : "Welcome back!"
@@ -721,63 +539,9 @@ export default function DashboardPage() {
         <CreatineCard />
       </ErrorBoundary>
 
-      {/* This Week */}
+      {/* This Week: workout progress, calories burned, streak */}
       <ErrorBoundary>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Flame className="h-5 w-5 text-orange-500" />
-              This Week
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {weeklyLoading || profileLoading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-32" />
-                <Skeleton className="h-3 w-full" />
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-sm text-gray-600">
-                      <span className="text-lg font-semibold text-gray-900">
-                        {completedWorkouts}
-                      </span>{" "}
-                      of {workoutTarget} workouts
-                    </span>
-                    <span className="text-sm font-medium text-purple-600">
-                      {weeklyProgress}%
-                    </span>
-                  </div>
-                  <Progress value={weeklyProgress} />
-                </div>
-                {!caloriesLoading && weeklyCalories != null && weeklyCalories > 0 && (
-                  <div className="flex items-center gap-2 rounded-lg bg-orange-50 px-3 py-2">
-                    <Flame className="h-4 w-4 text-orange-500" />
-                    <span className="text-sm text-gray-700">
-                      <span className="font-semibold text-gray-900">
-                        {weeklyCalories.toLocaleString()}
-                      </span>{" "}
-                      calories burned
-                    </span>
-                  </div>
-                )}
-                {!allWorkoutsLoading && weeklyStreak >= 1 && (
-                  <div className="flex items-center gap-2 rounded-lg bg-orange-50 px-3 py-2">
-                    <Flame className="h-4 w-4 text-orange-500" />
-                    <span className="text-sm text-gray-700">
-                      <span className="font-semibold text-gray-900">
-                        {weeklyStreak}
-                      </span>{" "}
-                      week streak
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <ThisWeekCard />
       </ErrorBoundary>
 
       {/* Oura Ring Summary */}
