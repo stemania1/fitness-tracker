@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client"
 import { ChevronLeft } from "lucide-react"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 import { WeeklyScheduleCard } from "@/components/activity/WeeklyScheduleCard"
+import { WeightTrendCard } from "@/components/activity/WeightTrendCard"
 import { MuscleBalanceCard } from "@/components/activity/MuscleBalanceCard"
 import { EnergyBalanceCard } from "@/components/activity/EnergyBalanceCard"
 import { EnergyDriversCard } from "@/components/activity/EnergyDriversCard"
@@ -87,6 +88,9 @@ export default function InsightsPage() {
         title="Weight"
         subtitle="What your intake and weight trend say about each other"
       >
+        <ErrorBoundary>
+          <WeightTrendCard />
+        </ErrorBoundary>
         <ErrorBoundary>
           <EnergyBalanceCard />
         </ErrorBoundary>
