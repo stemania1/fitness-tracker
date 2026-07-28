@@ -3,6 +3,25 @@
 Shipped features are documented in the PRD. This backlog tracks what's
 still open.
 
+## ⚠️ Needs on-device verification (highest priority)
+Two iOS-standalone (installed PWA) fixes are shipped but **unconfirmed on a
+real device** — they can't be exercised in CI. If either is still broken, it
+outranks any new feature.
+- [ ] **Push notification actually renders** (Profile → Reminders → Send test
+      notification, after fully closing + reopening the PWA). Server delivery
+      is confirmed (the test reports a green "Sent"), but the last on-device
+      check showed no banner and nothing in Notification Center — pointing at
+      a stale service worker. Fixes so far: PNG (not SVG) notification icon,
+      `skipWaiting()`, middleware no longer redirecting `/sw.js` (#131), and an
+      app-load `ServiceWorkerManager` that registers + `update()`s `/sw.js`
+      every launch (#135). Decisive next test if still blank: delete the PWA
+      from the Home Screen and reinstall (forces a clean worker).
+- [ ] **Bottom nav stays pinned while scrolling** the installed PWA. #131
+      removed html/body overflow; #135 switched `<main>` to `overflow-x-clip`
+      (plain `hidden` coerces `overflow-y` to `auto`, making `<main>` a
+      scroller that re-anchors the fixed nav on iOS). Needs a scroll test on
+      the device.
+
 ## Motivation layer
 - [x] Personal-record detection during active workout (heaviest weight)
 - [x] Epley 1RM estimate on workout detail
@@ -39,12 +58,16 @@ still open.
       Training · Planning), reached via a "More insights" link. The dashboard
       keeps only what's actionable today — 25 cards down to 16, and its bundle
       from 55.5 kB to 43.2 kB.
-- [ ] Dashboard still holds ~800 lines of inline analytical JSX (This Week,
-      Oura summary, weight/volume trends, recent workouts, recent PRs) that
-      depend on page-local queries. Extracting those into components + hooks
-      is the remaining half of the split.
+- [x] Dashboard split finished (`dashboard/page.tsx` 1,565 → 570 lines, PRs
+      #136–#141). The six analytical cards are now self-fetching components,
+      each with its own test: Recent PRs, Volume Trend, Weight Trend, and
+      Recent Workouts moved to `/insights`; This Week and Today's Oura Summary
+      were extracted but kept on the dashboard (daily-glance cards). Shared
+      query lives in a new `useStrengthSets` hook; the weekly-progress math
+      moved to `lib/weekly-progress.ts`. Both tested.
 - [ ] `activity/log/page.tsx` (1,563 lines) and `profile/page.tsx` (1,019)
-      are the next files worth breaking up.
+      are the next files worth breaking up — same pattern (queries → hooks,
+      cards → `components/activity/*`, pure logic → `lib/*` with tests).
 
 ## Training quality
 - [x] Muscle-group balance monitor (`muscle-balance.ts` +
@@ -60,6 +83,9 @@ still open.
       (energy) — plus the 1–2 highest-impact actions for the week ahead,
       prioritized (zero-workouts > intake-off-target > low-sleep > energy
       driver). In-app on the dashboard; weekly push delivery is a follow-up.
+- [ ] Weekly digest push delivery (Sunday nudge): `buildWeeklyDigest` is
+      already pure and tested — needs a server-side input gatherer + a cron
+      to send it via the existing web-push pipeline.
 - [x] Adaptive TDEE / energy-balance engine (`adaptive-tdee.ts`): learns
       maintenance calories empirically from the weight trend vs logged intake
       (TDEE = avg intake − weight-change × 3500), then recommends a daily
@@ -279,11 +305,11 @@ roughly easiest → hardest; pick off in order.
       singletons match Supabase's own recommended pattern. The
       test-side awkwardness is fully handled by `vi.hoisted`.
       Leaving as-is unless we hit a concrete problem.
-- [ ] Extract business logic from the 1000+ line page files
-      (`activity/log/page.tsx`, `dashboard/page.tsx`,
-      `goals/page.tsx`) into hooks under `src/hooks/` and pure
-      helpers under `src/lib/`. Refactor first, then test what
-      comes out.
+- [ ] Extract business logic from the remaining 1000+ line page files
+      (`activity/log/page.tsx`, `goals/page.tsx`) into hooks under
+      `src/hooks/` and pure helpers under `src/lib/`. Refactor first,
+      then test what comes out. (`dashboard/page.tsx` is done — see the
+      Code & UI hygiene section.)
 - [ ] Consider swapping the custom Dialog component for
       `@radix-ui/react-dialog`. The current implementation lacks
       focus trap and scroll restoration that Radix gives for free.
