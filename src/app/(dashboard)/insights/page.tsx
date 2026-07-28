@@ -15,6 +15,7 @@ import { RecoveryWatchCard } from "@/components/activity/RecoveryWatchCard"
 import { Vo2MaxTrendCard } from "@/components/activity/Vo2MaxTrendCard"
 import { WeeklyTrainingCard } from "@/components/activity/WeeklyTrainingCard"
 import { RecentPRsCard } from "@/components/activity/RecentPRsCard"
+import { VolumeTrendCard } from "@/components/activity/VolumeTrendCard"
 
 const supabase = createClient()
 
@@ -118,6 +119,9 @@ export default function InsightsPage() {
         </ErrorBoundary>
         <ErrorBoundary>
           <RecentPRsCard />
+        </ErrorBoundary>
+        <ErrorBoundary>
+          <VolumeTrendCard />
         </ErrorBoundary>
         <ErrorBoundary>
           <WeeklyTrainingCard />
