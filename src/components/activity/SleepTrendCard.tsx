@@ -15,6 +15,7 @@ import {
   CartesianGrid,
   ResponsiveContainer,
 } from "recharts"
+import { daysAgoDateString } from "@/lib/dates"
 import {
   buildOuraTrend,
   type OuraDailyPoint,
@@ -61,9 +62,7 @@ export function SleepTrendCard() {
         data: { user },
       } = await supabase.auth.getUser()
       if (!user) throw new Error("Not authenticated")
-      const since = new Date(Date.now() - WINDOW_DAYS * 86_400_000)
-      const pad = (n: number) => n.toString().padStart(2, "0")
-      const sinceStr = `${since.getFullYear()}-${pad(since.getMonth() + 1)}-${pad(since.getDate())}`
+      const sinceStr = daysAgoDateString(WINDOW_DAYS)
       const { data, error } = await supabase
         .from("oura_daily")
         .select("day, sleep_score, sleep_minutes, readiness_score")

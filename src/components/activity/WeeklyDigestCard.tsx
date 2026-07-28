@@ -14,6 +14,7 @@ import {
 } from "@/lib/adaptive-tdee"
 import type { WeightPoint } from "@/lib/weight-projection"
 import { buildOuraTrend, type OuraDailyPoint } from "@/lib/oura-trends"
+import { epochDay, localDateString } from "@/lib/dates"
 import {
   buildWeeklyDigest,
   type DigestInput,
@@ -23,17 +24,6 @@ import {
 const supabase = createClient()
 
 const DAY = 86_400_000
-
-function epochDay(iso: string): number {
-  const d = new Date(iso)
-  d.setHours(0, 0, 0, 0)
-  return Math.floor(d.getTime() / DAY)
-}
-function localDate(ms: number): string {
-  const d = new Date(ms)
-  const pad = (n: number) => n.toString().padStart(2, "0")
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-}
 
 const toneDot: Record<Tone, string> = {
   good: "bg-emerald-500",
@@ -59,8 +49,8 @@ export function WeeklyDigestCard() {
       const now = Date.now()
       const since70Iso = new Date(now - 70 * DAY).toISOString()
       const since21Iso = new Date(now - 21 * DAY).toISOString()
-      const d7 = localDate(now - 7 * DAY)
-      const d14 = localDate(now - 14 * DAY)
+      const d7 = localDateString(new Date(now - 7 * DAY))
+      const d14 = localDateString(new Date(now - 14 * DAY))
 
       const [profileRes, weightRes, foodRes, workoutRes, energyRes, ouraRes] =
         await Promise.all([
@@ -93,7 +83,7 @@ export function WeeklyDigestCard() {
             .from("oura_daily")
             .select("day, sleep_score, sleep_minutes, readiness_score")
             .eq("user_id", user.id)
-            .gte("day", localDate(now - 21 * DAY)),
+            .gte("day", localDateString(new Date(now - 21 * DAY))),
         ])
 
       // Workouts — this week (last 7d) vs the 7 before.

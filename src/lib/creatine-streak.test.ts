@@ -1,13 +1,6 @@
 import { describe, it, expect } from "vitest"
-import { shiftDate, currentStreak, creatineProgress } from "./creatine-streak"
-
-describe("shiftDate", () => {
-  it("moves forward and back across month boundaries", () => {
-    expect(shiftDate("2026-07-26", 1)).toBe("2026-07-27")
-    expect(shiftDate("2026-07-01", -1)).toBe("2026-06-30")
-    expect(shiftDate("2026-12-31", 1)).toBe("2027-01-01")
-  })
-})
+import { currentStreak, creatineProgress } from "./creatine-streak"
+import { shiftDateString } from "./dates"
 
 describe("currentStreak", () => {
   const today = "2026-07-26"

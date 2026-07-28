@@ -12,20 +12,13 @@ import {
   type FactorSpec,
 } from "@/lib/energy-correlations"
 import { classifyMealGl } from "@/lib/glycemic-load"
-import { shiftDate } from "@/lib/creatine-streak"
+import { localDateOf as localDate, shiftDateString as shiftDate } from "@/lib/dates"
 
 const supabase = createClient()
 
 const WINDOW_DAYS = 60
 /** Need at least this many days with an energy rating before we analyze. */
 const MIN_DAYS = 10
-
-/** Local YYYY-MM-DD for an ISO timestamp. */
-function localDate(iso: string): string {
-  const d = new Date(iso)
-  const pad = (n: number) => n.toString().padStart(2, "0")
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-}
 
 const SPECS: FactorSpec[] = [
   { key: "sleepScore", kind: "numeric", whenHigh: "after better-scoring sleep" },
