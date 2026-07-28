@@ -14,6 +14,7 @@ import { RemInsightsCard } from "@/components/activity/RemInsightsCard"
 import { RecoveryWatchCard } from "@/components/activity/RecoveryWatchCard"
 import { Vo2MaxTrendCard } from "@/components/activity/Vo2MaxTrendCard"
 import { WeeklyTrainingCard } from "@/components/activity/WeeklyTrainingCard"
+import { RecentPRsCard } from "@/components/activity/RecentPRsCard"
 
 const supabase = createClient()
 
@@ -114,6 +115,9 @@ export default function InsightsPage() {
       >
         <ErrorBoundary>
           <MuscleBalanceCard />
+        </ErrorBoundary>
+        <ErrorBoundary>
+          <RecentPRsCard />
         </ErrorBoundary>
         <ErrorBoundary>
           <WeeklyTrainingCard />

@@ -11,12 +11,10 @@ import {
   CardContent,
 } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Dumbbell,
   Scale,
-  Trophy,
   Flame,
   Plus,
   ChevronRight,
@@ -43,15 +41,10 @@ import {
 import { exercises as exerciseCatalog } from "@/data/exercises"
 import { estimateStrengthCalories, estimateCardioCalories } from "@/lib/calories"
 import {
-  estimateOneRepMax,
-  findRecentPRs,
-  findRecentRepPRs,
-  type SetWithMeta,
-} from "@/lib/personal-records"
-import {
   buildWeeklyVolumeTrend,
   shouldSuggestDeload,
 } from "@/lib/volume-trend"
+import { useStrengthSets } from "@/hooks/useStrengthSets"
 import type { OuraSummary } from "@/lib/oura"
 import { formatSleepDuration } from "@/lib/oura"
 import { generateInsights } from "@/lib/oura-insights"
@@ -576,69 +569,10 @@ export default function DashboardPage() {
     }
   }, [todaysCaffeine])
 
-  // All strength sets the user has ever logged. Used to derive both the
-  // recent PRs and the weekly volume trend without firing extra queries.
-  const { data: allStrengthSets, isLoading: strengthSetsLoading } = useQuery({
-    queryKey: ["all-strength-sets"],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
-      const { data, error } = await supabase
-        .from("set_logs")
-        .select(`
-          weight,
-          reps,
-          exercise_log:exercise_logs!inner(
-            exercise:exercises!inner(name, exercise_type),
-            workout_log:workout_logs!inner(user_id, started_at)
-          )
-        `)
-        .eq("exercise_log.workout_log.user_id", user.id)
-        .eq("exercise_log.exercise.exercise_type", "strength")
-        .not("weight", "is", null)
-      if (error) throw error
-      type Row = {
-        weight: number | null
-        reps: number | null
-        exercise_log: {
-          exercise: { name: string }
-          workout_log: { started_at: string }
-        } | null
-      }
-      const rows = (data ?? []) as unknown as Row[]
-      return rows
-        .map((r) => {
-          const exerciseName = r.exercise_log?.exercise?.name ?? ""
-          return {
-            exerciseName,
-            weight: r.weight,
-            reps: r.reps,
-            startedAt: r.exercise_log?.workout_log?.started_at ?? "",
-            assisted:
-              exerciseNameMap.get(exerciseName.toLowerCase())?.assisted ?? false,
-          }
-        })
-        .filter((s) => s.exerciseName && s.startedAt)
-    },
-  })
-
-  // Combine weight and rep PRs into a single chronological feed. When an
-  // exercise has both a weight PR and a rep PR in the window, keep only
-  // the weight PR — it's strictly more impressive.
-  const recentPRs = useMemo(() => {
-    if (!allStrengthSets) return []
-    const weightPRs = findRecentPRs(allStrengthSets, 30).map((pr) => ({
-      kind: "weight" as const,
-      ...pr,
-    }))
-    const weightPRExercises = new Set(weightPRs.map((p) => p.exerciseName))
-    const repPRs = findRecentRepPRs(allStrengthSets, 30)
-      .filter((pr) => !weightPRExercises.has(pr.exerciseName))
-      .map((pr) => ({ kind: "rep" as const, ...pr }))
-    return [...weightPRs, ...repPRs]
-      .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
-      .slice(0, 5)
-  }, [allStrengthSets])
+  // Every strength set the user has logged, feeding the weekly volume trend.
+  // Shared via the hook with the Insights Recent PRs card (same query key).
+  const { data: allStrengthSets, isLoading: strengthSetsLoading } =
+    useStrengthSets()
 
   const volumeTrend = useMemo(
     () => buildWeeklyVolumeTrend(allStrengthSets ?? [], 8),
@@ -1455,91 +1389,6 @@ export default function DashboardPage() {
           ) : (
             <div className="py-4 text-center text-sm text-gray-500">
               Log a few strength workouts to see your volume trend.
-            </div>
-          )}
-        </CardContent>
-      </Card>
-      </ErrorBoundary>
-
-      {/* Recent PRs */}
-      <ErrorBoundary>
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Trophy className="h-5 w-5 text-yellow-500" />
-            Recent PRs
-          </CardTitle>
-          <p className="text-xs text-gray-500">
-            New weight and rep records from the last 30 days
-          </p>
-        </CardHeader>
-        <CardContent>
-          {strengthSetsLoading ? (
-            <div className="space-y-3">
-              {[1, 2].map((i) => (
-                <Skeleton key={i} className="h-12 w-full" />
-              ))}
-            </div>
-          ) : recentPRs.length > 0 ? (
-            <div className="space-y-2">
-              {recentPRs.map((pr) => {
-                // Epley e1RM is load-based and meaningless when the weight is
-                // assistance, so skip it for assisted exercises.
-                const e1rm = pr.assisted
-                  ? null
-                  : estimateOneRepMax(pr.weight, pr.reps)
-                const date = new Date(pr.startedAt).toLocaleDateString(
-                  "en-US",
-                  { month: "short", day: "numeric" }
-                )
-                return (
-                  <div
-                    key={`${pr.kind}-${pr.exerciseName}-${pr.startedAt}`}
-                    className="flex items-center justify-between rounded-lg bg-amber-50 p-3"
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <p className="truncate text-sm font-medium text-gray-900">
-                          {pr.exerciseName}
-                        </p>
-                        <span
-                          className={
-                            pr.kind === "weight"
-                              ? "rounded-full bg-amber-200 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-900"
-                              : "rounded-full bg-purple-200 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-purple-900"
-                          }
-                        >
-                          {pr.kind === "weight" ? "Weight" : "Reps"}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-500">
-                        {date}
-                        {pr.kind === "weight" &&
-                          pr.previousMaxWeight != null && (
-                            <>
-                              {" "}· prev {pr.previousMaxWeight} lbs
-                              {pr.assisted ? " assist" : ""}
-                            </>
-                          )}
-                        {pr.kind === "rep" &&
-                          pr.previousMaxReps != null && (
-                            <> · prev {pr.previousMaxReps} reps</>
-                          )}
-                        {e1rm != null && (
-                          <> · est. 1RM {Math.round(e1rm)} lbs</>
-                        )}
-                      </p>
-                    </div>
-                    <Badge variant="secondary" className="shrink-0">
-                      {pr.weight} lbs{pr.assisted ? " assist" : ""} × {pr.reps}
-                    </Badge>
-                  </div>
-                )
-              })}
-            </div>
-          ) : (
-            <div className="py-4 text-center text-sm text-gray-500">
-              No new PRs in the last 30 days. Time to chase one!
             </div>
           )}
         </CardContent>
