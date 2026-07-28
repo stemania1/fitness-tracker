@@ -317,8 +317,9 @@ roughly easiest → hardest; pick off in order.
 
 ## Testing follow-ups
 - [x] Component tests for `QuickLogExercise` and `exercise-picker`
-- [ ] Set up ESLint (`next lint` is currently interactive); add a
-      lint step to the CI workflow.
+- [x] Set up ESLint and add a lint step to CI: `.eslintrc.json` is
+      configured, `npm run lint` runs non-interactively, and the CI
+      workflow runs it before typecheck + coverage.
 - [x] Ratchet up coverage thresholds in `vitest.config.ts` — now
       80 / 78 / 68 / 81 (was 72 / 72 / 55 / 74).
 
