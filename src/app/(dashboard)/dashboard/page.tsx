@@ -243,22 +243,6 @@ export default function DashboardPage() {
     },
   })
 
-  const { data: recentWorkouts, isLoading: recentLoading } = useQuery({
-    queryKey: ["recent-workouts"],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
-      const { data, error } = await supabase
-        .from("workout_logs")
-        .select("id, name, started_at, duration_mins")
-        .eq("user_id", user.id)
-        .order("started_at", { ascending: false })
-        .limit(3)
-      if (error) throw error
-      return data
-    },
-  })
-
   const exerciseNameMap = useMemo(
     () => new Map(exerciseCatalog.map((e) => [e.name.toLowerCase(), e])),
     []
@@ -1087,64 +1071,6 @@ export default function DashboardPage() {
           </Card>
         </ErrorBoundary>
       )}
-
-      {/* Recent Workouts */}
-      <ErrorBoundary>
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Dumbbell className="h-5 w-5 text-purple-500" />
-              Recent Workouts
-            </CardTitle>
-            <Link
-              href="/workouts"
-              className="flex items-center text-sm text-purple-600 hover:text-purple-700"
-            >
-              View all
-              <ChevronRight className="h-4 w-4" />
-            </Link>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {recentLoading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-12 w-full" />
-              ))}
-            </div>
-          ) : recentWorkouts && recentWorkouts.length > 0 ? (
-            <div className="space-y-3">
-              {recentWorkouts.map((workout) => (
-                <Link
-                  key={workout.id}
-                  href={`/activity/${workout.id}`}
-                  className="flex items-center justify-between rounded-lg bg-gray-50 p-3 cursor-pointer hover:bg-gray-100 transition-colors"
-                >
-                  <div>
-                    <p className="font-medium text-gray-900">{workout.name}</p>
-                    <p className="text-xs text-gray-500">
-                      {new Date(workout.started_at).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                      })}
-                      {workout.duration_mins && (
-                        <> &middot; {workout.duration_mins} min</>
-                      )}
-                    </p>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-gray-400" />
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="py-4 text-center text-sm text-gray-500">
-              No workouts yet. Start your first workout!
-            </div>
-          )}
-        </CardContent>
-      </Card>
-      </ErrorBoundary>
 
       {/* The multi-week analytical reads live on their own page, so the
           dashboard stays about what's actionable today. */}

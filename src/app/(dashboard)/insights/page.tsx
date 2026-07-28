@@ -16,6 +16,7 @@ import { RecoveryWatchCard } from "@/components/activity/RecoveryWatchCard"
 import { Vo2MaxTrendCard } from "@/components/activity/Vo2MaxTrendCard"
 import { WeeklyTrainingCard } from "@/components/activity/WeeklyTrainingCard"
 import { RecentPRsCard } from "@/components/activity/RecentPRsCard"
+import { RecentWorkoutsCard } from "@/components/activity/RecentWorkoutsCard"
 import { VolumeTrendCard } from "@/components/activity/VolumeTrendCard"
 
 const supabase = createClient()
@@ -118,6 +119,9 @@ export default function InsightsPage() {
         title="Training"
         subtitle="Balance, weekly load, and conditioning over time"
       >
+        <ErrorBoundary>
+          <RecentWorkoutsCard />
+        </ErrorBoundary>
         <ErrorBoundary>
           <MuscleBalanceCard />
         </ErrorBoundary>
