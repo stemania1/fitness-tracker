@@ -342,7 +342,9 @@ export default function GenerateWorkoutPage() {
           </div>
 
           {/* Save All Button */}
-          <div className="sticky bottom-20 z-10">
+          {/* Sticks to the bottom of <main>'s scrollport, which now ends at the
+              nav rather than running underneath it — so no nav-sized offset. */}
+          <div className="sticky bottom-4 z-10">
             <Button
               size="lg"
               className="w-full gap-2 shadow-lg"
