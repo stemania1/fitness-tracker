@@ -60,7 +60,7 @@ describe("middleware — unauthenticated users", () => {
     expect(location).toBeNull()
   })
 
-  it("allows the root page through (it handles its own redirect)", async () => {
+  it("allows the root page through (the marketing landing page)", async () => {
     const { location } = await run("/")
     expect(location).toBeNull()
   })
@@ -109,6 +109,15 @@ describe("middleware — unauthenticated users", () => {
 
 describe("middleware — authenticated users", () => {
   beforeEach(() => setUser({ id: "user-123" }))
+
+  // An installed PWA can be pinned to `/`, and the landing page has no auth
+  // check of its own — without this the user has to tap "Log In" on every
+  // launch just to bounce through /login back to the dashboard.
+  it("redirects the root page to /dashboard", async () => {
+    const { status, location } = await run("/")
+    expect(status).toBe(307)
+    expect(location).toBe("http://localhost/dashboard")
+  })
 
   it("redirects /login to /dashboard", async () => {
     const { status, location } = await run("/login")

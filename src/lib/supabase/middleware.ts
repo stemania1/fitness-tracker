@@ -63,6 +63,19 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // Send signed-in users straight to the dashboard instead of the marketing
+  // landing page. `/` is a static page with no auth check of its own, so
+  // without this an already-authenticated user lands on the marketing copy and
+  // has to tap "Log In" — which just bounces through /login back to the
+  // dashboard — on every launch. iOS pins an installed PWA to the URL that was
+  // open when it was added to the home screen, so an icon created from `/`
+  // hits this on every single launch regardless of the manifest's start_url.
+  if (user && isRootPage) {
+    const url = request.nextUrl.clone()
+    url.pathname = "/dashboard"
+    return NextResponse.redirect(url)
+  }
+
   // Redirect authenticated users away from auth pages
   if (user && isAuthPage) {
     const url = request.nextUrl.clone()
