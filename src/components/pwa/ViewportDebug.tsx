@@ -12,10 +12,36 @@ import { useCallback, useEffect, useState } from "react"
  * area insets are non-zero — are visible from the outside. This renders them
  * on screen so a single screenshot answers the question.
  *
- * Off unless the URL carries `?debug=viewport`, so it costs nothing in normal
- * use. The height probes are the important part: they measure what the device
+ * Turned on with `?debug=viewport` and off with `?debug=off`. The choice is
+ * persisted, because an installed PWA launches at the manifest's `start_url`
+ * and drops the query string — which would make the readout impossible to see
+ * in standalone mode, the only mode the bug reproduces in. Off by default, so
+ * it costs nothing in normal use.
+ *
+ * The height probes are the important part: they measure what the device
  * ACTUALLY resolves each unit to, rather than what the spec says it should.
  */
+
+const STORAGE_KEY = "craigfitness:viewport-debug"
+
+/** Resolve the on/off choice from the URL, falling back to the stored one. */
+function isEnabled(): boolean {
+  const q = new URLSearchParams(window.location.search).get("debug")
+  try {
+    if (q === "viewport") {
+      window.localStorage.setItem(STORAGE_KEY, "1")
+      return true
+    }
+    if (q === "off") {
+      window.localStorage.removeItem(STORAGE_KEY)
+      return false
+    }
+    return window.localStorage.getItem(STORAGE_KEY) === "1"
+  } catch {
+    // Private mode / storage disabled: fall back to the URL alone.
+    return q === "viewport"
+  }
+}
 
 type Rows = Array<[string, string]>
 
@@ -91,7 +117,7 @@ export function ViewportDebug() {
   const refresh = useCallback(() => setRows(collect()), [])
 
   useEffect(() => {
-    if (!new URLSearchParams(window.location.search).has("debug")) return
+    if (!isEnabled()) return
     refresh()
 
     const vv = window.visualViewport

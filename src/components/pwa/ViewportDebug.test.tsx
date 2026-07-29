@@ -10,6 +10,7 @@ function setSearch(search: string) {
 afterEach(() => {
   cleanup()
   setSearch("")
+  window.localStorage.clear()
 })
 
 describe("ViewportDebug", () => {
@@ -38,5 +39,32 @@ describe("ViewportDebug", () => {
     setSearch("?debug=viewport")
     render(<ViewportDebug />)
     expect(screen.getByTestId("viewport-debug").textContent).toContain("absent")
+  })
+
+  // An installed PWA launches at the manifest start_url and drops the query
+  // string, so the choice has to survive without it.
+  it("stays on after the query param is gone", () => {
+    setSearch("?debug=viewport")
+    render(<ViewportDebug />)
+    cleanup()
+
+    setSearch("")
+    render(<ViewportDebug />)
+    expect(screen.getByTestId("viewport-debug")).toBeInTheDocument()
+  })
+
+  it("turns off again with ?debug=off", () => {
+    setSearch("?debug=viewport")
+    render(<ViewportDebug />)
+    cleanup()
+
+    setSearch("?debug=off")
+    render(<ViewportDebug />)
+    expect(screen.queryByTestId("viewport-debug")).toBeNull()
+    cleanup()
+
+    setSearch("")
+    render(<ViewportDebug />)
+    expect(screen.queryByTestId("viewport-debug")).toBeNull()
   })
 })
