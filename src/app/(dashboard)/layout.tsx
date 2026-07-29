@@ -33,22 +33,16 @@ export default async function DashboardLayout({
   }
 
   return (
-    /* App-shell layout: the outer box is exactly one viewport tall and never
-       scrolls, <main> is the only scroller, and TopBar/BottomNav are ordinary
-       flex children pinned by layout rather than by `position: fixed`. iOS
-       anchors fixed elements to the visual viewport, which the software
-       keyboard shrinks and does not reliably restore — that is what stranded
-       the nav mid-screen. In flow, there is nothing left to mis-anchor. */
-    <div className="flex h-dvh flex-col overflow-hidden bg-gray-50">
+    <div className="flex min-h-screen flex-col bg-gray-50">
       <TopBar />
-      {/* `data-app-scroll` marks this as the scroll container so modal scroll
-          locking can target it (the body no longer scrolls). */}
-      <main
-        data-app-scroll
-        className="min-h-0 flex-1 overflow-y-auto overflow-x-clip px-4 py-6"
-      >
-        {children}
-      </main>
+      {/* overflow-x-CLIP, not hidden: `overflow-x: hidden` forces the computed
+          `overflow-y` to `auto` (CSS overflow spec), turning <main> into a
+          scroll container. iOS then anchors the fixed bottom nav to that inner
+          scroller's initial frame, so it drifts during normal scrolling in the
+          installed PWA. `clip` contains runaway horizontal content without
+          making <main> a scroller, so the document body scrolls and the nav
+          stays pinned to the viewport. */}
+      <main className="flex-1 overflow-x-clip px-4 py-6 pb-24">{children}</main>
       <OfflineSyncManager />
       <ServiceWorkerManager />
       <BottomNav />

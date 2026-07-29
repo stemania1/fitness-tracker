@@ -78,21 +78,14 @@ function DialogContent({ className, children, ...props }: DialogContentProps) {
     setMounted(true)
   }, [])
 
-  // Scroll-lock the app shell's scroller, not <body>. The authenticated
-  // layout makes <main data-app-scroll> the only scrolling element, so
-  // locking <body> stopped having any effect on the content behind a modal.
-  // Falls back to <body> for surfaces rendered outside that shell (auth,
-  // onboarding), which do scroll the document.
   React.useEffect(() => {
-    const scroller: HTMLElement =
-      document.querySelector<HTMLElement>("[data-app-scroll]") ?? document.body
     if (open) {
-      scroller.style.overflow = "hidden"
+      document.body.style.overflow = "hidden"
     } else {
-      scroller.style.overflow = ""
+      document.body.style.overflow = ""
     }
     return () => {
-      scroller.style.overflow = ""
+      document.body.style.overflow = ""
     }
   }, [open])
 

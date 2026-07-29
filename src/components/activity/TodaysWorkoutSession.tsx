@@ -241,7 +241,7 @@ export function TodaysWorkoutSession() {
           )}
 
           {/* Sticky finish bar for one-handed gym use */}
-          <div className="fixed inset-x-0 bottom-[var(--bottom-nav-h)] z-10 border-t border-gray-200 bg-white/95 p-3 backdrop-blur">
+          <div className="fixed inset-x-0 bottom-16 z-10 border-t border-gray-200 bg-white/95 p-3 backdrop-blur">
             <button
               onClick={() => finishMutation.mutate()}
               disabled={finishMutation.isPending}

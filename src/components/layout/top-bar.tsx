@@ -5,11 +5,7 @@ import { User } from "lucide-react"
 
 export function TopBar() {
   return (
-    /* A flex child of the shell rather than `sticky` — the shell itself never
-       scrolls, so the bar is always on screen. The top padding clears the
-       status bar, which `viewport-fit: cover` + the translucent status bar
-       style let the web view draw underneath. */
-    <header aria-label="Top bar" className="z-10 flex shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+    <header aria-label="Top bar" className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
       <Link href="/dashboard" className="text-lg font-bold">
         <span className="text-gray-900">Craig</span>
         <span className="text-purple-700">Fitness</span>

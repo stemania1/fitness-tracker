@@ -28,29 +28,15 @@
 }
 
 @layer base {
-  :root {
-    /* Height the bottom nav occupies, including the home-indicator inset.
-       Overlays that need to float just above the nav offset by this instead
-       of hardcoding a magic `bottom-20`, so they stay correct on devices
-       with and without a home indicator. */
-    --bottom-nav-h: calc(4rem + env(safe-area-inset-bottom));
-  }
-
-  /* The authenticated shell is a fixed-height flex column (see the dashboard
-     layout) and <main> is the only scroller. The bottom nav is a normal flex
-     child, NOT `position: fixed`.
-
-     That is deliberate and load-bearing. iOS anchors fixed elements to the
-     VISUAL viewport, which shrinks when the software keyboard opens and is
-     not reliably restored when it closes — so a fixed bottom nav strands
-     itself mid-screen after any keyboard interaction and only re-syncs on
-     the next scroll. No amount of overflow tuning on html/body/<main> fixes
-     that; two previous attempts (overflow-x hidden -> clip, and leaving the
-     root unconstrained) changed nothing because the containing-block chain
-     was never the problem. Laying the nav out in flow removes the visual
-     viewport from the equation entirely.
-
-     Keep the nav out of `position: fixed`. */
+  /* Deliberately NO overflow constraint on html/body. iOS Safari breaks
+     `position: fixed` when the root element has any overflow value other
+     than visible — the fixed bottom nav starts scrolling with the page and
+     strands itself mid-screen. `clip` on the root doesn't dodge that bug
+     either. Runaway horizontal content is contained on <main> instead (see
+     the dashboard layout), using `overflow-x: clip` specifically — plain
+     `overflow-x: hidden` there would coerce the computed `overflow-y` to
+     `auto` and make <main> its own scroll container, which re-anchors the
+     fixed nav on iOS. `clip` leaves <main> a non-scroller. */
   * {
     @apply border-border;
   }
