@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
+import { currentWeekStreak, totalWeightLifted } from "@/lib/profile-stats"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -186,12 +187,9 @@ export default function ProfilePage() {
         .eq("exercise_log.workout_log.user_id", user.id)
         .not("weight", "is", null)
 
-      let totalWeight = 0
-      if (setData) {
-        for (const s of setData as any[]) {
-          totalWeight += (s.weight ?? 0) * (s.reps ?? 1)
-        }
-      }
+      const totalWeight = totalWeightLifted(
+        (setData ?? []) as { weight: number | null; reps: number | null }[]
+      )
 
       // Current streak (consecutive weeks with at least one workout)
       const { data: workoutDates } = await supabase
@@ -200,33 +198,7 @@ export default function ProfilePage() {
         .eq("user_id", user.id)
         .order("started_at", { ascending: false })
 
-      let streakWeeks = 0
-      if (workoutDates && workoutDates.length > 0) {
-        const now = new Date()
-        const getWeekStart = (d: Date) => {
-          const date = new Date(d)
-          const day = date.getDay()
-          const diff = date.getDate() - day + (day === 0 ? -6 : 1)
-          date.setDate(diff)
-          date.setHours(0, 0, 0, 0)
-          return date.getTime()
-        }
-
-        const workoutWeeks = new Set(
-          workoutDates.map((w) => getWeekStart(new Date(w.started_at)))
-        )
-
-        let currentWeekStart = getWeekStart(now)
-        // Check if current week has a workout; if not, start from last week
-        if (!workoutWeeks.has(currentWeekStart)) {
-          currentWeekStart -= 7 * 24 * 60 * 60 * 1000
-        }
-
-        while (workoutWeeks.has(currentWeekStart)) {
-          streakWeeks++
-          currentWeekStart -= 7 * 24 * 60 * 60 * 1000
-        }
-      }
+      const streakWeeks = currentWeekStreak(workoutDates ?? [])
 
       return {
         totalWorkouts: totalWorkouts ?? 0,
