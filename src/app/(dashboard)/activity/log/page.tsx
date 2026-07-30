@@ -50,7 +50,6 @@ import { plannedSession } from "@/lib/todays-workout"
 import { isTimedTarget, repsTargetLabel } from "@/lib/reps-target"
 import {
   makeSet,
-  makeExercise,
   isTreadmill,
   isOutdoorRun,
   isDistanceCardio,
@@ -61,6 +60,7 @@ import {
   type ActiveExercise,
   type ActiveWorkout,
 } from "@/lib/active-workout"
+import * as edits from "@/lib/workout-edits"
 
 // ── Component ─────────────────────────────────────────────────
 export default function LogWorkoutPage() {
@@ -321,98 +321,59 @@ export default function LogWorkoutPage() {
   }, [])
 
   // ── Exercise mutations ──────────────────────────────────────
+  // The transforms themselves live in lib/workout-edits.ts (pure + tested);
+  // these wrappers only thread them through React state.
   const updateSet = useCallback(
     (exIdx: number, setIdx: number, patch: Partial<ActiveSet>) => {
-      setWorkout((prev) => {
-        if (!prev) return prev
-        const exercises = [...prev.exercises]
-        const ex = { ...exercises[exIdx] }
-        const sets = [...ex.sets]
-        sets[setIdx] = { ...sets[setIdx], ...patch }
-        ex.sets = sets
-        exercises[exIdx] = ex
-        return { ...prev, exercises }
-      })
+      setWorkout((prev) => (prev ? edits.updateSet(prev, exIdx, setIdx, patch) : prev))
     },
     []
   )
 
   const toggleSetComplete = useCallback(
     (exIdx: number, setIdx: number) => {
-      setWorkout((prev) => {
-        if (!prev) return prev
-        const exercises = [...prev.exercises]
-        const ex = { ...exercises[exIdx] }
-        const sets = [...ex.sets]
-        const wasCompleted = sets[setIdx].completed
-        sets[setIdx] = { ...sets[setIdx], completed: !wasCompleted }
-        ex.sets = sets
-        exercises[exIdx] = ex
-
-        // Trigger rest timer when completing a set (not uncompleting)
-        if (!wasCompleted) {
-          setRestTimer(ex.restSeconds)
-        }
-
-        return { ...prev, exercises }
-      })
+      if (!workout) return
+      // Derive from current state rather than from inside the updater: React
+      // does not run a functional update synchronously, and it may run it more
+      // than once, so arming the rest timer in there was both mistimed and
+      // liable to fire twice.
+      const { workout: next, restSeconds } = edits.toggleSetComplete(
+        workout,
+        exIdx,
+        setIdx
+      )
+      setWorkout(next)
+      if (restSeconds !== null) setRestTimer(restSeconds)
     },
-    []
+    [workout]
   )
 
   const addSet = useCallback((exIdx: number) => {
-    setWorkout((prev) => {
-      if (!prev) return prev
-      const exercises = [...prev.exercises]
-      const ex = { ...exercises[exIdx] }
-      ex.sets = [...ex.sets, makeSet()]
-      exercises[exIdx] = ex
-      return { ...prev, exercises }
-    })
+    setWorkout((prev) => (prev ? edits.addSet(prev, exIdx) : prev))
   }, [])
 
   const removeSet = useCallback((exIdx: number, setIdx: number) => {
-    setWorkout((prev) => {
-      if (!prev) return prev
-      const exercises = [...prev.exercises]
-      const ex = { ...exercises[exIdx] }
-      if (ex.sets.length <= 1) return prev
-      ex.sets = ex.sets.filter((_, i) => i !== setIdx)
-      exercises[exIdx] = ex
-      return { ...prev, exercises }
-    })
+    setWorkout((prev) => (prev ? edits.removeSet(prev, exIdx, setIdx) : prev))
   }, [])
 
-  const updateExerciseNotes = useCallback(
-    (exIdx: number, notes: string) => {
-      setWorkout((prev) => {
-        if (!prev) return prev
-        const exercises = [...prev.exercises]
-        exercises[exIdx] = { ...exercises[exIdx], notes }
-        return { ...prev, exercises }
-      })
-    },
-    []
-  )
+  const updateExerciseNotes = useCallback((exIdx: number, notes: string) => {
+    setWorkout((prev) => (prev ? edits.updateExerciseNotes(prev, exIdx, notes) : prev))
+  }, [])
 
   const removeExercise = useCallback(
     (exIdx: number) => {
-      setWorkout((prev) => {
-        if (!prev) return prev
-        const exercises = prev.exercises.filter((_, i) => i !== exIdx)
-        return { ...prev, exercises }
-      })
-      setCurrentIdx((prev) => Math.max(0, Math.min(prev, (workout?.exercises.length ?? 1) - 2)))
+      const lengthBefore = workout?.exercises.length ?? 0
+      setWorkout((prev) => (prev ? edits.removeExercise(prev, exIdx) : prev))
+      setCurrentIdx((prev) =>
+        edits.clampIndexAfterRemoval(prev, exIdx, lengthBefore)
+      )
     },
     [workout?.exercises.length]
   )
 
   const addExercise = useCallback(
     (def: ExerciseDefinition) => {
-      setWorkout((prev) => {
-        if (!prev) return prev
-        return { ...prev, exercises: [...prev.exercises, makeExercise(def)] }
-      })
+      setWorkout((prev) => (prev ? edits.addExercise(prev, def) : prev))
       setShowPicker(false)
       // Navigate to the newly added exercise
       setCurrentIdx(workout?.exercises.length ?? 0)
@@ -424,22 +385,7 @@ export default function LogWorkoutPage() {
    *  the prescribed sets/reps/rest and any sets already entered. */
   const swapExercise = useCallback(
     (idx: number, def: ExerciseDefinition) => {
-      setWorkout((prev) => {
-        if (!prev) return prev
-        const exercises = [...prev.exercises]
-        const old = exercises[idx]
-        if (!old) return prev
-        exercises[idx] = {
-          ...old,
-          exerciseId: def.id,
-          name: def.name,
-          muscleGroups: def.muscleGroups,
-          assisted: def.assisted ?? false,
-          exerciseType: def.exerciseType,
-          equipmentId: def.equipmentId,
-        }
-        return { ...prev, exercises }
-      })
+      setWorkout((prev) => (prev ? edits.swapExercise(prev, idx, def) : prev))
       setSwappingIdx(null)
       setShowPicker(false)
     },
