@@ -37,6 +37,7 @@ import { ExerciseInfo } from "@/components/activity/ExerciseInfo"
 import { adaptiveTarget } from "@/lib/adaptive-target"
 import { suggestedIncrement } from "@/lib/progressive-overload"
 import { useExerciseHistory } from "@/hooks/useExerciseHistory"
+import { useElapsedSeconds } from "@/hooks/useElapsedSeconds"
 import { isNewPersonalRecord, isNewAssistedRecord } from "@/lib/personal-records"
 import {
   estimateStrengthCalories,
@@ -75,7 +76,10 @@ export default function LogWorkoutPage() {
 
   const [workout, setWorkout] = useState<ActiveWorkout | null>(null)
   const [currentIdx, setCurrentIdx] = useState(0)
-  const [elapsed, setElapsed] = useState(0)
+  /** When this sitting's clock started. For an appended workout this is the
+   *  moment of resuming, NOT the original session's started_at — the header
+   *  timer counts the current sitting. */
+  const [timerStart, setTimerStart] = useState<Date | null>(null)
   const [showPicker, setShowPicker] = useState(false)
   // When set, the exercise picker replaces the exercise at this index (a
   // "swap" for a broken machine) instead of appending a new one.
@@ -94,13 +98,14 @@ export default function LogWorkoutPage() {
   const [pendingFinish, setPendingFinish] = useState(false)
   const [userWeightLbs, setUserWeightLbs] = useState<number>(170)
   const [calorieProfile, setCalorieProfile] = useState<CalorieProfile>({})
-  const startRef = useRef<Date | null>(null)
   /** When appending to a saved workout: its id and how many exercises it
    *  already has (so new order_index values continue after them). */
   const appendInfo = useRef<{ logId: string; orderOffset: number } | null>(null)
   /** Exercises we've already pre-filled this session, so we don't clobber
    *  user edits if they tab back to the exercise. */
   const prefilledExercises = useRef<Set<string>>(new Set())
+
+  const elapsed = useElapsedSeconds(timerStart)
 
   // Load template or start freestyle
   useEffect(() => {
@@ -167,7 +172,7 @@ export default function LogWorkoutPage() {
 
         appendInfo.current = { logId: appendId, orderOffset: existing.length }
         const now = new Date()
-        startRef.current = now
+        setTimerStart(now)
         setWorkout({
           name: log.name,
           templateId: null,
@@ -232,7 +237,7 @@ export default function LogWorkoutPage() {
           .filter(Boolean) as ActiveExercise[]
 
         const now = new Date()
-        startRef.current = now
+        setTimerStart(now)
         setWorkout({
           name: template?.name ?? "Workout",
           templateId: templateId,
@@ -265,7 +270,7 @@ export default function LogWorkoutPage() {
           .filter(Boolean) as ActiveExercise[]
 
         const now = new Date()
-        startRef.current = now
+        setTimerStart(now)
         setWorkout({
           name: planned.name,
           templateId: null,
@@ -274,7 +279,7 @@ export default function LogWorkoutPage() {
         })
       } else {
         const now = new Date()
-        startRef.current = now
+        setTimerStart(now)
         setWorkout({
           name: "Freestyle Workout",
           templateId: null,
@@ -308,16 +313,6 @@ export default function LogWorkoutPage() {
       }
     }
     fetchWeight()
-  }, [])
-
-  // Elapsed timer
-  useEffect(() => {
-    const id = setInterval(() => {
-      if (startRef.current) {
-        setElapsed(Math.floor((Date.now() - startRef.current.getTime()) / 1000))
-      }
-    }, 1000)
-    return () => clearInterval(id)
   }, [])
 
   // ── Exercise mutations ──────────────────────────────────────
