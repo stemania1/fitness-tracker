@@ -20,7 +20,6 @@ import {
   Trash2,
   TrendingUp,
   Trophy,
-  X,
   MessageSquare,
   Gauge,
   Flame,
@@ -34,6 +33,8 @@ import { HoldTimer } from "@/components/activity/hold-timer"
 import { PreviousPerformance } from "@/components/activity/PreviousPerformance"
 import { AdaptiveTargetBanner } from "@/components/activity/AdaptiveTargetBanner"
 import { ExerciseInfo } from "@/components/activity/ExerciseInfo"
+import { ExerciseDrawer } from "@/components/activity/ExerciseDrawer"
+import { UncheckedExercisesDialog } from "@/components/activity/UncheckedExercisesDialog"
 import { adaptiveTarget } from "@/lib/adaptive-target"
 import { suggestedIncrement } from "@/lib/progressive-overload"
 import { useExerciseHistory } from "@/hooks/useExerciseHistory"
@@ -1224,77 +1225,17 @@ export default function LogWorkoutPage() {
         </>
       )}
 
-      {/* Exercise list drawer */}
       {showDrawer && (
-        <div className="fixed inset-0 z-50 flex flex-col">
-          <div
-            className="absolute inset-0 bg-black/50"
-            onClick={() => setShowDrawer(false)}
-          />
-          <div className="relative mt-auto max-h-[70vh] overflow-y-auto rounded-t-2xl bg-white pb-8">
-            <div className="sticky top-0 flex items-center justify-between border-b border-gray-100 bg-white px-4 py-3">
-              <h3 className="font-semibold text-gray-900">Exercises</h3>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowDrawer(false)}
-              >
-                <X className="h-5 w-5" />
-              </Button>
-            </div>
-            <ul className="divide-y divide-gray-50">
-              {workout.exercises.map((ex, ei) => {
-                const completedSets = ex.sets.filter((s) => s.completed).length
-                const totalSets = ex.sets.length
-                const allDone = completedSets === totalSets && totalSets > 0
-
-                return (
-                  <li key={ei}>
-                    <button
-                      onClick={() => {
-                        setCurrentIdx(ei)
-                        setShowDrawer(false)
-                      }}
-                      className={cn(
-                        "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-gray-50",
-                        ei === currentIdx && "bg-purple-50"
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold",
-                          allDone
-                            ? "bg-purple-600 text-white"
-                            : "bg-gray-100 text-gray-500"
-                        )}
-                      >
-                        {allDone ? (
-                          <Check className="h-4 w-4" />
-                        ) : (
-                          ei + 1
-                        )}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-gray-900">
-                          {ex.name}
-                        </p>
-                        <div className="flex items-center gap-2 text-xs text-gray-400">
-                          <span>{completedSets}/{totalSets} sets</span>
-                          {getExerciseCalories(ex) > 0 && (
-                            <span className="flex items-center gap-0.5 text-orange-400">
-                              <Flame className="h-3 w-3" />
-                              {getExerciseCalories(ex)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-          </div>
-        </div>
+        <ExerciseDrawer
+          exercises={workout.exercises}
+          currentIdx={currentIdx}
+          caloriesFor={getExerciseCalories}
+          onSelect={(ei) => {
+            setCurrentIdx(ei)
+            setShowDrawer(false)
+          }}
+          onClose={() => setShowDrawer(false)}
+        />
       )}
 
       {/* Exercise picker modal — adds a new exercise, or swaps the current
@@ -1315,47 +1256,15 @@ export default function LogWorkoutPage() {
 
       {/* Unchecked-exercises confirmation before saving */}
       {pendingFinish && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
-            <h3 className="text-base font-semibold text-gray-900">
-              Save without these?
-            </h3>
-            <p className="mt-2 text-sm text-gray-600">
-              {uncheckedExercises.length}{" "}
-              {uncheckedExercises.length === 1 ? "exercise has" : "exercises have"}{" "}
-              no checked-off sets and won&apos;t be saved. Tap the checkmark on a
-              set to include it.
-            </p>
-            {uncheckedExercises.length > 0 && (
-              <ul className="mt-3 max-h-32 space-y-1 overflow-y-auto text-sm text-gray-500">
-                {uncheckedExercises.map((ex) => (
-                  <li key={ex.exerciseId} className="truncate">
-                    • {ex.name}
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="mt-5 flex gap-2">
-              <Button
-                variant="secondary"
-                className="flex-1"
-                onClick={() => setPendingFinish(false)}
-              >
-                Keep logging
-              </Button>
-              <Button
-                className="flex-1"
-                disabled={saving}
-                onClick={() => {
-                  setPendingFinish(false)
-                  finishWorkout()
-                }}
-              >
-                Save anyway
-              </Button>
-            </div>
-          </div>
-        </div>
+        <UncheckedExercisesDialog
+          exercises={uncheckedExercises}
+          saving={saving}
+          onCancel={() => setPendingFinish(false)}
+          onConfirm={() => {
+            setPendingFinish(false)
+            finishWorkout()
+          }}
+        />
       )}
 
       {/* Rest timer */}
