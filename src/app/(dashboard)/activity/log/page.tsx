@@ -46,7 +46,13 @@ import {
   type CalorieProfile,
 } from "@/lib/calories"
 import { formatMuscleGroup } from "@/lib/muscle-groups"
-import { saveWorkout, type WorkoutPayload } from "@/lib/save-workout"
+import { saveWorkout } from "@/lib/save-workout"
+import {
+  buildWorkoutPayload,
+  uncheckedExercises,
+  isOfflineError,
+  saveErrorMessage,
+} from "@/lib/finish-workout"
 import { addPending, localStorageQueue } from "@/lib/pending-workouts"
 import { plannedSession } from "@/lib/todays-workout"
 import { isTimedTarget, repsTargetLabel } from "@/lib/reps-target"
@@ -441,6 +447,8 @@ export default function LogWorkoutPage() {
     : 0
 
   // ── Save workout ────────────────────────────────────────────
+  // Payload construction, the offline heuristic and the error copy all live in
+  // lib/finish-workout.ts (pure + tested); this handles only the IO.
   const finishWorkout = async () => {
     if (!workout || workout.exercises.length === 0) return
     setSaving(true)
@@ -456,52 +464,18 @@ export default function LogWorkoutPage() {
       return
     }
 
-    const finishedAt = new Date()
-    const durationMins = Math.max(
-      0,
-      Math.round((finishedAt.getTime() - workout.startedAt.getTime()) / 60000)
-    )
-
-    // Serializable payload — used to save now, or to queue and replay if offline.
-    const payload: WorkoutPayload = {
+    const payload = buildWorkoutPayload({
+      workout,
       userId: user.id,
-      name: workout.name,
-      templateId: workout.templateId,
-      startedAt: workout.startedAt.toISOString(),
-      finishedAt: finishedAt.toISOString(),
-      durationMins,
-      appendToLogId: appendInfo.current?.logId ?? null,
-      orderOffset: appendInfo.current?.orderOffset ?? 0,
-      exercises: workout.exercises
-        .map((ex, ei) => ({ ex, ei }))
-        .filter(({ ex }) => ex.sets.some((s) => s.completed))
-        .map(({ ex, ei }) => ({
-          exerciseId: ex.exerciseId,
-          notes: ex.notes,
-          orderIndex: ei,
-          completedSets: ex.sets
-            .filter((s) => s.completed)
-            .map((s) => ({
-              reps: s.reps,
-              weight: s.weight,
-              durationMins: s.durationMins,
-              distanceMiles: s.distanceMiles,
-              inclinePercent: s.inclinePercent,
-              rpe: s.rpe,
-            })),
-        })),
-    }
+      finishedAt: new Date(),
+      append: appendInfo.current,
+    })
 
     try {
       const logId = await saveWorkout(supabase, payload)
       router.push(`/activity/${logId}`)
     } catch (err) {
-      const offline =
-        (typeof navigator !== "undefined" && !navigator.onLine) ||
-        /load failed|failed to fetch|networkerror/i.test(
-          (err as Error).message
-        )
-      if (offline) {
+      if (isOfflineError(err)) {
         // Don't lose the session — queue it and sync when back online.
         addPending(localStorageQueue, {
           id: crypto.randomUUID(),
@@ -511,22 +485,18 @@ export default function LogWorkoutPage() {
         router.push("/dashboard?queued=1")
       } else {
         setSaving(false)
-        setFinishError(
-          (err as Error).message || "Couldn't save the workout. Try again."
-        )
+        setFinishError(saveErrorMessage(err))
       }
     }
   }
 
   // Exercises with no checked-off set — these get dropped on save.
-  const uncheckedExercises = workout
-    ? workout.exercises.filter((ex) => ex.sets.every((s) => !s.completed))
-    : []
+  const unchecked = uncheckedExercises(workout)
 
   // Finish handler: warn first if any exercise has no completed set.
   const handleFinishClick = () => {
     if (!workout || workout.exercises.length === 0) return
-    if (uncheckedExercises.length > 0) {
+    if (unchecked.length > 0) {
       setPendingFinish(true)
       return
     }
@@ -1257,7 +1227,7 @@ export default function LogWorkoutPage() {
       {/* Unchecked-exercises confirmation before saving */}
       {pendingFinish && (
         <UncheckedExercisesDialog
-          exercises={uncheckedExercises}
+          exercises={unchecked}
           saving={saving}
           onCancel={() => setPendingFinish(false)}
           onConfirm={() => {
