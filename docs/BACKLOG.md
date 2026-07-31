@@ -313,13 +313,22 @@ inside the app, so neither needs server logs or a dashboard.
       daily sleep-hours / sleep-score / readiness lines over 8 weeks from the
       stored `oura_daily` history, with a 7-day-vs-prior-7 delta and a metric
       toggle.
-- [ ] Sharpen caffeine: personal half-life / sensitivity from the check-in
-      history; tie the late-caffeine cutoff to the user's actual bedtime
-      instead of the fixed 2pm default.
-- [ ] Energy trend + personal drivers: once a few weeks of check-ins exist,
-      correlate felt energy against its candidate drivers (mirrors the REM
-      sleep-driver analysis in `sleep-insights.ts`) and surface each user's
-      top levers.
+- [x] Late-caffeine cutoff follows the user's actual bedtime rather than a
+      fixed 2pm. `buildBedtimePlan` already derived a personal
+      `caffeineCutoff` (8h before a bedtime worked back from wake time and
+      sleep goal) and `lateCaffeineFlag` ignored it, so a 5am riser was told
+      2pm was fine when their own cutoff was 1:30pm. The cutoff is a
+      `ClockTime` now, compared at minute precision — a bedtime-derived one
+      is usually off the hour — and `useBedtimePlan` shares the plan across
+      the three cards that need it so they can't disagree.
+- [ ] Sharpen caffeine further: personal half-life / sensitivity learned from
+      the check-in history (the other half of the old "sharpen caffeine"
+      item; the fixed ~5.5h `CAFFEINE_HALF_LIFE_MIN` is still a population
+      average).
+- [x] Energy trend + personal drivers (`energy-correlations.ts` +
+      `EnergyDriversCard` on /insights): correlates felt energy against its
+      candidate drivers and surfaces each user's top levers. Was shipped but
+      left unchecked here.
 - [ ] Morning vs. evening framing: tailor the prompt/target to the part of
       day (e.g. morning readiness vs. evening wind-down) rather than one
       generic "right now" read.

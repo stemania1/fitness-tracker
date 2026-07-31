@@ -1,14 +1,11 @@
 "use client"
 
 import Link from "next/link"
-import { useQuery } from "@tanstack/react-query"
-import { createClient } from "@/lib/supabase/client"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { BedDouble, Coffee, Moon } from "lucide-react"
-import { buildBedtimePlan, formatClockTime } from "@/lib/bedtime"
-
-const supabase = createClient()
+import { formatClockTime } from "@/lib/bedtime"
+import { useBedtimePlan } from "@/hooks/useBedtimePlan"
 
 /**
  * Sleep-anchored bedtime target: with a fixed wake time (an early commute,
@@ -17,25 +14,7 @@ const supabase = createClient()
  * and last-safe-caffeine cutoff.
  */
 export function BedtimeCard() {
-  const { data: profile, isLoading } = useQuery({
-    queryKey: ["bedtime-profile"],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
-      const { data } = await supabase
-        .from("user_profiles")
-        .select("wake_time, sleep_goal_hours")
-        .eq("id", user.id)
-        .single()
-      return data
-    },
-  })
-
-  const plan = profile?.wake_time
-    ? buildBedtimePlan(profile.wake_time, profile.sleep_goal_hours ?? undefined)
-    : null
+  const { plan, isLoading } = useBedtimePlan()
 
   return (
     <Card>

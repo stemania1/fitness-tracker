@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest"
 import {
   parseClockTime,
   formatClockTime,
+  formatClockTimeShort,
   subtractMinutes,
   buildBedtimePlan,
 } from "./bedtime"
@@ -27,6 +28,16 @@ describe("formatClockTime", () => {
     expect(formatClockTime({ hour: 0, minute: 0 })).toBe("12:00 AM")
     expect(formatClockTime({ hour: 12, minute: 0 })).toBe("12:00 PM")
     expect(formatClockTime({ hour: 22, minute: 5 })).toBe("10:05 PM")
+  })
+})
+
+describe("formatClockTimeShort", () => {
+  it("drops the minutes on the hour and keeps them otherwise", () => {
+    expect(formatClockTimeShort({ hour: 14, minute: 0 })).toBe("2pm")
+    expect(formatClockTimeShort({ hour: 15, minute: 15 })).toBe("3:15pm")
+    expect(formatClockTimeShort({ hour: 9, minute: 5 })).toBe("9:05am")
+    expect(formatClockTimeShort({ hour: 0, minute: 0 })).toBe("12am")
+    expect(formatClockTimeShort({ hour: 12, minute: 30 })).toBe("12:30pm")
   })
 })
 

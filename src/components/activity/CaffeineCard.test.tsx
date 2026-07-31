@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   getUser: vi.fn(),
   deleteEq: vi.fn(),
   rows: [] as unknown[],
+  profile: null as { wake_time: string | null; sleep_goal_hours: number } | null,
 }))
 
 vi.mock("@/lib/supabase/client", () => ({
@@ -19,6 +20,8 @@ vi.mock("@/lib/supabase/client", () => ({
           gte: () => ({
             order: () => Promise.resolve({ data: mocks.rows, error: null }),
           }),
+          // The bedtime plan behind the late-caffeine cutoff.
+          single: () => Promise.resolve({ data: mocks.profile, error: null }),
         }),
       }),
       delete: () => ({ eq: mocks.deleteEq }),
@@ -37,9 +40,13 @@ beforeEach(() => {
   mocks.getUser.mockReset().mockResolvedValue({ data: { user: { id: "u1" } } })
   mocks.deleteEq.mockReset().mockResolvedValue({ error: null })
   mocks.rows = []
+  mocks.profile = { wake_time: null, sleep_goal_hours: 7.5 }
 })
 
-afterEach(() => cleanup())
+afterEach(() => {
+  cleanup()
+  vi.useRealTimers()
+})
 
 function renderCard() {
   const queryClient = new QueryClient({
@@ -79,6 +86,39 @@ describe("CaffeineCard", () => {
     renderCard()
     await screen.findByText("Cold brew")
     expect(screen.getByText(/over the 400 mg daily guideline/i)).toBeInTheDocument()
+  })
+
+  // Built from local components on both sides, so the assertion doesn't
+  // depend on the timezone the suite happens to run in.
+  function atLocalTime(hour: number, minute: number): string {
+    return new Date(2026, 6, 31, hour, minute, 0).toISOString()
+  }
+
+  describe("late-caffeine warning", () => {
+    beforeEach(() => {
+      // shouldAdvanceTime, or the query's async resolution never progresses
+      // and findBy* polls forever against a frozen clock.
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      vi.setSystemTime(new Date(2026, 6, 31, 16, 0, 0)) // 4pm local
+      // 1:45pm — inside the generic 2pm default, past an early riser's cutoff.
+      mocks.rows = [
+        { id: "c1", mg: 95, source: "Coffee", logged_at: atLocalTime(13, 45) },
+      ]
+    })
+
+    it("judges against the user's own cutoff, not a generic 2pm", async () => {
+      // Up at 5am on a 7.5h goal → 9:30pm bedtime → 1:30pm caffeine cutoff.
+      mocks.profile = { wake_time: "05:00", sleep_goal_hours: 7.5 }
+      renderCard()
+      expect(await screen.findByText(/after 1:30pm/i)).toBeInTheDocument()
+    })
+
+    it("falls back to the 2pm default when no wake time is set", async () => {
+      mocks.profile = { wake_time: null, sleep_goal_hours: 7.5 }
+      renderCard()
+      await screen.findByText("Coffee")
+      expect(screen.queryByText(/deep sleep/i)).not.toBeInTheDocument()
+    })
   })
 
   it("deletes a drink on a two-tap confirm", async () => {
