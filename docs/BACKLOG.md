@@ -16,11 +16,36 @@ outranks any new feature.
       app-load `ServiceWorkerManager` that registers + `update()`s `/sw.js`
       every launch (#135). Decisive next test if still blank: delete the PWA
       from the Home Screen and reinstall (forces a clean worker).
-- [ ] **Bottom nav stays pinned while scrolling** the installed PWA. #131
-      removed html/body overflow; #135 switched `<main>` to `overflow-x-clip`
-      (plain `hidden` coerces `overflow-y` to `auto`, making `<main>` a
-      scroller that re-anchors the fixed nav on iOS). Needs a scroll test on
-      the device.
+- [ ] **Bottom nav stays pinned while scrolling** the installed PWA. Three
+      attempts so far, none confirmed:
+      - #131 removed html/body overflow; #135 switched `<main>` to
+        `overflow-x-clip`. Both treated this as a containing-block problem.
+        Neither worked — and the containing-block chain was never at fault
+        (html, body and the shell wrapper carry no transform, filter or
+        containment, so the fixed nav was correctly anchored all along).
+      - #144 took the nav out of `position: fixed` entirely and laid it out
+        as a flex child of a fixed-height shell. The nav stopped drifting,
+        but the shell was sized with `h-dvh` and collapsed to a short strip
+        on device. **Reverted on `main`** (`7d370a0`); production is back to
+        the pre-#144 behaviour.
+      - Branch `claude/menu-scroll-behavior-rejtiv` carries the corrected
+        version: nav still in flow, but the shell is sized by a percentage
+        chain (`html, body { height: 100% }` + `h-full`) so no viewport unit
+        appears in its geometry. Plus `viewport-fit=cover`, which
+        `black-translucent` requires — without it every
+        `env(safe-area-inset-*)` resolves to 0, so the nav's home-indicator
+        padding had always been a no-op.
+      - **Unresolved:** the collapsed-shell screenshot showed no TopBar at
+        all, which a short shell does not explain (it is a `shrink-0` flex
+        child and would still paint). Do not merge on the assumption that
+        `h-dvh` was the whole story.
+      - Next test: open the branch preview with `?debug=viewport` (see
+        `components/pwa/ViewportDebug.tsx`), add to Home Screen, launch from
+        the icon. The readout shows what iOS actually resolves
+        `100dvh`/`100svh`/`100lvh`/`100vh`/`100%` to, what `visualViewport`
+        reports, whether the safe-area insets are non-zero, and the live
+        rects of shell/scroller/nav. Screenshot on launch and again after a
+        keyboard open/dismiss. Turn off with `?debug=off`.
 
 ## Motivation layer
 - [x] Personal-record detection during active workout (heaviest weight)
