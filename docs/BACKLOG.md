@@ -3,10 +3,11 @@
 Shipped features are documented in the PRD. This backlog tracks what's
 still open.
 
-## ⚠️ Needs on-device verification (highest priority)
-Push is resolved (see below). The nav needs a reinstall from Safari, not a
-code change. **Profile → Diagnostics** answers both classes of question from
-inside the app, so neither needs server logs or a dashboard.
+## Resolved on-device issues
+Both are closed, and both are kept here rather than deleted because what made
+them hard is worth remembering. **Profile → Diagnostics** answers this whole
+class of question from inside the app — push state, device state and the
+viewport readout — so neither needed server logs or a dashboard in the end.
 
 - [x] **Push notifications arrive.** RESOLVED — the cause was iOS Do Not
       Disturb, not the app. DND suppresses banners for a push that was
@@ -139,6 +140,13 @@ inside the app, so neither needs server logs or a dashboard.
       name isn't in the static catalog is dropped silently (name is the only
       key the DB and the catalog share), and `rest_seconds || 60` turns a
       prescribed 0s rest into 60s.
+      Then `session-pr` (1,196 → 1,180): the in-workout trophy check, which
+      had been ~25 lines of logic inline in a JSX map. It has to beat both the
+      all-time best AND every earlier completed set this session — without the
+      second half, three sets at one new weight each light up — and the whole
+      comparison inverts for assisted exercises. 19 tests. The set-row grid
+      template, previously two copies that would silently misalign the header
+      from the rows, is now one constant.
 - [ ] `profile/page.tsx` (733 lines, from 1,019) — in progress. Done so far:
       `profile-stats` (streak + volume; fixed a DST bug that truncated the
       workout streak to 1 twice a year), `profile-form` (the ~90-line
