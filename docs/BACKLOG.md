@@ -29,8 +29,11 @@ inside the app, so neither needs server logs or a dashboard.
       Lesson for next time: an environmental cause (OS settings, Focus modes,
       which browser installed the PWA) deserves ruling out BEFORE a code hunt,
       not after.
-- [ ] **Bottom nav sits flush with the bottom** in the installed PWA. Mostly
-      fixed; one step left, and it is not a code change.
+- [x] **Bottom nav sits flush with the bottom** in the installed PWA. Closed
+      2026-07-31, verified on device: `shell h 956`, `nav bot 956`, and the
+      geometry closes exactly (`main top 123` + `h 736` = `nav top 859`,
+      + `97` = 956 = screen). Took two things — a reinstall and a CSS fix —
+      because there were two faults stacked on top of each other.
       - `a6416a5` stopped the document scrolling the whole shell out of place
         (`overflow: hidden` on the root, scoped to `[data-app-shell]`). That
         restored the TopBar, which had been missing from every collapsed
@@ -51,9 +54,18 @@ inside the app, so neither needs server logs or a dashboard.
         the status-bar strip, so a `height: 100%` chain builds a shell 62pt
         shorter than the screen — the band under the nav. (This also rules
         out `dvh` as the fix that never was: it measures 894 here too.)
-      - Fix: `height: 100lvh` on the root chain, scoped to
+      - Fixed in `00ffc09`: `height: 100lvh` on the root chain, scoped to
         `display-mode: standalone` so browser tabs keep the percentage chain.
-        Verify from the readout: `shell h` and `nav bot` should both read 956.
+      - A side effect worth remembering: `window.inner` and `visualViewport`
+        themselves went 894 → 956. A CSS height rule cannot move the viewport,
+        so what actually happened is that filling the root to the large
+        viewport let `black-translucent` take effect and iOS handed over the
+        whole screen. The meta tags had been asking for that all along and
+        never got it while the root measured short.
+      - Lesson, alongside the Do-Not-Disturb one above: when a symptom
+        survives a correct fix, suspect a SECOND fault rather than assuming
+        the first fix was wrong. Three of the five attempts below were spent
+        re-treating an already-solved containing-block problem.
       - One earlier readout, taken in a browser tab, established a useful
         fact: `100dvh`, `100svh`, `100lvh`, `100vh` and `100%` all resolved
         identically (727), ruling out the viewport-unit theory there.
