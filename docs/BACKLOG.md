@@ -4,40 +4,48 @@ Shipped features are documented in the PRD. This backlog tracks what's
 still open.
 
 ## ⚠️ Needs on-device verification (highest priority)
-Both remaining unknowns are one screenshot away. **Profile → Diagnostics**
-now answers them from inside the app, so neither needs server logs or a
-dashboard.
+Push is resolved (see below). The nav needs a reinstall from Safari, not a
+code change. **Profile → Diagnostics** answers both classes of question from
+inside the app, so neither needs server logs or a dashboard.
 
-- [ ] **Push notifications arrive.** Server delivery is confirmed — the test
-      reports a green "Sent", meaning Apple accepted it — so the failure is
-      on-device or in the data. Two candidates, and the Diagnostics card
-      distinguishes them:
-      - *No timezone on file* → the scheduled sender skips that user silently
-        and permanently (it can't derive their local hour). Fixed by
-        `refreshPushSubscription()`, which re-sends the subscription and
-        timezone on every app load; opening the app should heal it. The cron
-        also now reports skip reasons instead of a bare `ok: true`.
-      - *Timezone present but nothing arrives* → stale service worker. The
-        decisive test is deleting the PWA from the Home Screen and
-        reinstalling, which forces a clean worker. Delete any preview-build
-        icon too: it is a separate origin with its own worker and its own
-        subscription against the same account, so a test push can land there.
-- [ ] **Bottom nav sits flush with the bottom** in the installed PWA. Four
-      attempts; see the history below. Current state on `main`: nav in flow as
-      a `shrink-0` flex child of an `h-full` shell, `viewport-fit=cover`, and
-      `--bottom-nav-h` for the overlays above it. Still reported as sitting too
-      high, with dead space beneath.
-      - The first readout captured came back `mode browser tab`, so it did not
-        test standalone. It did establish one useful fact: **`100dvh`, `100svh`,
-        `100lvh`, `100vh` and `100%` all resolved identically (727)**, which
-        rules out the viewport-unit theory in that context.
-      - Next: open from the Home Screen icon, turn on **Profile → Diagnostics →
-        Viewport readout**, screenshot. Two numbers decide it — whether
-        `insets b` is 0 (so `viewport-fit=cover` isn't applying and the gap is
-        outside the web view) or non-zero (so the shell is short and it's ours).
-      - **Unresolved:** an earlier collapsed-shell screenshot showed no TopBar
-        at all, which a short shell does not explain — it is a `shrink-0` flex
-        child and would still paint. Don't treat the height as the whole story.
+- [x] **Push notifications arrive.** RESOLVED — the cause was iOS Do Not
+      Disturb, not the app. DND suppresses banners for a push that was
+      delivered perfectly well, so the server reported success and the device
+      showed nothing. Turning Focus off, notifications appeared immediately.
+      Two supporting signals that were misread for a long time: the crescent
+      moon visible in the status bar of every screenshot, and the absence of a
+      CraigFitness entry in Settings → Notifications (the Home Screen app was
+      added from Brave, so iOS files its notifications under Brave — which was
+      itself set to "Deliver Quietly").
+      Real bugs were found and fixed on the way, and are worth keeping even
+      though none of them was the cause:
+      - The scheduled sender skipped any user with no `user_profiles.timezone`,
+        silently and permanently. `refreshPushSubscription()` now re-sends the
+        subscription and timezone on every app load, and the cron reports skip
+        reasons instead of a bare `ok: true`.
+      - `/api/push/subscribe` discarded the error from the timezone update.
+      - Profile → Diagnostics now reports push status and device state, so this
+        class of question is answerable in the app rather than from server logs.
+      Lesson for next time: an environmental cause (OS settings, Focus modes,
+      which browser installed the PWA) deserves ruling out BEFORE a code hunt,
+      not after.
+- [ ] **Bottom nav sits flush with the bottom** in the installed PWA. Mostly
+      fixed; one step left, and it is not a code change.
+      - `a6416a5` stopped the document scrolling the whole shell out of place
+        (`overflow: hidden` on the root, scoped to `[data-app-shell]`). That
+        restored the TopBar, which had been missing from every collapsed
+        screenshot and was the part that never fitted the height theories.
+      - What remains is a gap of ~91pt below the nav — almost exactly the
+        status bar (~62) plus the home indicator (~34). That is iOS insetting
+        the web view, i.e. `viewport-fit=cover` NOT applying, even though it is
+        in the deployed HTML. iOS caches the launch configuration when the app
+        is added to the Home Screen, and this install predates that meta.
+      - Fix: delete the Home Screen app and re-add it **from Safari**. Confirm
+        via Profile → Diagnostics → Viewport readout: `insets` should become
+        non-zero and `window.inner` height should match `screen` height.
+      - One earlier readout, taken in a browser tab, established a useful
+        fact: `100dvh`, `100svh`, `100lvh`, `100vh` and `100%` all resolved
+        identically (727), ruling out the viewport-unit theory there.
       - History: #131 removed html/body overflow; #135 switched `<main>` to
         `overflow-x-clip`; both treated it as a containing-block problem, and
         the containing-block chain was never at fault. #144 took the nav out of
