@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
 import { currentWeekStreak, totalWeightLifted } from "@/lib/profile-stats"
@@ -27,20 +27,13 @@ import {
   Dumbbell,
   Target,
   Calendar,
-  Link2,
-  Unlink,
-  AlertTriangle,
   KeyRound,
 } from "lucide-react"
 import type { UserProfileUpdate } from "@/types/database"
 import { buildProfileUpdates } from "@/lib/profile-form"
-import {
-  ouraErrorInfo,
-  isOuraErrorReason,
-  type OuraErrorReason,
-} from "@/lib/oura-connect-errors"
 import { ReminderSettingsCard } from "@/components/activity/ReminderSettingsCard"
 import { DiagnosticsCard } from "@/components/pwa/DiagnosticsCard"
+import { OuraConnectionCard } from "@/components/profile/OuraConnectionCard"
 import { normalizeReminderSettings } from "@/lib/reminder-settings"
 import { DEFAULT_SLEEP_GOAL_HOURS } from "@/lib/bedtime"
 import { DEFAULT_CREATINE_TARGET_G } from "@/lib/creatine-streak"
@@ -54,13 +47,10 @@ type FeedbackMessage = {
 
 export default function ProfilePage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const queryClient = useQueryClient()
 
   const [feedback, setFeedback] = useState<FeedbackMessage>(null)
-  const [ouraErrorReason, setOuraErrorReason] = useState<OuraErrorReason | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [disconnectingOura, setDisconnectingOura] = useState(false)
 
   // Form state
   const [displayName, setDisplayName] = useState("")
@@ -155,75 +145,6 @@ export default function ProfilePage() {
     },
   })
 
-  // Check if Oura is connected
-  const { data: ouraConnected, isLoading: ouraLoading } = useQuery({
-    queryKey: ["oura-connected"],
-    queryFn: async () => {
-      const res = await fetch("/api/oura")
-      if (res.status === 404) return false
-      if (res.ok) return true
-      return false
-    },
-  })
-
-  // Handle ?oura= query param feedback
-  useEffect(() => {
-    const ouraParam = searchParams.get("oura")
-    if (ouraParam === "connected") {
-      setFeedback({ type: "success", text: "Oura Ring connected successfully!" })
-      setOuraErrorReason(null)
-      queryClient.invalidateQueries({ queryKey: ["oura-connected"] })
-      router.replace("/profile")
-    } else if (ouraParam === "error") {
-      const reason = searchParams.get("oura_reason") ?? ""
-      if (isOuraErrorReason(reason)) {
-        setOuraErrorReason(reason)
-      } else {
-        setOuraErrorReason(null)
-      }
-      setFeedback({ type: "error", text: "Failed to connect Oura Ring." })
-      router.replace("/profile")
-    }
-  }, [searchParams, queryClient, router])
-
-  function connectOura() {
-    const clientId = process.env.NEXT_PUBLIC_OURA_CLIENT_ID
-    const redirectUri = `${window.location.origin}/api/auth/oura/callback`
-    // `ring_configuration` gates ring/device data, including the
-    // ring_battery_level endpoint that powers the dashboard battery pill.
-    const scope =
-      "daily sleep heartrate personal spo2 stress ring_configuration"
-    const url = `https://cloud.ouraring.com/oauth/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}`
-    window.location.href = url
-  }
-
-  async function disconnectOura() {
-    setDisconnectingOura(true)
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return
-      // Delete the oura token row
-      await (supabase as unknown as {
-        from: (table: string) => {
-          delete: () => { eq: (col: string, val: string) => Promise<unknown> }
-        }
-      })
-        .from("oura_tokens")
-        .delete()
-        .eq("user_id", user.id)
-      queryClient.invalidateQueries({ queryKey: ["oura-connected"] })
-      queryClient.invalidateQueries({ queryKey: ["oura-summary"] })
-      setFeedback({ type: "success", text: "Oura Ring disconnected." })
-    } catch {
-      setFeedback({ type: "error", text: "Failed to disconnect Oura Ring." })
-    } finally {
-      setDisconnectingOura(false)
-    }
-  }
-
-  // Populate form when profile loads
   const populateForm = useCallback(() => {
     if (!profile) return
     setDisplayName(profile.display_name ?? "")
@@ -719,94 +640,7 @@ export default function ProfilePage() {
       </Card>
 
       {/* Oura Ring Integration */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Link2 className="h-5 w-5 text-purple-500" />
-            Connected Devices
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between rounded-lg border border-gray-200 p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100">
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-5 w-5 text-gray-600"
-                  fill="currentColor"
-                >
-                  <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />
-                  <circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                  <circle cx="12" cy="12" r="2" fill="currentColor" />
-                </svg>
-              </div>
-              <div>
-                <p className="font-medium text-gray-900">Oura Ring</p>
-                <p className="text-xs text-gray-500">
-                  {ouraLoading
-                    ? "Checking..."
-                    : ouraConnected
-                      ? "Connected — syncing sleep, activity & readiness"
-                      : "Connect to sync sleep, activity & heart rate data"}
-                </p>
-              </div>
-            </div>
-            {ouraConnected ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={disconnectOura}
-                disabled={disconnectingOura}
-                className="shrink-0 gap-1.5"
-              >
-                <Unlink className="h-3.5 w-3.5" />
-                {disconnectingOura ? "..." : "Disconnect"}
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                onClick={() => {
-                  setOuraErrorReason(null)
-                  connectOura()
-                }}
-                className="shrink-0 gap-1.5"
-              >
-                <Link2 className="h-3.5 w-3.5" />
-                Connect
-              </Button>
-            )}
-          </div>
-
-          {/* Oura troubleshooting panel */}
-          {ouraErrorReason && (
-            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-amber-800">
-                    {ouraErrorInfo[ouraErrorReason].title}
-                  </p>
-                  <p className="text-xs font-medium text-amber-700">
-                    Troubleshooting steps:
-                  </p>
-                  <ol className="list-decimal space-y-1 pl-4 text-xs text-amber-700">
-                    {ouraErrorInfo[ouraErrorReason].steps.map((step, i) => (
-                      <li key={i}>{step}</li>
-                    ))}
-                  </ol>
-                  <button
-                    type="button"
-                    onClick={() => setOuraErrorReason(null)}
-                    className="mt-1 flex items-center gap-1 text-xs font-medium text-amber-600 underline hover:text-amber-800"
-                  >
-                    Dismiss
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <OuraConnectionCard onFeedback={setFeedback} />
 
       {/* Reminder preferences */}
       <ReminderSettingsCard

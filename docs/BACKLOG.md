@@ -98,11 +98,14 @@ dashboard.
       landed wrong after deleting an exercise, and `instanceof Error` missed
       Supabase's plain error objects so a network failure would have been
       reported instead of queued — losing the workout.
-- [ ] `profile/page.tsx` (954 lines, from 1,019) — in progress. Done so far:
+- [ ] `profile/page.tsx` (733 lines, from 1,019) — in progress. Done so far:
       `profile-stats` (streak + volume; fixed a DST bug that truncated the
-      workout streak to 1 twice a year) and `profile-form` (the ~90-line
-      parse-and-compare on save). Remaining: the Oura connect/disconnect flow
-      and the settings sections → components.
+      workout streak to 1 twice a year), `profile-form` (the ~90-line
+      parse-and-compare on save, which could write NaN), `oura-connect-errors`
+      (shared with the OAuth callback; the guard accepted prototype keys and
+      crashed the page), and `OuraConnectionCard` (self-fetching, owns the
+      whole connect/disconnect flow). Remaining: the settings sections →
+      components.
 - [x] `lib/load-type.ts` — one derivation of how an exercise carries load
       (loaded / bodyweight / assisted). Two bugs came from each call site
       inferring it separately from `equipmentId === null`: Pull-Up got weight
