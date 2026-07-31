@@ -65,6 +65,32 @@
   body {
     height: 100%;
   }
+
+  /* Nothing outside the shell may scroll.
+
+     The shell is exactly one viewport tall and <main> scrolls inside it, so a
+     scrollable DOCUMENT has nothing to reveal — it can only drag the whole
+     shell upward. That is the reported bug: the nav ends up short of the
+     bottom with background showing beneath it, and the TopBar scrolls off the
+     top of a layout that has no business scrolling at all. A readout taken in
+     a browser tab measured it directly: `shell top -47`, the document scrolled
+     by exactly the toolbar height.
+
+     Scoped with :has() to the authenticated shell — the landing, auth and
+     onboarding pages are ordinary documents and must still scroll. Where :has
+     isn't supported this rule simply doesn't apply, which is today's
+     behaviour.
+
+     The rule this replaces said to keep the root unconstrained, because iOS
+     breaks `position: fixed` when the root has overflow. That protected a
+     FIXED bottom nav. The nav is laid out in flow now, so the hazard went
+     away with it. */
+  html:has([data-app-shell]),
+  body:has([data-app-shell]) {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
   body {
     @apply bg-background text-foreground;
   }
