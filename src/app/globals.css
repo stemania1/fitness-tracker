@@ -66,6 +66,38 @@
     height: 100%;
   }
 
+  /* In the INSTALLED app only, fill the physical screen.
+
+     `100%` resolves against the initial containing block, which iOS reports
+     as the SMALL viewport: it excludes the status-bar strip, treating it as
+     retractable UI. A readout from the installed app measured exactly that —
+     screen 956, window.inner / doc.clientH / 100% / 100svh all 894, and
+     100lvh 956, with insets t/b of 62/34. So the shell was 62pt short of the
+     screen, and because the root is `overflow: hidden` that shortfall showed
+     as a dead band below the nav instead of as scrollable content.
+
+     `lvh` is the LARGE viewport — the whole screen — which is what
+     `viewport-fit: cover` plus `black-translucent` is asking for: the shell
+     spans edge to edge, and the TopBar and nav pad themselves clear of the
+     status bar and home indicator with env() (the nav already reserves
+     `4rem + env(safe-area-inset-bottom)`).
+
+     This is NOT the `100dvh` that collapsed the shell before. That failure is
+     described above; note also that dvh measures 894 on this device, the same
+     short value as 100%, so it could not have fixed this either.
+
+     Scoped to display-mode: standalone because a browser TAB genuinely has
+     retractable chrome — there, `lvh` is the toolbars-hidden height and would
+     tuck the nav underneath Safari's toolbar. Tabs keep the percentage
+     chain. Where the media query or :has() is unsupported, nothing applies
+     and the behaviour is exactly what it is today. */
+  @media (display-mode: standalone) {
+    html:has([data-app-shell]),
+    body:has([data-app-shell]) {
+      height: 100lvh;
+    }
+  }
+
   /* Nothing outside the shell may scroll.
 
      The shell is exactly one viewport tall and <main> scrolls inside it, so a
