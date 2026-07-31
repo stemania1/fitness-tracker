@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
+import type { OuraErrorReason } from "@/lib/oura-connect-errors"
 
 /**
  * Oura OAuth2 callback handler.
@@ -10,14 +11,6 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
  * On failure, redirects to /profile?oura=error&oura_reason=<code> so the
  * profile page can show targeted troubleshooting steps.
  */
-
-type OuraErrorReason =
-  | "user_denied"
-  | "missing_code"
-  | "missing_env"
-  | "token_exchange"
-  | "not_authenticated"
-  | "db_write"
 
 function errorRedirect(request: NextRequest, reason: OuraErrorReason) {
   const url = new URL("/profile", request.url)
