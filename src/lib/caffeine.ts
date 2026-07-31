@@ -15,6 +15,8 @@
  * Guidance, not diagnosis. Sensitivities vary a lot between people.
  */
 
+import { formatClockTimeShort, type ClockTime } from "./bedtime"
+
 /** Elimination half-life of caffeine in a typical adult (~5.5h). */
 export const CAFFEINE_HALF_LIFE_MIN = 330
 
@@ -32,6 +34,12 @@ export interface CaffeineDose {
   minutesAgo: number
   /** Local hour it was consumed, 0-23 (for the late-caffeine sleep check). */
   hour: number
+  /**
+   * Minute within `hour`. Optional, reading as :00 when absent — it only
+   * matters against a cutoff that isn't on the hour, which a bedtime-derived
+   * one usually isn't (a 6:30am wake time puts it at 2:30pm).
+   */
+  minute?: number
 }
 
 /** Common drinks → typical caffeine content (mg), for quick logging. */
@@ -98,26 +106,47 @@ export function formatHour(hour: number): string {
 }
 
 /**
- * Flag caffeine taken late enough to risk tonight's sleep. Anything at or
- * after `cutoffHour` (default 2pm — roughly 8h before a typical bedtime, one
- * caffeine half-life plus change) is worth surfacing.
+ * Fallback cutoff when there's no wake time on file to anchor one: 2pm,
+ * roughly 8h before a typical 10pm bedtime.
+ */
+export const DEFAULT_CAFFEINE_CUTOFF: ClockTime = { hour: 14, minute: 0 }
+
+/**
+ * Flag caffeine taken late enough to risk tonight's sleep.
+ *
+ * `cutoff` should be the user's own, from `buildBedtimePlan` — it works back
+ * from their wake time and sleep goal, so someone up at 5am gets an earlier
+ * cutoff than someone up at 8am. The 2pm default only applies when no wake
+ * time is set: a generic cutoff is wrong for most schedules in one direction
+ * or the other, and telling an early riser that 2pm is fine is the kind of
+ * advice that quietly costs them sleep.
  */
 export function lateCaffeineFlag(
   doses: CaffeineDose[],
-  cutoffHour = 14
+  cutoff: ClockTime = DEFAULT_CAFFEINE_CUTOFF
 ): LateCaffeineFlag {
+  const cutoffMinutes = cutoff.hour * 60 + cutoff.minute
   const late = doses
-    .filter((d) => d.minutesAgo >= 0 && d.hour >= cutoffHour)
-    .sort((a, b) => b.hour - a.hour)
+    .filter((d) => d.minutesAgo >= 0 && minutesIntoDay(d) >= cutoffMinutes)
+    .sort((a, b) => minutesIntoDay(b) - minutesIntoDay(a))
 
   if (late.length === 0) {
     return { late: false, latestHour: null, message: "" }
   }
 
-  const h = late[0].hour
+  const latest = late[0]
+  const latestTime: ClockTime = {
+    hour: latest.hour,
+    minute: latest.minute ?? 0,
+  }
   return {
     late: true,
-    latestHour: h,
-    message: `Caffeine after ${formatHour(cutoffHour)} can cut into tonight's deep sleep — your latest was around ${formatHour(h)}. An earlier cutoff tomorrow tends to lift next-day energy.`,
+    latestHour: latest.hour,
+    message: `Caffeine after ${formatClockTimeShort(cutoff)} can cut into tonight's deep sleep — your latest was around ${formatClockTimeShort(latestTime)}. An earlier cutoff tomorrow tends to lift next-day energy.`,
   }
+}
+
+/** A dose's clock time as minutes past midnight. */
+function minutesIntoDay(d: CaffeineDose): number {
+  return d.hour * 60 + (d.minute ?? 0)
 }

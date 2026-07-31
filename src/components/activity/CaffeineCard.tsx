@@ -14,6 +14,7 @@ import {
   type CaffeineDose,
 } from "@/lib/caffeine"
 import { localTimeValue, withLocalTime } from "@/lib/meal-time"
+import { useBedtimePlan } from "@/hooks/useBedtimePlan"
 
 const supabase = createClient()
 
@@ -117,6 +118,10 @@ export function CaffeineCard() {
     },
   })
 
+  // Judge "late" against the user's own cutoff, not a generic 2pm.
+  const { plan } = useBedtimePlan()
+  const cutoff = plan?.caffeineCutoff
+
   const { status, late } = useMemo(() => {
     const now = Date.now()
     const doses: CaffeineDose[] = (logs ?? []).map((r) => {
@@ -125,10 +130,14 @@ export function CaffeineCard() {
         mg: r.mg,
         minutesAgo: Math.round((now - t.getTime()) / 60000),
         hour: t.getHours(),
+        minute: t.getMinutes(),
       }
     })
-    return { status: caffeineStatus(doses), late: lateCaffeineFlag(doses) }
-  }, [logs])
+    return {
+      status: caffeineStatus(doses),
+      late: lateCaffeineFlag(doses, cutoff),
+    }
+  }, [logs, cutoff])
 
   const total = status.totalTodayMg
   const overGuideline = total > DAILY_CAFFEINE_GUIDELINE_MG

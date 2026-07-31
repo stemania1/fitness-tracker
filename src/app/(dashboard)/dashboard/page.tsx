@@ -41,6 +41,7 @@ import { ExpressWorkoutCard } from "@/components/activity/ExpressWorkoutCard"
 import { ThisWeekCard } from "@/components/activity/ThisWeekCard"
 import { deriveFuelState } from "@/lib/energy"
 import { caffeineStatus, lateCaffeineFlag } from "@/lib/caffeine"
+import { useBedtimePlan } from "@/hooks/useBedtimePlan"
 import { computeReminders } from "@/lib/reminders"
 import { normalizeReminderSettings } from "@/lib/reminder-settings"
 import { RemindersCard } from "@/components/activity/RemindersCard"
@@ -283,6 +284,11 @@ export default function DashboardPage() {
     },
   })
 
+  // The late-caffeine warning judges against the user's own cutoff, derived
+  // from their wake time and sleep goal.
+  const { plan: bedtimePlan } = useBedtimePlan()
+  const caffeineCutoff = bedtimePlan?.caffeineCutoff
+
   const { caffeineLevel, caffeineWarning } = useMemo(() => {
     if (!todaysCaffeine || todaysCaffeine.length === 0) {
       return { caffeineLevel: null, caffeineWarning: null }
@@ -294,15 +300,16 @@ export default function DashboardPage() {
         mg: c.mg,
         minutesAgo: Math.round((now - t.getTime()) / 60000),
         hour: t.getHours(),
+        minute: t.getMinutes(),
       }
     })
     const status = caffeineStatus(doses)
-    const flag = lateCaffeineFlag(doses)
+    const flag = lateCaffeineFlag(doses, caffeineCutoff)
     return {
       caffeineLevel: status.level === "none" ? null : status.level,
       caffeineWarning: flag.late ? flag.message : null,
     }
-  }, [todaysCaffeine])
+  }, [todaysCaffeine, caffeineCutoff])
 
   // --- Reminders: small extra signals the other cards don't already fetch ---
   const todayStr = new Date().toLocaleDateString("en-CA")

@@ -7,6 +7,7 @@ import {
   CAFFEINE_HALF_LIFE_MIN,
   type CaffeineDose,
 } from "./caffeine"
+import { buildBedtimePlan } from "./bedtime"
 
 describe("caffeineOnBoardMg", () => {
   it("returns the full dose at time zero", () => {
@@ -86,8 +87,60 @@ describe("lateCaffeineFlag", () => {
   })
 
   it("respects a custom cutoff", () => {
-    expect(lateCaffeineFlag([{ mg: 95, minutesAgo: 30, hour: 12 }], 11).late).toBe(true)
-    expect(lateCaffeineFlag([{ mg: 95, minutesAgo: 30, hour: 12 }], 13).late).toBe(false)
+    const noon: CaffeineDose[] = [{ mg: 95, minutesAgo: 30, hour: 12 }]
+    expect(lateCaffeineFlag(noon, { hour: 11, minute: 0 }).late).toBe(true)
+    expect(lateCaffeineFlag(noon, { hour: 13, minute: 0 }).late).toBe(false)
+  })
+
+  // An early riser's cutoff lands off the hour (6:30am wake, 7.5h goal →
+  // 11pm bedtime → 3pm cutoff; a 6:45am wake puts it at 3:15pm). Comparing
+  // whole hours would flag a drink taken before the cutoff.
+  it("compares minutes, not just the hour, against an off-the-hour cutoff", () => {
+    const cutoff = { hour: 15, minute: 15 }
+    expect(
+      lateCaffeineFlag([{ mg: 95, minutesAgo: 30, hour: 15, minute: 5 }], cutoff).late
+    ).toBe(false)
+    expect(
+      lateCaffeineFlag([{ mg: 95, minutesAgo: 30, hour: 15, minute: 20 }], cutoff).late
+    ).toBe(true)
+  })
+
+  it("treats a dose with no minute as being on the hour", () => {
+    const cutoff = { hour: 15, minute: 30 }
+    expect(lateCaffeineFlag([{ mg: 95, minutesAgo: 30, hour: 15 }], cutoff).late).toBe(
+      false
+    )
+    expect(lateCaffeineFlag([{ mg: 95, minutesAgo: 30, hour: 16 }], cutoff).late).toBe(
+      true
+    )
+  })
+
+  it("picks the latest dose by clock time within the same hour", () => {
+    const f = lateCaffeineFlag([
+      { mg: 95, minutesAgo: 60, hour: 16, minute: 50 },
+      { mg: 65, minutesAgo: 90, hour: 16, minute: 10 },
+    ])
+    expect(f.message).toContain("4:50pm")
+  })
+
+  it("names the cutoff it actually applied", () => {
+    const f = lateCaffeineFlag(
+      [{ mg: 95, minutesAgo: 30, hour: 16 }],
+      { hour: 13, minute: 30 }
+    )
+    expect(f.message).toContain("after 1:30pm")
+  })
+
+  it("uses the bedtime-derived cutoff for an early riser", () => {
+    // Up at 5am on a 7.5h goal → 9:30pm bedtime → 1:30pm cutoff. A 1:45pm
+    // coffee passes the generic 2pm default and fails on this schedule.
+    const plan = buildBedtimePlan("05:00", 7.5)
+    const quarterToTwo: CaffeineDose[] = [
+      { mg: 95, minutesAgo: 30, hour: 13, minute: 45 },
+    ]
+    expect(plan?.caffeineCutoff).toEqual({ hour: 13, minute: 30 })
+    expect(lateCaffeineFlag(quarterToTwo).late).toBe(false)
+    expect(lateCaffeineFlag(quarterToTwo, plan?.caffeineCutoff).late).toBe(true)
   })
 })
 

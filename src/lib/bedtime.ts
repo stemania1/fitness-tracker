@@ -47,6 +47,18 @@ export function formatClockTime(t: ClockTime): string {
   return `${h12}:${t.minute.toString().padStart(2, "0")} ${period}`
 }
 
+/**
+ * Format a ClockTime compactly: "2pm" on the hour, "3:15pm" otherwise. Reads
+ * better than "2:00 PM" mid-sentence, which is where this one gets used.
+ */
+export function formatClockTimeShort(t: ClockTime): string {
+  const period = t.hour < 12 ? "am" : "pm"
+  const h12 = t.hour % 12 === 0 ? 12 : t.hour % 12
+  return t.minute === 0
+    ? `${h12}${period}`
+    : `${h12}:${t.minute.toString().padStart(2, "0")}${period}`
+}
+
 /** Subtract minutes from a ClockTime, wrapping around midnight (in either
  *  direction — negative input adds time). */
 export function subtractMinutes(t: ClockTime, minutes: number): ClockTime {
