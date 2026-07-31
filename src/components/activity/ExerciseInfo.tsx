@@ -67,12 +67,23 @@ export function ExerciseInfo({
             </div>
           </div>
 
+          {/* The icon and the sentence are the only flex items. Putting the
+              text directly in a flex container makes each run — "Rest about",
+              the bolded duration, "between sets…" — its own flex item, so each
+              wraps in its own column and the sentence reads across broken:
+              "Rest 1 between sets…" / "about min automatically…". */}
           {restSeconds != null && restSeconds > 0 && (
-            <p className="flex items-center gap-1.5 rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600">
-              <Clock className="h-3.5 w-3.5 text-gray-400" />
-              Rest about <span className="font-medium text-gray-800">{formatRest(restSeconds)}</span>{" "}
-              between sets — the timer starts automatically when you check off a set.
-            </p>
+            <div className="flex items-start gap-1.5 rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600">
+              <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" />
+              <p>
+                Rest about{" "}
+                <span className="font-medium text-gray-800">
+                  {formatRest(restSeconds)}
+                </span>{" "}
+                between sets — the timer starts automatically when you check off
+                a set.
+              </p>
+            </div>
           )}
         </div>
       )}
