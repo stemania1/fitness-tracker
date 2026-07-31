@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { ChevronDown, Info, Clock } from "lucide-react"
 import { MuscleMap } from "./MuscleMap"
+import { ExercisePositions } from "./ExercisePositions"
 import { exerciseDescription } from "@/data/exercise-descriptions"
 import { formatMuscleGroup } from "@/lib/muscle-groups"
 
@@ -53,6 +54,12 @@ export function ExerciseInfo({
 
       {open && (
         <div className="space-y-3 px-3 pb-3">
+          {/* How the movement goes, before which muscles it works — mid-workout
+              the unfamiliar thing is the motion, not the anatomy. */}
+          <ExercisePositions
+            exerciseId={exerciseId}
+            className="rounded-md bg-gray-50 py-2"
+          />
           <div className="flex items-start gap-3">
             <MuscleMap groups={muscleGroups} className="h-24 w-32 shrink-0" />
             <div className="min-w-0 space-y-1.5">
