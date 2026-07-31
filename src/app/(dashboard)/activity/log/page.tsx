@@ -821,7 +821,11 @@ export default function LogWorkoutPage() {
                     </>
                   ) : (
                     <>
-                      <span>Weight</span>
+                      {/* An unloaded hold has no weight column — that cell is
+                          the stopwatch, so labelling it "Weight" was wrong. */}
+                      <span>
+                        {isTimedHold && isBodyweight ? "Timer" : "Weight"}
+                      </span>
                       <span>{isTimedHold ? "Sec held" : "Reps"}</span>
                     </>
                   )}
@@ -975,9 +979,12 @@ export default function LogWorkoutPage() {
                       </>
                     ) : (
                       <>
-                        {isTimedHold ? (
-                          // Timed holds are bodyweight — the weight cell becomes
-                          // the stopwatch trigger for this set.
+                        {isTimedHold && isBodyweight ? (
+                          // An unloaded hold (plank) has no weight to record, so
+                          // the weight cell becomes the stopwatch trigger.
+                          // A LOADED hold (farmer hold with dumbbells) keeps its
+                          // weight input — the load is the whole point of the
+                          // exercise — and gets the stopwatch beside the seconds.
                           <button
                             type="button"
                             onClick={() => setHoldTimerSet(si)}
@@ -1006,20 +1013,33 @@ export default function LogWorkoutPage() {
                             className="h-10 text-center text-base"
                           />
                         )}
-                        <Input
-                          type="number"
-                          inputMode="numeric"
-                          placeholder={isTimedHold ? "sec" : "reps"}
-                          value={set.reps ?? ""}
-                          onChange={(e) =>
-                            updateSet(currentIdx, si, {
-                              reps: e.target.value
-                                ? Number(e.target.value)
-                                : null,
-                            })
-                          }
-                          className="h-10 text-center text-base"
-                        />
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            inputMode="numeric"
+                            placeholder={isTimedHold ? "sec" : "reps"}
+                            value={set.reps ?? ""}
+                            onChange={(e) =>
+                              updateSet(currentIdx, si, {
+                                reps: e.target.value
+                                  ? Number(e.target.value)
+                                  : null,
+                              })
+                            }
+                            className="h-10 flex-1 text-center text-base"
+                          />
+                          {isTimedHold && !isBodyweight && (
+                            <button
+                              type="button"
+                              onClick={() => setHoldTimerSet(si)}
+                              aria-label={`Time set ${si + 1}`}
+                              title="Start the hold timer"
+                              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-purple-200 bg-purple-50 text-purple-700 transition-colors hover:bg-purple-100"
+                            >
+                              <Clock className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
                       </>
                     )}
 
