@@ -33,6 +33,7 @@ import {
   KeyRound,
 } from "lucide-react"
 import type { UserProfileUpdate } from "@/types/database"
+import { buildProfileUpdates } from "@/lib/profile-form"
 import { ReminderSettingsCard } from "@/components/activity/ReminderSettingsCard"
 import { DiagnosticsCard } from "@/components/pwa/DiagnosticsCard"
 import { normalizeReminderSettings } from "@/lib/reminder-settings"
@@ -372,72 +373,29 @@ export default function ProfilePage() {
     e.preventDefault()
     if (!profile) return
 
-    const updates: UserProfileUpdate = {}
-
-    const newName = displayName.trim() || null
-    if (newName !== profile.display_name) updates.display_name = newName
-
-    const newAge = age ? parseInt(age, 10) : null
-    if (newAge !== profile.age) updates.age = newAge
-
-    const newSex = (sex || null) as typeof profile.sex
-    if (newSex !== profile.sex) updates.sex = newSex
-
-    const newHeightInches =
-      heightFeet || heightInches
-        ? (parseInt(heightFeet || "0", 10) * 12 +
-            parseInt(heightInches || "0", 10)) ||
-          null
-        : null
-    if (newHeightInches !== profile.height_inches)
-      updates.height_inches = newHeightInches
-
-    const newCurrentWeight = currentWeight ? parseFloat(currentWeight) : null
-    if (newCurrentWeight !== profile.current_weight)
-      updates.current_weight = newCurrentWeight
-
-    const newFitnessLevel = (fitnessLevel || null) as typeof profile.fitness_level
-    if (newFitnessLevel !== profile.fitness_level)
-      updates.fitness_level = newFitnessLevel
-
-    const newPrimaryGoal = (primaryGoal || null) as typeof profile.primary_goal
-    if (newPrimaryGoal !== profile.primary_goal)
-      updates.primary_goal = newPrimaryGoal
-
-    const newTargetWeight = targetWeight ? parseFloat(targetWeight) : null
-    if (newTargetWeight !== profile.target_weight)
-      updates.target_weight = newTargetWeight
-
-    const newWorkoutDays = workoutDays ? parseInt(workoutDays, 10) : null
-    if (newWorkoutDays !== profile.workout_days)
-      updates.workout_days = newWorkoutDays
-
-    const newLimitations = limitations.trim() || null
-    if (newLimitations !== profile.limitations)
-      updates.limitations = newLimitations
-
-    const newWakeTime = wakeTime || null
-    if (newWakeTime !== profile.wake_time) updates.wake_time = newWakeTime
-
-    const newSleepGoalHours = sleepGoalHours
-      ? parseFloat(sleepGoalHours)
-      : DEFAULT_SLEEP_GOAL_HOURS
-    if (newSleepGoalHours !== profile.sleep_goal_hours)
-      updates.sleep_goal_hours = newSleepGoalHours
-
-    const newWeekdayMinutes = weekdayMinutes ? parseInt(weekdayMinutes, 10) : 25
-    if (newWeekdayMinutes !== profile.weekday_workout_minutes)
-      updates.weekday_workout_minutes = newWeekdayMinutes
-
-    const newWeekendMinutes = weekendMinutes ? parseInt(weekendMinutes, 10) : 60
-    if (newWeekendMinutes !== profile.weekend_workout_minutes)
-      updates.weekend_workout_minutes = newWeekendMinutes
-
-    const newCreatineTargetG = creatineTargetG
-      ? parseFloat(creatineTargetG)
-      : DEFAULT_CREATINE_TARGET_G
-    if (newCreatineTargetG !== profile.creatine_target_g)
-      updates.creatine_target_g = newCreatineTargetG
+    // The parse-and-compare lives in lib/profile-form.ts (pure + tested);
+    // only changed columns are sent.
+    const updates = buildProfileUpdates(
+      {
+        displayName,
+        age,
+        sex,
+        heightFeet,
+        heightInches,
+        currentWeight,
+        fitnessLevel,
+        primaryGoal,
+        targetWeight,
+        workoutDays,
+        limitations,
+        wakeTime,
+        sleepGoalHours,
+        weekdayMinutes,
+        weekendMinutes,
+        creatineTargetG,
+      },
+      profile
+    )
 
     if (Object.keys(updates).length === 0) {
       setFeedback({ type: "success", text: "No changes to save." })

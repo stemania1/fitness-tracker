@@ -4,48 +4,46 @@ Shipped features are documented in the PRD. This backlog tracks what's
 still open.
 
 ## ⚠️ Needs on-device verification (highest priority)
-Two iOS-standalone (installed PWA) fixes are shipped but **unconfirmed on a
-real device** — they can't be exercised in CI. If either is still broken, it
-outranks any new feature.
-- [ ] **Push notification actually renders** (Profile → Reminders → Send test
-      notification, after fully closing + reopening the PWA). Server delivery
-      is confirmed (the test reports a green "Sent"), but the last on-device
-      check showed no banner and nothing in Notification Center — pointing at
-      a stale service worker. Fixes so far: PNG (not SVG) notification icon,
-      `skipWaiting()`, middleware no longer redirecting `/sw.js` (#131), and an
-      app-load `ServiceWorkerManager` that registers + `update()`s `/sw.js`
-      every launch (#135). Decisive next test if still blank: delete the PWA
-      from the Home Screen and reinstall (forces a clean worker).
-- [ ] **Bottom nav stays pinned while scrolling** the installed PWA. Three
-      attempts so far, none confirmed:
-      - #131 removed html/body overflow; #135 switched `<main>` to
-        `overflow-x-clip`. Both treated this as a containing-block problem.
-        Neither worked — and the containing-block chain was never at fault
-        (html, body and the shell wrapper carry no transform, filter or
-        containment, so the fixed nav was correctly anchored all along).
-      - #144 took the nav out of `position: fixed` entirely and laid it out
-        as a flex child of a fixed-height shell. The nav stopped drifting,
-        but the shell was sized with `h-dvh` and collapsed to a short strip
-        on device. **Reverted on `main`** (`7d370a0`); production is back to
-        the pre-#144 behaviour.
-      - Branch `claude/menu-scroll-behavior-rejtiv` carries the corrected
-        version: nav still in flow, but the shell is sized by a percentage
-        chain (`html, body { height: 100% }` + `h-full`) so no viewport unit
-        appears in its geometry. Plus `viewport-fit=cover`, which
-        `black-translucent` requires — without it every
-        `env(safe-area-inset-*)` resolves to 0, so the nav's home-indicator
-        padding had always been a no-op.
-      - **Unresolved:** the collapsed-shell screenshot showed no TopBar at
-        all, which a short shell does not explain (it is a `shrink-0` flex
-        child and would still paint). Do not merge on the assumption that
-        `h-dvh` was the whole story.
-      - Next test: open the branch preview with `?debug=viewport` (see
-        `components/pwa/ViewportDebug.tsx`), add to Home Screen, launch from
-        the icon. The readout shows what iOS actually resolves
-        `100dvh`/`100svh`/`100lvh`/`100vh`/`100%` to, what `visualViewport`
-        reports, whether the safe-area insets are non-zero, and the live
-        rects of shell/scroller/nav. Screenshot on launch and again after a
-        keyboard open/dismiss. Turn off with `?debug=off`.
+Both remaining unknowns are one screenshot away. **Profile → Diagnostics**
+now answers them from inside the app, so neither needs server logs or a
+dashboard.
+
+- [ ] **Push notifications arrive.** Server delivery is confirmed — the test
+      reports a green "Sent", meaning Apple accepted it — so the failure is
+      on-device or in the data. Two candidates, and the Diagnostics card
+      distinguishes them:
+      - *No timezone on file* → the scheduled sender skips that user silently
+        and permanently (it can't derive their local hour). Fixed by
+        `refreshPushSubscription()`, which re-sends the subscription and
+        timezone on every app load; opening the app should heal it. The cron
+        also now reports skip reasons instead of a bare `ok: true`.
+      - *Timezone present but nothing arrives* → stale service worker. The
+        decisive test is deleting the PWA from the Home Screen and
+        reinstalling, which forces a clean worker. Delete any preview-build
+        icon too: it is a separate origin with its own worker and its own
+        subscription against the same account, so a test push can land there.
+- [ ] **Bottom nav sits flush with the bottom** in the installed PWA. Four
+      attempts; see the history below. Current state on `main`: nav in flow as
+      a `shrink-0` flex child of an `h-full` shell, `viewport-fit=cover`, and
+      `--bottom-nav-h` for the overlays above it. Still reported as sitting too
+      high, with dead space beneath.
+      - The first readout captured came back `mode browser tab`, so it did not
+        test standalone. It did establish one useful fact: **`100dvh`, `100svh`,
+        `100lvh`, `100vh` and `100%` all resolved identically (727)**, which
+        rules out the viewport-unit theory in that context.
+      - Next: open from the Home Screen icon, turn on **Profile → Diagnostics →
+        Viewport readout**, screenshot. Two numbers decide it — whether
+        `insets b` is 0 (so `viewport-fit=cover` isn't applying and the gap is
+        outside the web view) or non-zero (so the shell is short and it's ours).
+      - **Unresolved:** an earlier collapsed-shell screenshot showed no TopBar
+        at all, which a short shell does not explain — it is a `shrink-0` flex
+        child and would still paint. Don't treat the height as the whole story.
+      - History: #131 removed html/body overflow; #135 switched `<main>` to
+        `overflow-x-clip`; both treated it as a containing-block problem, and
+        the containing-block chain was never at fault. #144 took the nav out of
+        `position: fixed` — right — but sized the shell with `h-dvh`, which
+        collapsed it on device; reverted. #145 reapplied it with a percentage
+        chain and added the diagnostic.
 
 ## Motivation layer
 - [x] Personal-record detection during active workout (heaviest weight)
@@ -90,9 +88,26 @@ outranks any new feature.
       were extracted but kept on the dashboard (daily-glance cards). Shared
       query lives in a new `useStrengthSets` hook; the weekly-progress math
       moved to `lib/weekly-progress.ts`. Both tested.
-- [ ] `activity/log/page.tsx` (1,563 lines) and `profile/page.tsx` (1,019)
-      are the next files worth breaking up — same pattern (queries → hooks,
-      cards → `components/activity/*`, pure logic → `lib/*` with tests).
+- [x] `activity/log/page.tsx` split (1,563 → 1,276 lines). Five slices, each
+      pure logic to `lib/*` with tests: `active-workout` (model + cardio
+      maths), `workout-edits` (the nine state transforms), `useElapsedSeconds`,
+      `ExerciseDrawer` + `UncheckedExercisesDialog`, and `finish-workout`
+      (payload, offline heuristic). Four real bugs fell out: the rest timer was
+      armed from inside a `setWorkout` updater (mistimed, could double-fire),
+      out-of-range indices spread `undefined` into the workout, the cursor
+      landed wrong after deleting an exercise, and `instanceof Error` missed
+      Supabase's plain error objects so a network failure would have been
+      reported instead of queued — losing the workout.
+- [ ] `profile/page.tsx` (954 lines, from 1,019) — in progress. Done so far:
+      `profile-stats` (streak + volume; fixed a DST bug that truncated the
+      workout streak to 1 twice a year) and `profile-form` (the ~90-line
+      parse-and-compare on save). Remaining: the Oura connect/disconnect flow
+      and the settings sections → components.
+- [x] `lib/load-type.ts` — one derivation of how an exercise carries load
+      (loaded / bodyweight / assisted). Two bugs came from each call site
+      inferring it separately from `equipmentId === null`: Pull-Up got weight
+      advice it couldn't act on, and a farmer hold lost its weight input
+      entirely. PR #146.
 
 ## Training quality
 - [x] Muscle-group balance monitor (`muscle-balance.ts` +
