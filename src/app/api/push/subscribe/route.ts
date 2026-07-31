@@ -46,12 +46,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  // The scheduled sender skips any user with no timezone — silently and
+  // permanently — so a failure here costs the user every future reminder while
+  // the test-notification button keeps working. Report it instead of ignoring
+  // it, and say whether a timezone is now on file.
+  let timezoneSaved = false
+  let timezoneError: string | null = null
   if (typeof b.timezone === "string" && b.timezone.length > 0) {
-    await supabase
+    const { error: tzError } = await supabase
       .from("user_profiles")
       .update({ timezone: b.timezone })
       .eq("id", user.id)
+    timezoneSaved = !tzError
+    timezoneError = tzError?.message ?? null
   }
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, timezoneSaved, timezoneError })
 }

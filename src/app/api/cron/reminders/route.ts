@@ -62,6 +62,10 @@ export async function GET(request: Request) {
 
   let sent = 0
   let pruned = 0
+  // Why users were skipped. Returned in the response so hitting this endpoint
+  // diagnoses "no notifications" instead of reporting a bare ok:true — a user
+  // with no stored timezone is skipped permanently and silently otherwise.
+  const skipped = { noProfile: 0, noTimezone: 0, badTimezone: 0, notDue: 0 }
 
   for (const [userId, userSubs] of byUser) {
     const { data: profile } = await db
@@ -69,11 +73,25 @@ export async function GET(request: Request) {
       .select("reminder_settings, timezone, last_push_sent_on")
       .eq("id", userId)
       .single()
-    if (!profile?.timezone) continue // can't localize without a timezone
+    if (!profile) {
+      skipped.noProfile++
+      continue
+    }
+    // Without a timezone we can't work out the user's local hour, so quiet
+    // hours and time-gating would be meaningless. The client re-sends its
+    // timezone on every load (see refreshPushSubscription), so a null here
+    // means that user hasn't opened the app since this was added.
+    if (!profile.timezone) {
+      skipped.noTimezone++
+      continue
+    }
 
     const hour = localHourInZone(now, profile.timezone)
     const localDate = localDateInZone(now, profile.timezone)
-    if (hour == null || localDate == null) continue
+    if (hour == null || localDate == null) {
+      skipped.badTimezone++
+      continue
+    }
 
     const ctx = await gatherContext(db, userId, profile.timezone, localDate, hour)
     const notification = dueReminderPush({
@@ -82,7 +100,10 @@ export async function GET(request: Request) {
       localDate,
       lastPushSentOn: profile.last_push_sent_on,
     })
-    if (!notification) continue
+    if (!notification) {
+      skipped.notDue++
+      continue
+    }
 
     let deliveredToUser = false
     for (const sub of userSubs ?? []) {
@@ -111,7 +132,7 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, sent, pruned, users: byUser.size })
+  return NextResponse.json({ ok: true, sent, pruned, users: byUser.size, skipped })
 }
 
 /** Build the reminder context for a user, reasoning in their local day. */

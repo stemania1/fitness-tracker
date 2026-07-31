@@ -73,6 +73,40 @@ export async function enablePush(): Promise<void> {
   if (!res.ok) throw new Error("Couldn't save the subscription. Try again.")
 }
 
+/**
+ * Re-send the existing subscription (and the current timezone) if this browser
+ * already has one. Safe to call on every load — the API upserts on endpoint.
+ *
+ * This exists because the scheduled sender SKIPS any user with no
+ * `user_profiles.timezone`, silently and permanently: it cannot work out their
+ * local hour, so it can't respect quiet hours or time-gating. The timezone was
+ * only ever written at subscribe time, so anyone who enabled push before that
+ * column existed — or whose profile update failed — gets no reminders forever,
+ * while the "send test notification" button still works because that path
+ * needs no timezone. Re-sending on load heals those rows, and keeps the zone
+ * current if the user travels.
+ *
+ * Never throws: this runs on app boot and must not break it. Returns whether
+ * a subscription was found and successfully re-sent.
+ */
+export async function refreshPushSubscription(): Promise<boolean> {
+  try {
+    if (!isPushSupported()) return false
+    const reg = await navigator.serviceWorker.getRegistration()
+    const sub = await reg?.pushManager.getSubscription()
+    if (!sub) return false
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+    const res = await fetch("/api/push/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subscription: sub.toJSON(), timezone }),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
 /** Remove the local subscription and delete it server-side. */
 export async function disablePush(): Promise<void> {
   const reg = await navigator.serviceWorker.getRegistration()
