@@ -56,6 +56,7 @@ import {
 import { addPending, localStorageQueue } from "@/lib/pending-workouts"
 import { plannedSession } from "@/lib/todays-workout"
 import { isTimedTarget, repsTargetLabel } from "@/lib/reps-target"
+import { isBodyweightLoad } from "@/lib/load-type"
 import {
   makeSet,
   isTreadmill,
@@ -586,8 +587,11 @@ export default function LogWorkoutPage() {
   // the weight cell shows "Bodyweight" instead of an lbs input.
   const isBodyweight =
     !!currentExercise &&
-    !isCardio &&
-    currentExercise.equipmentId === null
+    isBodyweightLoad({
+      equipmentId: currentExercise.equipmentId,
+      assisted: currentExercise.assisted,
+      exerciseType: currentExercise.exerciseType,
+    })
   // Target seconds for the hold timer, parsed from e.g. "20-30 sec".
   const holdTargetSeconds = isTimedHold
     ? Number(currentExercise?.repsTarget?.match(/(\d+)/g)?.slice(-1)[0]) || null
@@ -789,7 +793,7 @@ export default function LogWorkoutPage() {
                     repsTarget={currentExercise.repsTarget}
                     muscleGroups={currentExercise.muscleGroups}
                     assisted={currentExercise.assisted}
-                    bodyweight={currentExercise.equipmentId === null}
+                    bodyweight={isBodyweight}
                   />
                 )}
 

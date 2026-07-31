@@ -13,6 +13,12 @@ export interface ExerciseDefinition {
    * assistance) and PR detection (a PR is less assistance at the same reps).
    */
   assisted?: boolean
+  /**
+   * Overrides how load is derived (see lib/load-type.ts). Only needed where
+   * equipment can't express it — e.g. a weighted pull-up, which is a
+   * bodyweight movement that nonetheless carries load.
+   */
+  loadType?: "loaded" | "bodyweight" | "assisted"
 }
 
 export const exercises: ExerciseDefinition[] = [
