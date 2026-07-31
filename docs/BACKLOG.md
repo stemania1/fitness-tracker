@@ -134,9 +134,14 @@ inside the app, so neither needs server logs or a dashboard.
       (energy) — plus the 1–2 highest-impact actions for the week ahead,
       prioritized (zero-workouts > intake-off-target > low-sleep > energy
       driver). In-app on the dashboard; weekly push delivery is a follow-up.
-- [ ] Weekly digest push delivery (Sunday nudge): `buildWeeklyDigest` is
-      already pure and tested — needs a server-side input gatherer + a cron
-      to send it via the existing web-push pipeline.
+- [x] Weekly digest push delivery (Sunday nudge): `/api/cron/weekly-digest`
+      mirrors `WeeklyDigestCard`'s query server-side (same windows, same pure
+      helpers, but bucketing days in the *user's* timezone rather than the
+      server's UTC) and sends at Sunday 18:00 local. Quieter than the card by
+      design: a week whose only action is the "you're on track" filler sends
+      nothing. `last_digest_sent_on` de-dupes the DST fall-back hour. Cron is
+      scoped to Sun+Mon UTC — the only days Sunday 18:00 can land on anywhere
+      between UTC+14 and UTC-12.
 - [x] Adaptive TDEE / energy-balance engine (`adaptive-tdee.ts`): learns
       maintenance calories empirically from the weight trend vs logged intake
       (TDEE = avg intake − weight-change × 3500), then recommends a daily

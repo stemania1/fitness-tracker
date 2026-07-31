@@ -39,3 +39,22 @@ export function localDateInZone(now: Date, timeZone: string | null): string | nu
     return null
   }
 }
+
+/**
+ * The user's local weekday for `now` (0 = Sunday … 6 = Saturday), or null if
+ * the timezone is invalid.
+ *
+ * Derived from the local calendar DATE rather than from `now` directly: a UTC
+ * instant can fall on a different weekday than the user's local one, which is
+ * the whole reason the weekly digest can't just check the server's day.
+ */
+export function localWeekdayInZone(
+  now: Date,
+  timeZone: string | null
+): number | null {
+  const date = localDateInZone(now, timeZone)
+  if (!date) return null
+  const parsed = new Date(`${date}T00:00:00Z`)
+  const day = parsed.getUTCDay()
+  return Number.isFinite(day) ? day : null
+}
