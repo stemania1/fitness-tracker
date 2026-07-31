@@ -107,7 +107,7 @@ inside the app, so neither needs server logs or a dashboard.
       were extracted but kept on the dashboard (daily-glance cards). Shared
       query lives in a new `useStrengthSets` hook; the weekly-progress math
       moved to `lib/weekly-progress.ts`. Both tested.
-- [x] `activity/log/page.tsx` split (1,563 → 1,276 lines). Five slices, each
+- [x] `activity/log/page.tsx` split (1,563 → 1,196 lines). Seven slices, each
       pure logic to `lib/*` with tests: `active-workout` (model + cardio
       maths), `workout-edits` (the nine state transforms), `useElapsedSeconds`,
       `ExerciseDrawer` + `UncheckedExercisesDialog`, and `finish-workout`
@@ -117,6 +117,16 @@ inside the app, so neither needs server logs or a dashboard.
       landed wrong after deleting an exercise, and `instanceof Error` missed
       Supabase's plain error objects so a network failure would have been
       reported instead of queued — losing the workout.
+      Then `workout-init` (the three launch paths — plan, template, append —
+      which each carried their own copy of the same catalog-definition-to-
+      ActiveExercise mapping) and `workout-calories` (reducing a set list to
+      the totals and averages the MET maths wants). Both faithful refactors,
+      no behaviour change; the existing page tests passing unchanged is the
+      evidence. Two things they pinned down rather than fixed, since each is a
+      behaviour change deserving its own commit: a template exercise whose
+      name isn't in the static catalog is dropped silently (name is the only
+      key the DB and the catalog share), and `rest_seconds || 60` turns a
+      prescribed 0s rest into 60s.
 - [ ] `profile/page.tsx` (733 lines, from 1,019) — in progress. Done so far:
       `profile-stats` (streak + volume; fixed a DST bug that truncated the
       workout streak to 1 twice a year), `profile-form` (the ~90-line

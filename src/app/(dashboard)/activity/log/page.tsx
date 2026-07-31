@@ -40,11 +40,15 @@ import { suggestedIncrement } from "@/lib/progressive-overload"
 import { useExerciseHistory } from "@/hooks/useExerciseHistory"
 import { useElapsedSeconds } from "@/hooks/useElapsedSeconds"
 import { isNewPersonalRecord, isNewAssistedRecord } from "@/lib/personal-records"
+import { type CalorieProfile } from "@/lib/calories"
+import { exerciseCalories, workoutCalories } from "@/lib/workout-calories"
 import {
-  estimateStrengthCalories,
-  estimateCardioCalories,
-  type CalorieProfile,
-} from "@/lib/calories"
+  plannedToActive,
+  remainingPlannedExercises,
+  templateRowsToActive,
+  loggedExerciseNames,
+  type TemplateExerciseRow,
+} from "@/lib/workout-init"
 import { formatMuscleGroup } from "@/lib/muscle-groups"
 import { saveWorkout } from "@/lib/save-workout"
 import {
@@ -58,7 +62,6 @@ import { plannedSession } from "@/lib/todays-workout"
 import { isTimedTarget, repsTargetLabel } from "@/lib/reps-target"
 import { isBodyweightLoad } from "@/lib/load-type"
 import {
-  makeSet,
   isTreadmill,
   isOutdoorRun,
   isDistanceCardio,
@@ -144,39 +147,18 @@ export default function LogWorkoutPage() {
           id: string
           exercises: { name: string } | { name: string }[] | null
         }>
-        const loggedNames = new Set(
-          existing
-            .map((r) =>
-              Array.isArray(r.exercises) ? r.exercises[0]?.name : r.exercises?.name
-            )
-            .filter((n): n is string => !!n)
-        )
 
         // If this workout matches the plan session for its day, pre-load the
         // still-missing prescribed exercises; otherwise start empty.
         const planned = plannedSession(new Date(log.started_at))
-        const defById = new Map(exerciseCatalog.map((e) => [e.id, e]))
-        let preloaded: ActiveExercise[] = []
-        if (planned.name === log.name) {
-          preloaded = planned.exercises
-            .map((p) => {
-              const def = defById.get(p.exerciseId)
-              if (!def || loggedNames.has(def.name)) return null
-              return {
-                exerciseId: def.id,
-                name: def.name,
-                muscleGroups: def.muscleGroups,
-                assisted: def.assisted ?? false,
-                exerciseType: def.exerciseType,
-                equipmentId: def.equipmentId,
-                repsTarget: p.reps,
-                sets: Array.from({ length: p.sets }, () => makeSet()),
-                notes: p.notes ?? "",
-                restSeconds: p.restSeconds,
-              } satisfies ActiveExercise
-            })
-            .filter(Boolean) as ActiveExercise[]
-        }
+        const preloaded =
+          planned.name === log.name
+            ? remainingPlannedExercises(
+                planned.exercises,
+                loggedExerciseNames(existing),
+                exerciseCatalog
+              )
+            : []
 
         appendInfo.current = { logId: appendId, orderOffset: existing.length }
         const now = new Date()
@@ -206,43 +188,10 @@ export default function LogWorkoutPage() {
           .eq("template_id", templateId)
           .order("order_index", { ascending: true })
 
-        // template_exercises.exercise_id is a DB UUID; map it to the static
-        // catalog entry by the exercise name (the two catalogs share names).
-        const exDefsByName = new Map(
-          exerciseCatalog.map((e) => [e.name, e])
+        const activeExercises = templateRowsToActive(
+          (templateExercises ?? []) as TemplateExerciseRow[],
+          exerciseCatalog
         )
-        const activeExercises: ActiveExercise[] = (
-          (templateExercises ?? []) as Array<{
-            exercise_id: string
-            sets: number | null
-            reps: string | null
-            rest_seconds: number | null
-            order_index: number
-            exercises: { name: string } | { name: string }[] | null
-          }>
-        )
-          .map((te) => {
-            const exRow = Array.isArray(te.exercises)
-              ? te.exercises[0]
-              : te.exercises
-            const name = exRow?.name
-            if (!name) return null
-            const def = exDefsByName.get(name)
-            if (!def) return null
-            return {
-              exerciseId: def.id,
-              name: def.name,
-              muscleGroups: def.muscleGroups,
-              assisted: def.assisted ?? false,
-              exerciseType: def.exerciseType,
-              equipmentId: def.equipmentId,
-              repsTarget: te.reps ?? null,
-              sets: Array.from({ length: te.sets || 3 }, () => makeSet()),
-              notes: "",
-              restSeconds: te.rest_seconds || 60,
-            } satisfies ActiveExercise
-          })
-          .filter(Boolean) as ActiveExercise[]
 
         const now = new Date()
         setTimerStart(now)
@@ -257,25 +206,7 @@ export default function LogWorkoutPage() {
         // the training plan — no DB round-trip, exercises come from the static
         // catalog so previous-performance + progressive-overload work as usual.
         const planned = plannedSession(new Date())
-        const defById = new Map(exerciseCatalog.map((e) => [e.id, e]))
-        const activeExercises: ActiveExercise[] = planned.exercises
-          .map((p) => {
-            const def = defById.get(p.exerciseId)
-            if (!def) return null
-            return {
-              exerciseId: def.id,
-              name: def.name,
-              muscleGroups: def.muscleGroups,
-              assisted: def.assisted ?? false,
-              exerciseType: def.exerciseType,
-              equipmentId: def.equipmentId,
-              repsTarget: p.reps,
-              sets: Array.from({ length: p.sets }, () => makeSet()),
-              notes: p.notes ?? "",
-              restSeconds: p.restSeconds,
-            } satisfies ActiveExercise
-          })
-          .filter(Boolean) as ActiveExercise[]
+        const activeExercises = plannedToActive(planned.exercises, exerciseCatalog)
 
         const now = new Date()
         setTimerStart(now)
@@ -396,56 +327,11 @@ export default function LogWorkoutPage() {
   )
 
   // ── Calorie estimates ────────────────────────────────────────
-  function getExerciseCalories(ex: ActiveExercise): number {
-    const completedSets = ex.sets.filter((s) => s.completed)
-    if (ex.exerciseType === "cardio") {
-      const totalMins = completedSets.reduce(
-        (sum, s) => sum + (s.durationMins ?? 0),
-        0
-      )
-      // For distance-based cardio (treadmill / outdoor run), compute speed
-      // from distance/duration; otherwise use the manually entered speedMph.
-      const speedPerSet = completedSets.map((s) =>
-        isDistanceCardio(ex)
-          ? computeSpeedMph(s.distanceMiles, s.durationMins)
-          : s.speedMph
-      )
-      const validSpeeds = speedPerSet.filter(
-        (v): v is number => v != null && v > 0
-      )
-      const avgSpeed =
-        validSpeeds.length > 0
-          ? validSpeeds.reduce((sum, v) => sum + v, 0) / validSpeeds.length
-          : null
-      // Average incline (treadmill only). Skip null/zero entries so they
-      // don't drag the average down for sets where incline wasn't logged.
-      const inclines = completedSets
-        .map((s) => s.inclinePercent)
-        .filter((v): v is number => v != null && v > 0)
-      const avgIncline =
-        inclines.length > 0
-          ? inclines.reduce((sum, v) => sum + v, 0) / inclines.length
-          : null
-      return estimateCardioCalories(
-        ex.exerciseId,
-        totalMins,
-        userWeightLbs,
-        avgSpeed,
-        avgIncline,
-        calorieProfile
-      )
-    }
-    return estimateStrengthCalories(
-      ex.exerciseId,
-      completedSets.length,
-      userWeightLbs,
-      calorieProfile
-    )
-  }
+  // The set-reduction and the MET maths both live in lib (pure + tested).
+  const getExerciseCalories = (ex: ActiveExercise) =>
+    exerciseCalories(ex, userWeightLbs, calorieProfile)
 
-  const totalCalories = workout
-    ? workout.exercises.reduce((sum, ex) => sum + getExerciseCalories(ex), 0)
-    : 0
+  const totalCalories = workoutCalories(workout, userWeightLbs, calorieProfile)
 
   // ── Save workout ────────────────────────────────────────────
   // Payload construction, the offline heuristic and the error copy all live in
