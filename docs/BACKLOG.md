@@ -140,7 +140,12 @@ dashboard.
       heavier weight and more reps both move it, so sub-max work counts —
       falling back to heaviest weight when reps weren't logged. Per-goal trend
       chart plots daily best e1RM toward the target.
-- [ ] Endurance goals: cardio duration / distance targets
+- [x] Endurance goals: duration AND distance targets. Duration (longest
+      session in minutes) already existed; distance was the missing half,
+      despite `set_logs.distance_miles` being logged all along. The goal's
+      stored `unit` discriminates — "mins" or "mi" — so every pre-existing
+      endurance goal keeps reading minutes with no migration. Progress reads
+      the matching best, and the trend chart plots the matching series.
 
 ## Logging UX
 - [x] Quick Log Strength (set-by-set entry of a session you just finished)

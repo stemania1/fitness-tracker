@@ -8,6 +8,7 @@
 
 import { estimateOneRepMax } from "./personal-records"
 import type { SetInput } from "./goal-progress"
+import { isDistanceGoal } from "./goal-progress"
 
 export interface DatedExerciseRow {
   staticExerciseId: string | null
@@ -15,6 +16,8 @@ export interface DatedExerciseRow {
   date: string
   sets: SetInput[]
   sessionMinutes: number
+  /** Total logged distance for the session, in miles. */
+  sessionDistanceMiles?: number
 }
 
 export interface TrendPoint {
@@ -38,7 +41,9 @@ function bestSessionE1RM(sets: SetInput[]): number {
 export function buildGoalTrend(
   rows: DatedExerciseRow[],
   staticExerciseId: string,
-  goalType: "strength" | "endurance"
+  goalType: "strength" | "endurance",
+  /** The goal's stored unit; "mi" plots distance rather than duration. */
+  unit?: string | null
 ): TrendPoint[] {
   const byDay = new Map<string, number>()
 
@@ -48,7 +53,9 @@ export function buildGoalTrend(
     const value =
       goalType === "strength"
         ? Math.round(bestSessionE1RM(r.sets))
-        : r.sessionMinutes
+        : isDistanceGoal(unit)
+          ? (r.sessionDistanceMiles ?? 0)
+          : r.sessionMinutes
     if (value <= 0) continue
     // Multiple entries the same day → keep the best.
     byDay.set(day, Math.max(byDay.get(day) ?? 0, value))

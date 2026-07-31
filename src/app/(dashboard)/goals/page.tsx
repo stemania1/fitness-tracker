@@ -10,6 +10,7 @@ import {
 } from "@/lib/weight-projection"
 import { exercises as staticExercises } from "@/data/exercises"
 import {
+  ENDURANCE_DISTANCE_UNIT,
   computeExerciseBests,
   liveGoalCurrent,
   goalProgressPercent,
@@ -198,7 +199,7 @@ function useExerciseBests() {
       const { data, error } = await supabase
         .from("workout_logs")
         .select(
-          "started_at, exercise_logs(exercises(name), set_logs(weight, reps, duration_mins))"
+          "started_at, exercise_logs(exercises(name), set_logs(weight, reps, duration_mins, distance_miles))"
         )
         .eq("user_id", userId)
       if (error) throw error
@@ -214,6 +215,7 @@ function useExerciseBests() {
             weight: number | null
             reps: number | null
             duration_mins: number | null
+            distance_miles: number | null
           }>
         }>
       }>
@@ -235,6 +237,10 @@ function useExerciseBests() {
             sets: sets.map((s) => ({ weight: s.weight, reps: s.reps })),
             sessionMinutes: sets.reduce(
               (sum, s) => sum + (s.duration_mins ?? 0),
+              0
+            ),
+            sessionDistanceMiles: sets.reduce(
+              (sum, s) => sum + (s.distance_miles ?? 0),
               0
             ),
           })
@@ -278,6 +284,8 @@ interface AddGoalFormState {
   exerciseId: string
   targetValue: string
   deadline: string
+  /** Endurance only: chase a longer session or a further one. */
+  enduranceMetric: "duration" | "distance"
 }
 
 const initialFormState: AddGoalFormState = {
@@ -285,16 +293,22 @@ const initialFormState: AddGoalFormState = {
   exerciseId: "",
   targetValue: "",
   deadline: "",
+  enduranceMetric: "duration",
 }
 
-function unitForGoalType(goalType: GoalType): string {
+function unitForGoalType(
+  goalType: GoalType,
+  enduranceMetric: "duration" | "distance" = "duration"
+): string {
   switch (goalType) {
     case "weight":
       return "lbs"
     case "strength":
       return "lbs"
     case "endurance":
-      return "mins"
+      // The unit is what tells progress which best to read — see
+      // isDistanceGoal in lib/goal-progress.
+      return enduranceMetric === "distance" ? ENDURANCE_DISTANCE_UNIT : "mins"
     case "consistency":
       return "workouts/week"
   }
@@ -330,7 +344,7 @@ function AddGoalModal({
         goal_type: form.goalType,
         target_value: targetValue,
         current_value: 0,
-        unit: unitForGoalType(form.goalType),
+        unit: unitForGoalType(form.goalType, form.enduranceMetric),
       }
 
       if (
@@ -390,6 +404,27 @@ function AddGoalModal({
             </Select>
           </div>
 
+          {/* Endurance: longer, or further? Decides the unit, and therefore
+              which logged best the goal tracks. */}
+          {form.goalType === "endurance" && (
+            <div className="space-y-2">
+              <Label htmlFor="endurance-metric">Track</Label>
+              <Select
+                id="endurance-metric"
+                value={form.enduranceMetric}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    enduranceMetric: e.target.value as "duration" | "distance",
+                  })
+                }
+              >
+                <option value="duration">Duration — longest session</option>
+                <option value="distance">Distance — furthest session</option>
+              </Select>
+            </div>
+          )}
+
           {/* Exercise picker for strength / endurance */}
           {(form.goalType === "strength" || form.goalType === "endurance") && (
             <div className="space-y-2">
@@ -416,7 +451,7 @@ function AddGoalModal({
             <Label htmlFor="target-value">
               {form.goalType === "strength" ? "Target 1-rep max" : "Target"}{" "}
               <span className="text-gray-400">
-                ({unitForGoalType(form.goalType)})
+                ({unitForGoalType(form.goalType, form.enduranceMetric)})
               </span>
             </Label>
             <Input
@@ -513,10 +548,11 @@ function GoalCard({
         ? buildGoalTrend(
             rows,
             goal.exercise_id,
-            goal.goal_type as "strength" | "endurance"
+            goal.goal_type as "strength" | "endurance",
+            goal.unit
           )
         : [],
-    [rows, goal.exercise_id, goal.goal_type, isExerciseGoal]
+    [rows, goal.exercise_id, goal.goal_type, goal.unit, isExerciseGoal]
   )
   const progress = isExerciseGoal
     ? goalProgressPercent(liveCurrent, goal.target_value)

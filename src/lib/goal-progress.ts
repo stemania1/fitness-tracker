@@ -23,6 +23,8 @@ export interface LoggedExerciseRow {
   sets: SetInput[]
   /** Total logged minutes for this exercise in one session. */
   sessionMinutes: number
+  /** Total logged distance for this exercise in one session, in miles. */
+  sessionDistanceMiles?: number
 }
 
 export interface ExerciseBest {
@@ -31,6 +33,19 @@ export interface ExerciseBest {
   /** Best estimated 1-rep max (Epley) across all logged sets. */
   bestE1RM: number | null
   bestSessionMinutes: number | null
+  /** Longest single session by distance, in miles. */
+  bestSessionDistanceMiles: number | null
+}
+
+/**
+ * Endurance goals come in two flavours, told apart by the goal's stored unit:
+ * how LONG you went, or how FAR. Existing goals were all minutes and carry
+ * "mins", so anything that isn't a distance unit reads as duration.
+ */
+export const ENDURANCE_DISTANCE_UNIT = "mi"
+
+export function isDistanceGoal(unit: string | null | undefined): boolean {
+  return unit === ENDURANCE_DISTANCE_UNIT
 }
 
 export function computeExerciseBests(
@@ -43,6 +58,7 @@ export function computeExerciseBests(
       bestWeight: null,
       bestE1RM: null,
       bestSessionMinutes: null,
+      bestSessionDistanceMiles: null,
     }
     for (const s of r.sets) {
       if (s.weight == null || s.weight <= 0) continue
@@ -58,6 +74,12 @@ export function computeExerciseBests(
         r.sessionMinutes
       )
     }
+    if ((r.sessionDistanceMiles ?? 0) > 0) {
+      cur.bestSessionDistanceMiles = Math.max(
+        cur.bestSessionDistanceMiles ?? 0,
+        r.sessionDistanceMiles!
+      )
+    }
     map.set(r.staticExerciseId, cur)
   }
   return map
@@ -67,6 +89,8 @@ export interface GoalLike {
   goal_type: "weight" | "strength" | "endurance" | "consistency"
   exercise_id: string | null
   current_value: number | null
+  /** Distinguishes a distance endurance goal from a duration one. */
+  unit?: string | null
 }
 
 /**
@@ -86,6 +110,9 @@ export function liveGoalCurrent(
     const b = bests.get(goal.exercise_id)
     if (goal.goal_type === "strength") {
       return Math.round(b?.bestE1RM ?? b?.bestWeight ?? 0)
+    }
+    if (isDistanceGoal(goal.unit)) {
+      return b?.bestSessionDistanceMiles ?? 0
     }
     return b?.bestSessionMinutes ?? 0
   }

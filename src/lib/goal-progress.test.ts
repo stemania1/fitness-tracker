@@ -4,6 +4,7 @@ import {
   liveGoalCurrent,
   goalProgressPercent,
   type LoggedExerciseRow,
+  isDistanceGoal,
 } from "./goal-progress"
 
 const rows: LoggedExerciseRow[] = [
@@ -36,11 +37,13 @@ describe("computeExerciseBests", () => {
     expect(b.get("lat-pulldown")).toEqual({
       bestWeight: 120,
       bestE1RM: 140,
+      bestSessionDistanceMiles: null,
       bestSessionMinutes: null,
     })
     expect(b.get("stationary-bike")).toEqual({
       bestWeight: null,
       bestE1RM: null,
+      bestSessionDistanceMiles: null,
       bestSessionMinutes: 35,
     })
   })
@@ -61,6 +64,7 @@ describe("computeExerciseBests", () => {
     expect(b.get("x")).toEqual({
       bestWeight: null,
       bestE1RM: null,
+      bestSessionDistanceMiles: null,
       bestSessionMinutes: null,
     })
   })
@@ -72,6 +76,7 @@ describe("computeExerciseBests", () => {
     expect(b.get("y")).toEqual({
       bestWeight: 95,
       bestE1RM: null,
+      bestSessionDistanceMiles: null,
       bestSessionMinutes: null,
     })
   })
@@ -135,5 +140,113 @@ describe("goalProgressPercent", () => {
     expect(goalProgressPercent(120, 100)).toBe(100)
     expect(goalProgressPercent(0, 100)).toBe(0)
     expect(goalProgressPercent(10, 0)).toBe(0)
+  })
+})
+
+describe("endurance distance goals", () => {
+  const rows = [
+    {
+      staticExerciseId: "outdoor-run",
+      sets: [],
+      sessionMinutes: 30,
+      sessionDistanceMiles: 3.1,
+    },
+    {
+      staticExerciseId: "outdoor-run",
+      sets: [],
+      sessionMinutes: 55,
+      sessionDistanceMiles: 5.2,
+    },
+    {
+      staticExerciseId: "outdoor-run",
+      sets: [],
+      sessionMinutes: 20,
+      sessionDistanceMiles: 2,
+    },
+  ]
+
+  it("tracks the longest session by distance", () => {
+    const bests = computeExerciseBests(rows)
+    expect(bests.get("outdoor-run")?.bestSessionDistanceMiles).toBe(5.2)
+  })
+
+  it("keeps duration and distance bests independent", () => {
+    const bests = computeExerciseBests(rows)
+    expect(bests.get("outdoor-run")?.bestSessionMinutes).toBe(55)
+    expect(bests.get("outdoor-run")?.bestSessionDistanceMiles).toBe(5.2)
+  })
+
+  it("reads distance for a goal stored in miles", () => {
+    const bests = computeExerciseBests(rows)
+    expect(
+      liveGoalCurrent(
+        {
+          goal_type: "endurance",
+          exercise_id: "outdoor-run",
+          current_value: null,
+          unit: "mi",
+        },
+        bests
+      )
+    ).toBe(5.2)
+  })
+
+  // Every endurance goal created before distance existed carries "mins".
+  it("still reads minutes for a goal stored in mins", () => {
+    const bests = computeExerciseBests(rows)
+    expect(
+      liveGoalCurrent(
+        {
+          goal_type: "endurance",
+          exercise_id: "outdoor-run",
+          current_value: null,
+          unit: "mins",
+        },
+        bests
+      )
+    ).toBe(55)
+  })
+
+  it("defaults to minutes when a goal has no unit at all", () => {
+    const bests = computeExerciseBests(rows)
+    expect(
+      liveGoalCurrent(
+        { goal_type: "endurance", exercise_id: "outdoor-run", current_value: null },
+        bests
+      )
+    ).toBe(55)
+  })
+
+  it("is 0 when nothing with distance has been logged", () => {
+    const bests = computeExerciseBests([
+      { staticExerciseId: "treadmill-walk", sets: [], sessionMinutes: 20 },
+    ])
+    expect(
+      liveGoalCurrent(
+        {
+          goal_type: "endurance",
+          exercise_id: "treadmill-walk",
+          current_value: null,
+          unit: "mi",
+        },
+        bests
+      )
+    ).toBe(0)
+  })
+
+  it("ignores zero-distance sessions", () => {
+    const bests = computeExerciseBests([
+      { staticExerciseId: "outdoor-run", sets: [], sessionMinutes: 10, sessionDistanceMiles: 0 },
+    ])
+    expect(bests.get("outdoor-run")?.bestSessionDistanceMiles).toBeNull()
+  })
+})
+
+describe("isDistanceGoal", () => {
+  it("recognises the distance unit only", () => {
+    expect(isDistanceGoal("mi")).toBe(true)
+    expect(isDistanceGoal("mins")).toBe(false)
+    expect(isDistanceGoal(null)).toBe(false)
+    expect(isDistanceGoal(undefined)).toBe(false)
   })
 })
