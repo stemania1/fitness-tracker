@@ -34,6 +34,7 @@ import {
 } from "lucide-react"
 import type { UserProfileUpdate } from "@/types/database"
 import { ReminderSettingsCard } from "@/components/activity/ReminderSettingsCard"
+import { DiagnosticsCard } from "@/components/pwa/DiagnosticsCard"
 import { normalizeReminderSettings } from "@/lib/reminder-settings"
 import { DEFAULT_SLEEP_GOAL_HOURS } from "@/lib/bedtime"
 import { DEFAULT_CREATINE_TARGET_G } from "@/lib/creatine-streak"
@@ -908,6 +909,10 @@ export default function ProfilePage() {
       <ReminderSettingsCard
         initial={normalizeReminderSettings(profile?.reminder_settings)}
       />
+
+      {/* Diagnostics — off by default; the only way to reach the viewport
+          readout in an installed PWA, which has no address bar. */}
+      <DiagnosticsCard />
 
       {/* Account Section */}
       <Card>

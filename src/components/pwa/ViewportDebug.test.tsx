@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
-import { render, screen, cleanup } from "@testing-library/react"
+import { render, screen, cleanup, act } from "@testing-library/react"
 import { describe, it, expect, afterEach } from "vitest"
 import { ViewportDebug } from "./ViewportDebug"
+
+import { setViewportDebug } from "@/lib/viewport-debug-flag"
 
 function setSearch(search: string) {
   window.history.replaceState({}, "", `/dashboard${search}`)
@@ -65,6 +67,26 @@ describe("ViewportDebug", () => {
 
     setSearch("")
     render(<ViewportDebug />)
+    expect(screen.queryByTestId("viewport-debug")).toBeNull()
+  })
+
+  // An installed PWA has no address bar, so the Profile toggle is the only way
+  // in — it must take effect on an already-mounted overlay, without a reload.
+  it("appears when the flag is switched on while mounted", () => {
+    setSearch("")
+    render(<ViewportDebug />)
+    expect(screen.queryByTestId("viewport-debug")).toBeNull()
+
+    act(() => setViewportDebug(true))
+    expect(screen.getByTestId("viewport-debug")).toBeInTheDocument()
+  })
+
+  it("disappears when the flag is switched off while mounted", () => {
+    setSearch("?debug=viewport")
+    render(<ViewportDebug />)
+    expect(screen.getByTestId("viewport-debug")).toBeInTheDocument()
+
+    act(() => setViewportDebug(false))
     expect(screen.queryByTestId("viewport-debug")).toBeNull()
   })
 })

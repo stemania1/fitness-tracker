@@ -1,6 +1,10 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import {
+  isViewportDebugOn,
+  VIEWPORT_DEBUG_EVENT,
+} from "@/lib/viewport-debug-flag"
 
 /**
  * Query-param-gated viewport readout, for diagnosing layout bugs that only
@@ -12,36 +16,15 @@ import { useCallback, useEffect, useState } from "react"
  * area insets are non-zero — are visible from the outside. This renders them
  * on screen so a single screenshot answers the question.
  *
- * Turned on with `?debug=viewport` and off with `?debug=off`. The choice is
- * persisted, because an installed PWA launches at the manifest's `start_url`
- * and drops the query string — which would make the readout impossible to see
- * in standalone mode, the only mode the bug reproduces in. Off by default, so
- * it costs nothing in normal use.
+ * Turned on from Profile -> Diagnostics, or with `?debug=viewport` in a
+ * browser tab. The toggle is the only route in an installed PWA: it launches
+ * at the manifest's `start_url` with no address bar, so there is nowhere to
+ * type a query string — and standalone is the mode the layout bugs actually
+ * reproduce in. Off by default, so it costs nothing in normal use.
  *
  * The height probes are the important part: they measure what the device
  * ACTUALLY resolves each unit to, rather than what the spec says it should.
  */
-
-const STORAGE_KEY = "craigfitness:viewport-debug"
-
-/** Resolve the on/off choice from the URL, falling back to the stored one. */
-function isEnabled(): boolean {
-  const q = new URLSearchParams(window.location.search).get("debug")
-  try {
-    if (q === "viewport") {
-      window.localStorage.setItem(STORAGE_KEY, "1")
-      return true
-    }
-    if (q === "off") {
-      window.localStorage.removeItem(STORAGE_KEY)
-      return false
-    }
-    return window.localStorage.getItem(STORAGE_KEY) === "1"
-  } catch {
-    // Private mode / storage disabled: fall back to the URL alone.
-    return q === "viewport"
-  }
-}
 
 type Rows = Array<[string, string]>
 
@@ -112,12 +95,25 @@ function collect(): Rows {
 }
 
 export function ViewportDebug() {
+  const [enabled, setEnabled] = useState(false)
   const [rows, setRows] = useState<Rows | null>(null)
 
   const refresh = useCallback(() => setRows(collect()), [])
 
+  // Resolve the flag on mount (which also consumes any ?debug= param) and
+  // follow it after, so the Profile toggle takes effect without a reload.
   useEffect(() => {
-    if (!isEnabled()) return
+    setEnabled(isViewportDebugOn())
+    const onChange = () => setEnabled(isViewportDebugOn(""))
+    window.addEventListener(VIEWPORT_DEBUG_EVENT, onChange)
+    return () => window.removeEventListener(VIEWPORT_DEBUG_EVENT, onChange)
+  }, [])
+
+  useEffect(() => {
+    if (!enabled) {
+      setRows(null)
+      return
+    }
     refresh()
 
     const vv = window.visualViewport
@@ -135,9 +131,9 @@ export function ViewportDebug() {
       vv?.removeEventListener("scroll", refresh)
       window.clearInterval(timer)
     }
-  }, [refresh])
+  }, [enabled, refresh])
 
-  if (!rows) return null
+  if (!enabled || !rows) return null
 
   return (
     <div
