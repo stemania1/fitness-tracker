@@ -780,6 +780,7 @@ export default function LogWorkoutPage() {
                     repsTarget={currentExercise.repsTarget}
                     muscleGroups={currentExercise.muscleGroups}
                     assisted={currentExercise.assisted}
+                    bodyweight={currentExercise.equipmentId === null}
                   />
                 )}
 

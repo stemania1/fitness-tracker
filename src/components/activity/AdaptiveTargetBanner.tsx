@@ -13,6 +13,8 @@ interface AdaptiveTargetBannerProps {
   muscleGroups?: string[]
   /** True when "weight" is machine assistance (progress = drop it). */
   assisted?: boolean
+  /** True for moves with no loadable equipment — progression is reps. */
+  bodyweight?: boolean
 }
 
 const style: Record<
@@ -34,6 +36,7 @@ export function AdaptiveTargetBanner({
   repsTarget,
   muscleGroups,
   assisted = false,
+  bodyweight = false,
 }: AdaptiveTargetBannerProps) {
   const { data } = useExerciseHistory(exerciseId)
 
@@ -45,6 +48,7 @@ export function AdaptiveTargetBanner({
     repRange: repsTarget,
     increment: muscleGroups ? suggestedIncrement(muscleGroups) : 5,
     assisted,
+    bodyweight,
   })
 
   if (target.reason === "new") return null

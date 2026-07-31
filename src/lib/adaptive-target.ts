@@ -41,6 +41,12 @@ export interface AdaptiveTargetInput {
   fallbackWeight?: number | null
   /** When true, "weight" is machine assistance: progress means DROPPING it. */
   assisted?: boolean
+  /**
+   * True for moves with no loadable equipment (pull-up, push-up, plank).
+   * Progression is reps, not load — and the logger gives these no weight input
+   * at all, so weight-based advice can't be acted on.
+   */
+  bodyweight?: boolean
 }
 
 export function adaptiveTarget({
@@ -49,8 +55,56 @@ export function adaptiveTarget({
   increment,
   fallbackWeight = null,
   assisted = false,
+  bodyweight = false,
 }: AdaptiveTargetInput): AdaptiveTarget {
   const range = parseRepRange(repRange)
+
+  // Bodyweight moves progress by reps. Any logged "weight" on these is the
+  // user's own bodyweight, not load — telling them to "stay at 230 lb before
+  // adding weight" is advice the UI gives them no way to follow, since the
+  // weight cell is a static "Bodyweight" label. Reps only, and no weight on
+  // the target so the banner doesn't print a load.
+  if (bodyweight) {
+    const logged = previousSets.filter(
+      (s): s is PreviousSet & { reps: number } => s.reps != null && s.reps > 0
+    )
+    if (logged.length === 0) {
+      return {
+        weight: null,
+        reason: "new",
+        label: "New",
+        note: "No recent history for this lift — start where the plan suggests and log it.",
+      }
+    }
+
+    const minReps = Math.min(...logged.map((s) => s.reps))
+    const repWord = minReps === 1 ? "rep" : "reps"
+
+    if (range != null && minReps >= range.top) {
+      return {
+        weight: null,
+        reason: "progress",
+        label: "Progress",
+        note: `You cleared ${range.top}+ reps on every set — add a rep, or slow the tempo to make it harder.`,
+      }
+    }
+    if (range != null && minReps < range.bottom) {
+      return {
+        weight: null,
+        reason: "hold",
+        label: "Build reps",
+        note: `Last time your worst set was ${minReps} ${repWord}, short of ${range.bottom} — build the reps before making it harder.`,
+      }
+    }
+    return {
+      weight: null,
+      reason: "repeat",
+      label: "Repeat",
+      note: range
+        ? `Push toward ${range.top} reps on every set.`
+        : "Match last session's reps.",
+    }
+  }
 
   // Progress (load exercises): reuse the strict overload check — all sets hit
   // the top of the range at one consistent weight → add weight.

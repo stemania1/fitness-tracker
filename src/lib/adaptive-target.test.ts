@@ -121,3 +121,86 @@ describe("adaptiveTarget", () => {
     expect(t.weight).toBe(50)
   })
 })
+
+// Bodyweight moves (pull-up, push-up) have no weight input in the logger, so
+// any logged "weight" is the user's own bodyweight, not load. Weight-based
+// advice there is unfollowable.
+describe("adaptiveTarget — bodyweight moves", () => {
+  const bw = { increment: 5, bodyweight: true as const }
+
+  it("never suggests a weight", () => {
+    const t = adaptiveTarget({
+      ...bw,
+      previousSets: [
+        { weight: 230, reps: 1 },
+        { weight: 230, reps: 1 },
+      ],
+      repRange: "8",
+    })
+    expect(t.weight).toBeNull()
+  })
+
+  it("holds on reps, without mentioning load, when short of the range", () => {
+    const t = adaptiveTarget({
+      ...bw,
+      previousSets: [
+        { weight: 230, reps: 1 },
+        { weight: 230, reps: 1 },
+        { weight: 230, reps: 1 },
+      ],
+      repRange: "8",
+    })
+    expect(t.reason).toBe("hold")
+    expect(t.label).toBe("Build reps")
+    expect(t.note).toContain("1 rep")
+    expect(t.note).not.toMatch(/lb|weight/i)
+  })
+
+  it("pluralises the rep count", () => {
+    const t = adaptiveTarget({
+      ...bw,
+      previousSets: [{ weight: null, reps: 3 }],
+      repRange: "8",
+    })
+    expect(t.note).toContain("3 reps")
+  })
+
+  it("suggests adding reps once the top of the range is cleared", () => {
+    const t = adaptiveTarget({
+      ...bw,
+      previousSets: [
+        { weight: null, reps: 10 },
+        { weight: null, reps: 9 },
+      ],
+      repRange: "5-8",
+    })
+    expect(t.reason).toBe("progress")
+    expect(t.note).not.toMatch(/lb\b/i)
+  })
+
+  it("repeats when working inside the range", () => {
+    const t = adaptiveTarget({
+      ...bw,
+      previousSets: [{ weight: null, reps: 6 }],
+      repRange: "5-8",
+    })
+    expect(t.reason).toBe("repeat")
+    expect(t.note).toContain("8 reps")
+  })
+
+  // With no weight logged at all, the load path would have found nothing
+  // usable and hidden the banner; the rep path still has something to say.
+  it("works from reps alone, with no weight ever logged", () => {
+    const t = adaptiveTarget({
+      ...bw,
+      previousSets: [{ weight: null, reps: 2 }],
+      repRange: "8",
+    })
+    expect(t.reason).toBe("hold")
+  })
+
+  it("falls back to New with no usable history", () => {
+    const t = adaptiveTarget({ ...bw, previousSets: [], repRange: "8" })
+    expect(t.reason).toBe("new")
+  })
+})
