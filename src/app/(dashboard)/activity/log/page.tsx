@@ -729,8 +729,17 @@ export default function LogWorkoutPage() {
                         {isTimedHold && " — one continuous hold"}
                       </p>
                     )}
+                    {/* The plan's note is the movement to do TODAY, and it can
+                        override the exercise itself — "Pull-Up" carrying
+                        "Scapular pulls: … no arm bend" means hangs, not
+                        pull-ups. It used to render as grey italic beneath the
+                        target and above a generic description saying the
+                        opposite, so it read as a footnote and the card looked
+                        like it was prescribing a movement the user couldn't
+                        do. Called out as the instruction it is. */}
                     {currentExercise.notes && (
-                      <p className="mt-0.5 text-xs italic text-gray-500">
+                      <p className="mt-1.5 rounded-md bg-purple-50 px-2 py-1 text-xs text-purple-900">
+                        <span className="font-semibold">Today: </span>
                         {currentExercise.notes}
                       </p>
                     )}
