@@ -20,6 +20,7 @@ export interface Database {
           reminder_settings: Json
           timezone: string | null
           last_push_sent_on: string | null
+          last_digest_sent_on: string | null
           wake_time: string | null
           sleep_goal_hours: number
           weekday_workout_minutes: number
@@ -44,6 +45,7 @@ export interface Database {
           reminder_settings?: Json
           timezone?: string | null
           last_push_sent_on?: string | null
+          last_digest_sent_on?: string | null
           wake_time?: string | null
           sleep_goal_hours?: number
           weekday_workout_minutes?: number
@@ -68,6 +70,7 @@ export interface Database {
           reminder_settings?: Json
           timezone?: string | null
           last_push_sent_on?: string | null
+          last_digest_sent_on?: string | null
           wake_time?: string | null
           sleep_goal_hours?: number
           weekday_workout_minutes?: number

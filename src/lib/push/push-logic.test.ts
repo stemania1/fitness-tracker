@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest"
 import { reminderNotification } from "./reminder-digest"
-import { localHourInZone, localDateInZone, daysBetweenLocalDates } from "./timezone"
+import {
+  localHourInZone,
+  localDateInZone,
+  daysBetweenLocalDates,
+  localWeekdayInZone,
+} from "./timezone"
 import { dueReminderPush } from "./due"
 import type { Reminder } from "@/lib/reminders"
 import type { ReminderContext } from "@/lib/reminders"
@@ -114,5 +119,24 @@ describe("dueReminderPush", () => {
       lastPushSentOn: null,
     })
     expect(n).toBeNull()
+  })
+})
+
+describe("localWeekdayInZone", () => {
+  it("reads the weekday in the user's zone, not the server's", () => {
+    // 03:00 UTC Sunday is still Saturday evening in New York.
+    const sundayMorningUtc = new Date("2026-08-02T03:00:00Z")
+    expect(localWeekdayInZone(sundayMorningUtc, "UTC")).toBe(0)
+    expect(localWeekdayInZone(sundayMorningUtc, "America/New_York")).toBe(6)
+  })
+
+  it("reads Sunday once the user's local day has turned over", () => {
+    const sundayLocal = new Date("2026-08-02T16:00:00Z")
+    expect(localWeekdayInZone(sundayLocal, "America/New_York")).toBe(0)
+  })
+
+  it("is null for a missing or invalid timezone", () => {
+    expect(localWeekdayInZone(new Date(), null)).toBeNull()
+    expect(localWeekdayInZone(new Date(), "Not/AZone")).toBeNull()
   })
 })
