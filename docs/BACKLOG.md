@@ -40,9 +40,20 @@ inside the app, so neither needs server logs or a dashboard.
         the web view, i.e. `viewport-fit=cover` NOT applying, even though it is
         in the deployed HTML. iOS caches the launch configuration when the app
         is added to the Home Screen, and this install predates that meta.
-      - Fix: delete the Home Screen app and re-add it **from Safari**. Confirm
-        via Profile → Diagnostics → Viewport readout: `insets` should become
-        non-zero and `window.inner` height should match `screen` height.
+      - The reinstall from Safari was done and did its job: `insets` now read
+        t/b 62/34 where they were 0, so `viewport-fit: cover` is applying.
+        The shell also no longer scrolls out of place — `shell top 0`, and
+        `nav bot` equals the viewport bottom.
+      - What the readout then showed is a different, smaller fault: the
+        viewport itself is short. screen 956, but window.inner / doc.clientH /
+        100% / 100svh / 100dvh all 894, against 100lvh / 100vh of 956. iOS
+        reports the initial containing block as the SMALL viewport, excluding
+        the status-bar strip, so a `height: 100%` chain builds a shell 62pt
+        shorter than the screen — the band under the nav. (This also rules
+        out `dvh` as the fix that never was: it measures 894 here too.)
+      - Fix: `height: 100lvh` on the root chain, scoped to
+        `display-mode: standalone` so browser tabs keep the percentage chain.
+        Verify from the readout: `shell h` and `nav bot` should both read 956.
       - One earlier readout, taken in a browser tab, established a useful
         fact: `100dvh`, `100svh`, `100lvh`, `100vh` and `100%` all resolved
         identically (727), ruling out the viewport-unit theory there.
