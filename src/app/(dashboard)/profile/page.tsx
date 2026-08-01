@@ -33,6 +33,7 @@ import type { UserProfileUpdate } from "@/types/database"
 import { buildProfileUpdates } from "@/lib/profile-form"
 import { ReminderSettingsCard } from "@/components/activity/ReminderSettingsCard"
 import { DiagnosticsCard } from "@/components/pwa/DiagnosticsCard"
+import { PlanAuditCard } from "@/components/activity/PlanAuditCard"
 import { OuraConnectionCard } from "@/components/profile/OuraConnectionCard"
 import { normalizeReminderSettings } from "@/lib/reminder-settings"
 import { DEFAULT_SLEEP_GOAL_HOURS } from "@/lib/bedtime"
@@ -619,6 +620,7 @@ export default function ProfilePage() {
 
       {/* Diagnostics — off by default; the only way to reach the viewport
           readout in an installed PWA, which has no address bar. */}
+      <PlanAuditCard />
       <DiagnosticsCard />
 
       {/* Account Section */}
