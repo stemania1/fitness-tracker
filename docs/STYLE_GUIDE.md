@@ -23,14 +23,51 @@
 | Red 500 | `#EF4444` | Errors, destructive actions |
 
 ### Neutrals
-| Name | Hex | Usage |
-|------|-----|-------|
-| Slate 950 | `#020617` | Primary text |
-| Slate 600 | `#475569` | Secondary text |
-| Slate 400 | `#94A3B8` | Placeholder text |
-| Slate 200 | `#E2E8F0` | Borders, dividers |
-| Slate 50 | `#F8FAFC` | Page background |
-| White | `#FFFFFF` | Card backgrounds |
+
+Tailwind's **`gray`** ramp, not `slate`. The guide specified `slate` for a
+long time while the code used `gray` almost exclusively (741 utilities to 5);
+this now documents what actually ships.
+
+| Class | Usage |
+|-------|-------|
+| `text-gray-900` | Primary text |
+| `text-gray-600` | Secondary text |
+| `text-gray-400` | Placeholder text, neutral icons |
+| `border-gray-200` | Borders, dividers |
+| `bg-gray-50` | Page background, neutral panels |
+| `bg-white` | Card backgrounds |
+
+### Accent tokens — colour means something, or it means nothing
+
+Card accents had drifted to seventeen distinct hues across twenty-six cards,
+so the dashboard read as a pile of unrelated widgets. There are now four
+semantic tokens plus neutral, in `lib/constants.ts`. **Do not write a raw
+accent hue in a component.**
+
+| Token | Meaning | Icon | Chip | Panel |
+|-------|---------|------|------|-------|
+| `brand` | Actions, the plan — what you're meant to do | `text-purple-600` | `bg-purple-100 text-purple-700` | `bg-purple-50 text-purple-700` |
+| `progress` | Achievement: streaks, records, goals met | `text-emerald-600` | `bg-emerald-100 text-emerald-700` | `bg-emerald-50 text-emerald-700` |
+| `attention` | Worth a look: nudges, watch-this readings | `text-amber-600` | `bg-amber-100 text-amber-700` | `bg-amber-50 text-amber-700` |
+| `danger` | Something is wrong or needs care | `text-red-600` | `bg-red-100 text-red-700` | `bg-red-50 text-red-700` |
+| `neutral` | **The default.** Identity only, no signal | `text-gray-400` | `bg-gray-100 text-gray-600` | `bg-gray-50 text-gray-600` |
+
+Use `CARD_ACCENTS` for header icons, `CHIP_TONES` for pills, `PANEL_TONES` for
+inline callouts.
+
+Most cards are `neutral`. A card's identity comes from its title and icon
+shape, not its hue — and if every card is coloured, none of them is scannable.
+
+**Classification scales** step through the tokens rather than inventing a new
+hue for the middle: `neutral` → `attention` → `progress`. Every scale in the
+app had independently picked blue or sky for "medium"/"average"/"moderate";
+none does now.
+
+**One deliberate exception:** `MACRO_TONES` (protein / carbs / fat / sugar) is
+*categorical*, not semantic. A stacked macro bar needs hues that are merely
+tellable apart, with no implication that fat is worse than protein. That is a
+different job from the tokens above, and it is the only place raw distinct
+hues are correct.
 
 ### Why Purple?
 Planet Fitness uses purple/yellow branding. We lean into the purple to feel familiar to PF members without using their exact branding or trademarked yellow.
@@ -49,7 +86,13 @@ font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe U
 | Section heading | `text-lg font-semibold` | 18px | 600 |
 | Card title | `text-base font-semibold` | 16px | 600 |
 | Body text | `text-sm` | 14px | 400 |
-| Caption / label | `text-xs text-slate-600` | 12px | 400 |
+| Caption / label | `text-xs text-gray-600` | 12px | 400 |
+| Micro-label | `text-[10px]` | 10px | 400/500 |
+
+`text-[10px]` is a deliberate tier, not drift: it is for badge chips, figure
+captions and dense metric rows where a 12px label would wrap or crowd the
+number it belongs to. It is never used for body copy or anything a user has
+to read at length.
 | Numbers (weight, reps) | `text-lg font-mono font-bold` | 18px | 700 |
 
 ## Spacing & Layout
@@ -57,7 +100,9 @@ font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe U
 - Page padding: `px-4 py-6` (mobile), `px-8 py-8` (desktop)
 - Card padding: `p-4`
 - Gap between cards: `gap-4`
-- Max content width: `max-w-lg` (mobile-optimized, centered on desktop)
+- Max content width: `max-w-lg` (mobile-optimized, centered on desktop) —
+  applied via `CONTENT_COLUMN` in `components/layout/shell.ts`, shared by
+  TopBar, BottomNav and `<main>` so the three cannot drift apart
 - Border radius: `rounded-xl` for cards, `rounded-lg` for buttons/inputs
 
 ## Components
@@ -96,7 +141,8 @@ Streak:        bg-amber-50 text-amber-700 rounded-full px-2.5 py-0.5 text-xs fon
 ```
 
 ### Navigation
-- Bottom tab bar on mobile (4 tabs: Dashboard, Workouts, Log, Goals)
+- Bottom tab bar on mobile (5 tabs: Dashboard, Workouts, Log, Insights, Goals)
+- Five is the ceiling — adding a tab means removing one
 - Sidebar on desktop
 - Active tab: purple icon + text
 - Inactive tab: slate-400 icon
@@ -139,5 +185,23 @@ Key icons:
 - **Celebratory**: Celebrate PRs, streaks, milestones with clear visual feedback
 - No fitness jargon without explanation (tooltip for terms like RPE, 1RM)
 
+## Page structure
+Group cards with `<Section title>` (`components/layout/section.tsx`) rather
+than stacking them in one flat list. The dashboard leads with a Today block
+(the primary action first), then Recovery, Fuel and Progress.
+
+## Known drift
+Honest list of where the code still disagrees with this document, so the guide
+stays trustworthy:
+
+- **Tap targets.** The bottom nav now meets the 44px minimum (`min-h-11`).
+  Small inline chips (`px-2.5 py-1` metric toggles, backdate chips) still do
+  not. They sit inside cards rather than in the primary navigation, so they
+  are a lower priority, but they are a real miss.
+- **Responsive.** ~10 responsive utilities app-wide. The `md`/`lg` rows in the
+  breakpoint table below describe an intent, not an implementation — the app
+  is a capped mobile column at every width. Building real desktop layouts is a
+  feature, not a cleanup, so it is not being quietly slipped in.
+
 ## Dark Mode
-Not in v1. Design with light mode only. When added later, use Tailwind `dark:` variants with Slate-based dark palette.
+Not in v1. Design with light mode only. When added later, use Tailwind `dark:` variants over the `gray` ramp above.

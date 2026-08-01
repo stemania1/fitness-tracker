@@ -5,14 +5,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
 import { exercises as exerciseCatalog, type ExerciseDefinition } from "@/data/exercises"
 import { ensureExercisesExist } from "@/lib/supabase/exercises"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { ExercisePicker } from "@/components/activity/exercise-picker"
@@ -21,6 +13,8 @@ import {
   nowLocalDatetimeString,
 } from "@/components/activity/BackdateChips"
 import { Dumbbell, Plus, Trash2 } from "lucide-react"
+import { getAuthUserId } from "@/lib/supabase/user-query"
+import { QuickLogDialog } from "@/components/activity/QuickLogDialog"
 
 const supabase = createClient()
 
@@ -78,10 +72,7 @@ export function QuickLogStrength() {
       if (!selected) throw new Error("Pick an exercise")
       if (validSets.length === 0) throw new Error("Enter at least one set")
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      const userId = await getAuthUserId()
 
       const idMap = await ensureExercisesExist(supabase, [selected.id])
       const dbExerciseId = idMap.get(selected.id)
@@ -99,7 +90,7 @@ export function QuickLogStrength() {
       const { data: workoutLog, error: wErr } = await supabase
         .from("workout_logs")
         .insert({
-          user_id: user.id,
+          user_id: userId,
           name: selected.name,
           started_at: startedAt.toISOString(),
           finished_at: finished.toISOString(),
@@ -142,182 +133,140 @@ export function QuickLogStrength() {
 
   return (
     <>
-      <Dialog
+      <QuickLogDialog
         open={open}
         onOpenChange={(v) => {
           setOpen(v)
           if (!v) reset()
         }}
+        trigger={{ icon: Dumbbell, label: "Quick Strength" }}
+        title="Quick Log Strength"
+        description="Log a set-by-set lift you just finished."
+        submitLabel="Log It"
+        submitDisabled={!selected || validSets.length === 0}
+        mutation={mutation}
+        onSubmit={() => mutation.mutate()}
       >
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-50"
-        >
-          <Dumbbell className="h-4 w-4" />
-          Quick Strength
-        </button>
-        <DialogContent className="mx-4 max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Quick Log Strength</DialogTitle>
-            <DialogDescription>
-              Log a set-by-set lift you just finished.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              mutation.mutate()
-            }}
-            className="mt-4 space-y-4"
+        {/* Exercise picker */}
+        {selected ? (
+          <div className="flex items-center justify-between rounded-lg bg-purple-50 px-3 py-2">
+            <span className="text-sm font-medium text-purple-900">
+              {selected.name}
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowPicker(true)}
+              className="text-xs font-medium text-purple-700 hover:underline"
+            >
+              Change
+            </button>
+          </div>
+        ) : (
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setShowPicker(true)}
+            className="w-full"
           >
-            {/* Exercise picker */}
-            {selected ? (
-              <div className="flex items-center justify-between rounded-lg bg-purple-50 px-3 py-2">
-                <span className="text-sm font-medium text-purple-900">
-                  {selected.name}
+            Choose Exercise
+          </Button>
+        )}
+
+        {/* Sets */}
+        {selected && (
+          <div className="space-y-2">
+            <div className="grid grid-cols-[2rem_1fr_1fr_2rem] items-center gap-2 text-xs font-medium uppercase text-gray-400">
+              <span className="text-center">Set</span>
+              <span>Weight</span>
+              <span>Reps</span>
+              <span />
+            </div>
+            {sets.map((s, i) => (
+              <div
+                key={i}
+                className="grid grid-cols-[2rem_1fr_1fr_2rem] items-center gap-2"
+              >
+                <span className="text-center text-sm font-semibold text-gray-500">
+                  {i + 1}
                 </span>
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="lbs"
+                  value={s.weight}
+                  onChange={(e) =>
+                    updateSet(i, { weight: e.target.value })
+                  }
+                  className="h-10 text-center text-base"
+                />
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="reps"
+                  value={s.reps}
+                  onChange={(e) => updateSet(i, { reps: e.target.value })}
+                  className="h-10 text-center text-base"
+                />
                 <button
                   type="button"
-                  onClick={() => setShowPicker(true)}
-                  className="text-xs font-medium text-purple-700 hover:underline"
+                  onClick={() => removeSet(i)}
+                  disabled={sets.length <= 1}
+                  className="text-gray-400 hover:text-red-500 disabled:opacity-30"
+                  aria-label="Remove set"
                 >
-                  Change
+                  <Trash2 className="h-4 w-4" />
                 </button>
               </div>
-            ) : (
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setShowPicker(true)}
-                className="w-full"
-              >
-                Choose Exercise
-              </Button>
-            )}
+            ))}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={addSet}
+              className="gap-1 text-purple-600"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add Set
+            </Button>
+          </div>
+        )}
 
-            {/* Sets */}
-            {selected && (
-              <div className="space-y-2">
-                <div className="grid grid-cols-[2rem_1fr_1fr_2rem] items-center gap-2 text-xs font-medium uppercase text-gray-400">
-                  <span className="text-center">Set</span>
-                  <span>Weight</span>
-                  <span>Reps</span>
-                  <span />
-                </div>
-                {sets.map((s, i) => (
-                  <div
-                    key={i}
-                    className="grid grid-cols-[2rem_1fr_1fr_2rem] items-center gap-2"
-                  >
-                    <span className="text-center text-sm font-semibold text-gray-500">
-                      {i + 1}
-                    </span>
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      placeholder="lbs"
-                      value={s.weight}
-                      onChange={(e) =>
-                        updateSet(i, { weight: e.target.value })
-                      }
-                      className="h-10 text-center text-base"
-                    />
-                    <Input
-                      type="number"
-                      inputMode="numeric"
-                      placeholder="reps"
-                      value={s.reps}
-                      onChange={(e) => updateSet(i, { reps: e.target.value })}
-                      className="h-10 text-center text-base"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeSet(i)}
-                      disabled={sets.length <= 1}
-                      className="text-gray-400 hover:text-red-500 disabled:opacity-30"
-                      aria-label="Remove set"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={addSet}
-                  className="gap-1 text-purple-600"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Add Set
-                </Button>
-              </div>
-            )}
+        {/* When did you do it? */}
+        {selected && (
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-500">
+              When
+            </label>
+            <BackdateChips
+              value={finishedAt}
+              onChange={setFinishedAt}
+            />
+          </div>
+        )}
 
-            {/* When did you do it? */}
-            {selected && (
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-gray-500">
-                  When
-                </label>
-                <BackdateChips
-                  value={finishedAt}
-                  onChange={setFinishedAt}
-                />
-              </div>
-            )}
+        {/* Optional duration */}
+        {selected && (
+          <div className="space-y-1">
+            <label
+              htmlFor="qls-duration"
+              className="text-xs font-medium text-gray-500"
+            >
+              Duration (min, optional)
+            </label>
+            <Input
+              id="qls-duration"
+              type="number"
+              min={1}
+              max={180}
+              placeholder="e.g. 10"
+              value={durationMins}
+              onChange={(e) => setDurationMins(e.target.value)}
+              className="h-9"
+            />
+          </div>
+        )}
 
-            {/* Optional duration */}
-            {selected && (
-              <div className="space-y-1">
-                <label
-                  htmlFor="qls-duration"
-                  className="text-xs font-medium text-gray-500"
-                >
-                  Duration (min, optional)
-                </label>
-                <Input
-                  id="qls-duration"
-                  type="number"
-                  min={1}
-                  max={180}
-                  placeholder="e.g. 10"
-                  value={durationMins}
-                  onChange={(e) => setDurationMins(e.target.value)}
-                  className="h-9"
-                />
-              </div>
-            )}
-
-            {mutation.isError && (
-              <p className="text-sm text-red-600">
-                {(mutation.error as Error).message}
-              </p>
-            )}
-
-            <DialogFooter>
-              <button
-                type="button"
-                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                onClick={() => setOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={
-                  mutation.isPending || !selected || validSets.length === 0
-                }
-                className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
-              >
-                {mutation.isPending ? "Saving…" : "Log It"}
-              </button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      </QuickLogDialog>
 
       {/* Full-screen picker, rendered as a sibling so it sits above the
           dialog backdrop. */}

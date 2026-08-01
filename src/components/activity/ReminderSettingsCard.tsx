@@ -20,6 +20,8 @@ import {
   REMINDER_TYPE_LABELS,
   type ReminderSettings,
 } from "@/lib/reminder-settings"
+import { getAuthUserId } from "@/lib/supabase/user-query"
+import { CARD_ACCENTS } from "@/lib/constants"
 
 const supabase = createClient()
 
@@ -129,16 +131,13 @@ export function ReminderSettingsCard({ initial }: { initial: ReminderSettings })
 
   const mutation = useMutation({
     mutationFn: async (next: ReminderSettings) => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      const userId = await getAuthUserId()
       const { error } = await supabase
         .from("user_profiles")
         // ReminderSettings is JSON-serializable but lacks an index signature,
         // so cast to the column's Json type.
         .update({ reminder_settings: next as unknown as Json })
-        .eq("id", user.id)
+        .eq("id", userId)
       if (error) throw error
     },
     onSuccess: () => {
@@ -157,7 +156,7 @@ export function ReminderSettingsCard({ initial }: { initial: ReminderSettings })
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Bell className="h-5 w-5 text-purple-500" />
+          <Bell className={`h-5 w-5 ${CARD_ACCENTS.neutral}`} />
           Reminders
         </CardTitle>
       </CardHeader>

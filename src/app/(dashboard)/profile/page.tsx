@@ -37,6 +37,8 @@ import { OuraConnectionCard } from "@/components/profile/OuraConnectionCard"
 import { normalizeReminderSettings } from "@/lib/reminder-settings"
 import { DEFAULT_SLEEP_GOAL_HOURS } from "@/lib/bedtime"
 import { DEFAULT_CREATINE_TARGET_G } from "@/lib/creatine-streak"
+import { useUserQuery, getAuthUser, getAuthUserId } from "@/lib/supabase/user-query"
+import { useProfile } from "@/hooks/useProfile"
 
 const supabase = createClient()
 
@@ -70,50 +72,24 @@ export default function ProfilePage() {
   const [weekendMinutes, setWeekendMinutes] = useState("")
   const [creatineTargetG, setCreatineTargetG] = useState("")
 
-  // Fetch auth user
+  // Fetch auth user (shares the session-cached lookup)
   const { data: authUser } = useQuery({
     queryKey: ["auth-user"],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
-      return user
-    },
+    queryFn: getAuthUser,
   })
 
-  // Fetch profile
-  const { data: profile, isLoading: profileLoading } = useQuery({
-    queryKey: ["profile"],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
-      const { data, error } = await supabase
-        .from("user_profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single()
-      if (error) throw error
-      return data
-    },
-  })
+  const { data: profile, isLoading: profileLoading } = useProfile()
 
   // Fetch stats
-  const { data: stats } = useQuery({
-    queryKey: ["profile-stats"],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data: stats } = useUserQuery(
+    ["profile-stats"],
+    async (userId: string) => {
 
       // Total workouts
       const { count: totalWorkouts } = await supabase
         .from("workout_logs")
         .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
 
       // Total weight lifted
       const { data: setData } = await supabase
@@ -121,7 +97,7 @@ export default function ProfilePage() {
         .select(
           "weight, reps, exercise_log:exercise_logs!inner(workout_log:workout_logs!inner(user_id))"
         )
-        .eq("exercise_log.workout_log.user_id", user.id)
+        .eq("exercise_log.workout_log.user_id", userId)
         .not("weight", "is", null)
 
       const totalWeight = totalWeightLifted(
@@ -132,7 +108,7 @@ export default function ProfilePage() {
       const { data: workoutDates } = await supabase
         .from("workout_logs")
         .select("started_at")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .order("started_at", { ascending: false })
 
       const streakWeeks = currentWeekStreak(workoutDates ?? [])
@@ -142,8 +118,8 @@ export default function ProfilePage() {
         streakWeeks,
         totalWeight,
       }
-    },
-  })
+    }
+  )
 
   const populateForm = useCallback(() => {
     if (!profile) return
@@ -186,14 +162,11 @@ export default function ProfilePage() {
   // Update profile mutation
   const updateMutation = useMutation({
     mutationFn: async (updates: UserProfileUpdate) => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      const userId = await getAuthUserId()
       const { error } = await supabase
         .from("user_profiles")
         .update(updates)
-        .eq("id", user.id)
+        .eq("id", userId)
       if (error) throw error
     },
     onSuccess: () => {
@@ -211,15 +184,12 @@ export default function ProfilePage() {
   // Delete account mutation
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      const userId = await getAuthUserId()
       // Delete profile (cascade should handle related data)
       const { error } = await supabase
         .from("user_profiles")
         .delete()
-        .eq("id", user.id)
+        .eq("id", userId)
       if (error) throw error
       await supabase.auth.signOut()
     },

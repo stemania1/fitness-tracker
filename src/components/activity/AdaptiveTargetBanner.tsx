@@ -22,7 +22,7 @@ const style: Record<
   { cls: string; icon: typeof TrendingUp }
 > = {
   progress: { cls: "border-emerald-200 bg-emerald-50 text-emerald-900", icon: TrendingUp },
-  repeat: { cls: "border-sky-200 bg-sky-50 text-sky-900", icon: Repeat },
+  repeat: { cls: "border-gray-200 bg-gray-50 text-gray-700", icon: Repeat },
   hold: { cls: "border-amber-200 bg-amber-50 text-amber-900", icon: Minus },
 }
 

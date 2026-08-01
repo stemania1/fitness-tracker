@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatDuration } from "@/lib/utils"
+import { formatWeekdayShort } from "@/lib/dates"
 
 interface WorkoutLogEntry {
   id: string
@@ -30,16 +31,6 @@ const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ]
-
-function formatDate(dateStr: string): string {
-  const d = new Date(dateStr)
-  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-  const months = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-  ]
-  return `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}`
-}
 
 export default function ActivityPage() {
   const [tab, setTab] = useState<"history" | "calendar">("history")
@@ -214,7 +205,7 @@ export default function ActivityPage() {
                         {log.name}
                       </p>
                       <p className="mt-0.5 text-sm text-gray-500">
-                        {formatDate(log.started_at)}
+                        {formatWeekdayShort(log.started_at)}
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-4 text-sm text-gray-500">

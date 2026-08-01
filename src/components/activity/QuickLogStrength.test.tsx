@@ -87,8 +87,12 @@ vi.mock("@/components/activity/exercise-picker", () => ({
 }))
 
 import { QuickLogStrength } from "./QuickLogStrength"
+import { resetAuthUserId } from "@/lib/supabase/user-query"
 
 beforeEach(() => {
+  // The auth user id is cached for the session; clear it so a test
+  // that simulates a signed-out user isn't served the previous id.
+  resetAuthUserId()
   mocks.getUser.mockReset()
   mocks.workoutLogsInsertSingle
     .mockReset()

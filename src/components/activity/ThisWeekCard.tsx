@@ -1,15 +1,16 @@
 "use client"
 
 import { useMemo } from "react"
-import { useQuery } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Flame } from "lucide-react"
 import { exercises as exerciseCatalog } from "@/data/exercises"
 import { estimateStrengthCalories, estimateCardioCalories } from "@/lib/calories"
 import { calcWeeklyStreak, startOfWeekISO } from "@/lib/weekly-progress"
+import { useProfile } from "@/hooks/useProfile"
+import { useUserQuery } from "@/lib/supabase/user-query"
+import { InsightCard } from "@/components/ui/insight-card"
 
 const supabase = createClient()
 
@@ -26,82 +27,56 @@ export function ThisWeekCard() {
     []
   )
 
-  const { data: profile, isLoading: profileLoading } = useQuery({
-    queryKey: ["this-week-profile"],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
-      const { data } = await supabase
-        .from("user_profiles")
-        .select("workout_days")
-        .eq("id", user.id)
-        .single()
-      return data
-    },
-  })
+  const { data: profile, isLoading: profileLoading } = useProfile()
 
-  const { data: weeklyWorkouts, isLoading: weeklyLoading } = useQuery({
-    queryKey: ["weekly-workouts", weekStart],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data: weeklyWorkouts, isLoading: weeklyLoading } = useUserQuery(
+    ["weekly-workouts", weekStart],
+    async (userId) => {
       const { data, error } = await supabase
         .from("workout_logs")
         .select("id")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .gte("started_at", weekStart)
       if (error) throw error
       return data
-    },
-  })
+    }
+  )
 
   // Shared key with the dashboard's own all-logs query, so this reads cache.
-  const { data: allWorkoutLogs, isLoading: allWorkoutsLoading } = useQuery({
-    queryKey: ["workout-logs-all"],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data: allWorkoutLogs, isLoading: allWorkoutsLoading } = useUserQuery(
+    ["workout-logs-all"],
+    async (userId) => {
       const { data, error } = await supabase
         .from("workout_logs")
         .select("id, started_at")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .order("started_at", { ascending: true })
       if (error) throw error
       return data
-    },
-  })
+    }
+  )
 
-  const { data: weeklyCalories, isLoading: caloriesLoading } = useQuery({
-    queryKey: ["weekly-calories", weekStart],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  // The RMR correction reads from the shared profile rather than its own
+  // fetch. weightLbs is in the key on purpose: logging a weigh-in invalidates
+  // ["profile"], and keying on the new weight is what makes this recompute
+  // instead of serving calories derived from the old one.
+  const weightLbs = profile?.current_weight ?? 170
+  const calorieProfile = useMemo(
+    () => ({
+      age: profile?.age,
+      sex: profile?.sex,
+      heightInches: profile?.height_inches,
+    }),
+    [profile?.age, profile?.sex, profile?.height_inches]
+  )
 
-      // User weight + profile fields for the RMR calorie correction.
-      const { data: prof } = await supabase
-        .from("user_profiles")
-        .select("current_weight, age, sex, height_inches")
-        .eq("id", user.id)
-        .single()
-      const weightLbs = prof?.current_weight ?? 170
-      const calorieProfile = {
-        age: prof?.age,
-        sex: prof?.sex,
-        heightInches: prof?.height_inches,
-      }
-
+  const { data: weeklyCalories, isLoading: caloriesLoading } = useUserQuery(
+    ["weekly-calories", weekStart, weightLbs],
+    async (userId) => {
       const { data: logs } = await supabase
         .from("workout_logs")
         .select("id")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .gte("started_at", weekStart)
       if (!logs || logs.length === 0) return 0
 
@@ -168,7 +143,8 @@ export function ThisWeekCard() {
 
       return totalCal
     },
-  })
+    { enabled: profile !== undefined }
+  )
 
   const workoutTarget = profile?.workout_days ?? 4
   const completedWorkouts = weeklyWorkouts?.length ?? 0
@@ -183,60 +159,56 @@ export function ThisWeekCard() {
   )
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Flame className="h-5 w-5 text-orange-500" />
-          This Week
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+    <InsightCard
+      icon={Flame}
+      accent="progress"
+      title="This Week"
+    >
         {weeklyLoading || profileLoading ? (
           <div className="space-y-2">
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-3 w-full" />
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-3 w-full" />
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="space-y-2">
-              <div className="flex items-baseline justify-between">
-                <span className="text-sm text-gray-600">
-                  <span className="text-lg font-semibold text-gray-900">
-                    {completedWorkouts}
-                  </span>{" "}
-                  of {workoutTarget} workouts
-                </span>
-                <span className="text-sm font-medium text-purple-600">
-                  {weeklyProgress}%
-                </span>
-              </div>
-              <Progress value={weeklyProgress} />
-            </div>
-            {!caloriesLoading && weeklyCalories != null && weeklyCalories > 0 && (
-              <div className="flex items-center gap-2 rounded-lg bg-orange-50 px-3 py-2">
-                <Flame className="h-4 w-4 text-orange-500" />
-                <span className="text-sm text-gray-700">
-                  <span className="font-semibold text-gray-900">
-                    {weeklyCalories.toLocaleString()}
-                  </span>{" "}
-                  calories burned
-                </span>
-              </div>
-            )}
-            {!allWorkoutsLoading && weeklyStreak >= 1 && (
-              <div className="flex items-center gap-2 rounded-lg bg-orange-50 px-3 py-2">
-                <Flame className="h-4 w-4 text-orange-500" />
-                <span className="text-sm text-gray-700">
-                  <span className="font-semibold text-gray-900">
-                    {weeklyStreak}
-                  </span>{" "}
-                  week streak
-                </span>
-              </div>
-            )}
+        <div className="space-y-2">
+          <div className="flex items-baseline justify-between">
+        <span className="text-sm text-gray-600">
+          <span className="text-lg font-semibold text-gray-900">
+            {completedWorkouts}
+          </span>{" "}
+          of {workoutTarget} workouts
+        </span>
+        <span className="text-sm font-medium text-purple-600">
+          {weeklyProgress}%
+        </span>
+          </div>
+          <Progress value={weeklyProgress} />
+        </div>
+        {!caloriesLoading && weeklyCalories != null && weeklyCalories > 0 && (
+          <div className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2">
+        <Flame className="h-4 w-4 text-gray-400" />
+        <span className="text-sm text-gray-700">
+          <span className="font-semibold text-gray-900">
+            {weeklyCalories.toLocaleString()}
+          </span>{" "}
+          calories burned
+        </span>
           </div>
         )}
-      </CardContent>
-    </Card>
+        {!allWorkoutsLoading && weeklyStreak >= 1 && (
+          <div className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2">
+        <Flame className="h-4 w-4 text-emerald-600" />
+        <span className="text-sm text-gray-700">
+          <span className="font-semibold text-gray-900">
+            {weeklyStreak}
+          </span>{" "}
+          week streak
+        </span>
+          </div>
+        )}
+          </div>
+        )}
+    </InsightCard>
   )
 }

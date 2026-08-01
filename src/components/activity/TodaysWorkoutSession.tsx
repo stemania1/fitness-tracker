@@ -15,20 +15,17 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { CheckCircle2, Circle, Moon, ArrowLeft } from "lucide-react"
 import { todaysWorkout } from "@/lib/todays-workout"
+import { localToday } from "@/lib/dates"
+import { getAuthUserId } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
-
-/** Local YYYY-MM-DD for the storage key and started_at. */
-function localDay(): string {
-  return new Date().toLocaleDateString("en-CA")
-}
 
 export function TodaysWorkoutSession() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const workout = useMemo(() => todaysWorkout(new Date()), [])
 
-  const storageKey = `todays-workout:${localDay()}:${workout.title}`
+  const storageKey = `todays-workout:${localToday()}:${workout.title}`
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [startedAt, setStartedAt] = useState<string | null>(null)
 
@@ -78,10 +75,7 @@ export function TodaysWorkoutSession() {
 
   const finishMutation = useMutation({
     mutationFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      const userId = await getAuthUserId()
 
       const start = startedAt ?? new Date().toISOString()
       const finished = new Date().toISOString()
@@ -91,7 +85,7 @@ export function TodaysWorkoutSession() {
       )
 
       const { error } = await supabase.from("workout_logs").insert({
-        user_id: user.id,
+        user_id: userId,
         name: workout.title,
         started_at: start,
         finished_at: finished,
@@ -164,7 +158,7 @@ export function TodaysWorkoutSession() {
             </CardHeader>
             <CardContent className="space-y-3">
               {workout.sessionNote && (
-                <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
                   {workout.sessionNote}
                 </p>
               )}

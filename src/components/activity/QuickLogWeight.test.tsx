@@ -30,8 +30,12 @@ vi.mock("@/lib/supabase/client", () => ({
 }))
 
 import { QuickLogWeight } from "./QuickLogWeight"
+import { resetAuthUserId } from "@/lib/supabase/user-query"
 
 beforeEach(() => {
+  // The auth user id is cached for the session; clear it so a test
+  // that simulates a signed-out user isn't served the previous id.
+  resetAuthUserId()
   mocks.getUser.mockReset()
   mocks.insert.mockReset().mockResolvedValue({ error: null })
   mocks.updateEq.mockReset().mockResolvedValue({ error: null })

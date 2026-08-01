@@ -5,16 +5,12 @@ import Link from "next/link"
 import { Bell, X, ArrowRight } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import type { Reminder, ReminderType } from "@/lib/reminders"
+import { localToday } from "@/lib/dates"
 
 interface RemindersCardProps {
   reminders: Reminder[]
   /** Where the "Start a workout" action points, for the workout nudge. */
   startWorkoutHref?: string
-}
-
-/** Today as YYYY-MM-DD (local) — dismissals reset each day. */
-function localToday(): string {
-  return new Date().toLocaleDateString("en-CA")
 }
 
 function dismissKey(day: string): string {

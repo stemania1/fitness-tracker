@@ -5,15 +5,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
 import { exercises as exerciseCatalog } from "@/data/exercises"
 import { ensureExercisesExist } from "@/lib/supabase/exercises"
-import {
-  Dialog,
-  DialogTrigger,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectOption } from "@/components/ui/select"
@@ -22,6 +13,8 @@ import {
   nowLocalDatetimeString,
 } from "@/components/activity/BackdateChips"
 import { Timer } from "lucide-react"
+import { getAuthUserId } from "@/lib/supabase/user-query"
+import { QuickLogDialog } from "@/components/activity/QuickLogDialog"
 
 const supabase = createClient()
 
@@ -70,10 +63,7 @@ export function QuickLogExercise() {
       if (!totalMins || totalMins <= 0)
         throw new Error("Enter a valid duration")
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      const userId = await getAuthUserId()
 
       const exerciseName = selectedExercise?.name ?? "Cardio"
 
@@ -93,7 +83,7 @@ export function QuickLogExercise() {
       const { data: workoutLog, error: wErr } = await supabase
         .from("workout_logs")
         .insert({
-          user_id: user.id,
+          user_id: userId,
           name: exerciseName,
           started_at: startedAt.toISOString(),
           finished_at: finished.toISOString(),
@@ -155,133 +145,99 @@ export function QuickLogExercise() {
   })
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-50">
-        <Timer className="h-4 w-4" />
-        Quick Log
-      </DialogTrigger>
-      <DialogContent className="mx-4 max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Quick Log Exercise</DialogTitle>
-          <DialogDescription>
-            Log a cardio session in seconds.
-          </DialogDescription>
-        </DialogHeader>
-
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            mutation.mutate()
-          }}
-          className="mt-4 space-y-4"
+    <QuickLogDialog
+      open={open}
+      onOpenChange={setOpen}
+      trigger={{ icon: Timer, label: "Quick Log" }}
+      title="Quick Log Exercise"
+      description="Log a cardio session in seconds."
+      submitLabel="Log It"
+      submitDisabled={totalMins <= 0}
+      mutation={mutation}
+      onSubmit={() => mutation.mutate()}
+    >
+      <div className="space-y-2">
+        <Label htmlFor="ql-exercise">Exercise</Label>
+        <Select
+          id="ql-exercise"
+          value={exerciseId}
+          onChange={(e) => setExerciseId(e.target.value)}
         >
-          <div className="space-y-2">
-            <Label htmlFor="ql-exercise">Exercise</Label>
-            <Select
-              id="ql-exercise"
-              value={exerciseId}
-              onChange={(e) => setExerciseId(e.target.value)}
-            >
-              {cardioExercises.map((ex) => (
-                <SelectOption key={ex.id} value={ex.id}>
-                  {ex.name}
-                </SelectOption>
-              ))}
-            </Select>
+          {cardioExercises.map((ex) => (
+            <SelectOption key={ex.id} value={ex.id}>
+              {ex.name}
+            </SelectOption>
+          ))}
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="ql-duration">Duration</Label>
+        <div className="flex items-center gap-2">
+          <div className="flex-1">
+            <Input
+              id="ql-duration"
+              type="number"
+              min={0}
+              max={300}
+              placeholder="min"
+              aria-label="Minutes"
+              value={durationMins}
+              onChange={(e) => setDurationMins(e.target.value)}
+              autoFocus
+            />
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="ql-duration">Duration</Label>
-            <div className="flex items-center gap-2">
-              <div className="flex-1">
-                <Input
-                  id="ql-duration"
-                  type="number"
-                  min={0}
-                  max={300}
-                  placeholder="min"
-                  aria-label="Minutes"
-                  value={durationMins}
-                  onChange={(e) => setDurationMins(e.target.value)}
-                  autoFocus
-                />
-              </div>
-              <span className="text-gray-400">:</span>
-              <div className="flex-1">
-                <Input
-                  id="ql-duration-secs"
-                  type="number"
-                  min={0}
-                  max={59}
-                  placeholder="sec"
-                  aria-label="Seconds"
-                  value={durationSecs}
-                  onChange={(e) => setDurationSecs(e.target.value)}
-                />
-              </div>
-            </div>
+          <span className="text-gray-400">:</span>
+          <div className="flex-1">
+            <Input
+              id="ql-duration-secs"
+              type="number"
+              min={0}
+              max={59}
+              placeholder="sec"
+              aria-label="Seconds"
+              value={durationSecs}
+              onChange={(e) => setDurationSecs(e.target.value)}
+            />
           </div>
+        </div>
+      </div>
 
-          {isDistanceCardio && (
-            <div className="space-y-2">
-              <Label htmlFor="ql-distance">Distance (miles)</Label>
-              <Input
-                id="ql-distance"
-                type="number"
-                min={0}
-                step="0.01"
-                placeholder="e.g. 1"
-                value={distanceMiles}
-                onChange={(e) => setDistanceMiles(e.target.value)}
-              />
-            </div>
-          )}
+      {isDistanceCardio && (
+        <div className="space-y-2">
+          <Label htmlFor="ql-distance">Distance (miles)</Label>
+          <Input
+            id="ql-distance"
+            type="number"
+            min={0}
+            step="0.01"
+            placeholder="e.g. 1"
+            value={distanceMiles}
+            onChange={(e) => setDistanceMiles(e.target.value)}
+          />
+        </div>
+      )}
 
-          {isTreadmill && (
-            <div className="space-y-2">
-              <Label htmlFor="ql-incline">Incline (%)</Label>
-              <Input
-                id="ql-incline"
-                type="number"
-                min={0}
-                max={40}
-                step="0.5"
-                placeholder="e.g. 1"
-                value={inclinePercent}
-                onChange={(e) => setInclinePercent(e.target.value)}
-              />
-            </div>
-          )}
+      {isTreadmill && (
+        <div className="space-y-2">
+          <Label htmlFor="ql-incline">Incline (%)</Label>
+          <Input
+            id="ql-incline"
+            type="number"
+            min={0}
+            max={40}
+            step="0.5"
+            placeholder="e.g. 1"
+            value={inclinePercent}
+            onChange={(e) => setInclinePercent(e.target.value)}
+          />
+        </div>
+      )}
 
-          <div className="space-y-1">
-            <Label>When</Label>
-            <BackdateChips value={finishedAt} onChange={setFinishedAt} />
-          </div>
-
-          {mutation.isError && (
-            <p className="text-sm text-red-600">
-              {(mutation.error as Error).message}
-            </p>
-          )}
-
-          <DialogFooter>
-            <button
-              type="button"
-              className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              onClick={() => setOpen(false)}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={mutation.isPending || totalMins <= 0}
-              className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
-            >
-              {mutation.isPending ? "Saving…" : "Log It"}
-            </button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      <div className="space-y-1">
+        <Label>When</Label>
+        <BackdateChips value={finishedAt} onChange={setFinishedAt} />
+      </div>
+    </QuickLogDialog>
   )
 }

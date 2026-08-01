@@ -26,6 +26,7 @@ import {
   Loader2,
 } from "lucide-react"
 import { GOALS, FITNESS_LEVELS, SPLIT_TYPES } from "@/lib/constants"
+import { useUserQuery, getAuthUserId } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
 
@@ -49,22 +50,18 @@ export default function GenerateWorkoutPage() {
   >(null)
   const [includeExpress, setIncludeExpress] = useState(false)
 
-  const { data: profile, isLoading: profileLoading } = useQuery({
-    queryKey: ["profile"],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data: profile, isLoading: profileLoading } = useUserQuery(
+    ["profile"],
+    async (userId: string) => {
       const { data, error } = await supabase
         .from("user_profiles")
         .select("*")
-        .eq("id", user.id)
+        .eq("id", userId)
         .single()
       if (error) throw error
       return data
-    },
-  })
+    }
+  )
 
   function handleGenerate() {
     if (!profile) return
@@ -94,10 +91,7 @@ export default function GenerateWorkoutPage() {
 
   const saveMutation = useMutation({
     mutationFn: async (workouts: GeneratedWorkout[]) => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      const userId = await getAuthUserId()
 
       // Collect all unique exercise IDs from generated workouts
       const allExerciseIds = [
@@ -114,7 +108,7 @@ export default function GenerateWorkoutPage() {
         const { data: template, error: templateError } = await supabase
           .from("workout_templates")
           .insert({
-            user_id: user.id,
+            user_id: userId,
             name: workout.name,
             split_type: workout.splitType as any,
             estimated_mins: workout.estimatedMins,

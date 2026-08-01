@@ -3,7 +3,6 @@
 import { useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ClipboardList, Dumbbell, Scale, Sparkles, Target } from "lucide-react"
 import {
@@ -20,6 +19,8 @@ import {
   type DigestInput,
   type Tone,
 } from "@/lib/weekly-digest"
+import { useUserQuery } from "@/lib/supabase/user-query"
+import { InsightCard } from "@/components/ui/insight-card"
 
 const supabase = createClient()
 
@@ -38,13 +39,9 @@ const iconFor = { fitness: Dumbbell, weight: Scale, energy: Sparkles }
  * from the same signals the individual cards use.
  */
 export function WeeklyDigestCard() {
-  const { data, isLoading } = useQuery({
-    queryKey: ["weekly-digest"],
-    queryFn: async (): Promise<DigestInput> => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data, isLoading } = useUserQuery(
+    ["weekly-digest"],
+    async (userId: string): Promise<DigestInput> => {
 
       const now = Date.now()
       const since70Iso = new Date(now - 70 * DAY).toISOString()
@@ -57,32 +54,32 @@ export function WeeklyDigestCard() {
           supabase
             .from("user_profiles")
             .select("current_weight, target_weight")
-            .eq("id", user.id)
+            .eq("id", userId)
             .single(),
           supabase
             .from("weight_logs")
             .select("weight, logged_at")
-            .eq("user_id", user.id)
+            .eq("user_id", userId)
             .gte("logged_at", since70Iso),
           supabase
             .from("food_logs")
             .select("calories, logged_at")
-            .eq("user_id", user.id)
+            .eq("user_id", userId)
             .gte("logged_at", since70Iso),
           supabase
             .from("workout_logs")
             .select("started_at")
-            .eq("user_id", user.id)
+            .eq("user_id", userId)
             .gte("started_at", since21Iso),
           supabase
             .from("energy_checkins")
             .select("level, logged_on")
-            .eq("user_id", user.id)
+            .eq("user_id", userId)
             .gte("logged_on", d14),
           supabase
             .from("oura_daily")
             .select("day, sleep_score, sleep_minutes, readiness_score")
-            .eq("user_id", user.id)
+            .eq("user_id", userId)
             .gte("day", localDateString(new Date(now - 21 * DAY))),
         ])
 
@@ -153,62 +150,58 @@ export function WeeklyDigestCard() {
         sleepDeltaHours: sleepTrend.delta,
         topEnergyInsight: null,
       }
-    },
-  })
+    }
+  )
 
   const digest = useMemo(() => (data ? buildWeeklyDigest(data) : null), [data])
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <ClipboardList className="h-5 w-5 text-purple-500" />
-          Weekly Check-In
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+    <InsightCard
+      icon={ClipboardList}
+      accent="progress"
+      title="Weekly Check-In"
+    >
         {isLoading || !digest ? (
           <Skeleton className="h-40 w-full" />
         ) : (
           <div className="space-y-4">
-            <div className="space-y-2.5">
-              {digest.sections.map((s) => {
-                const Icon = iconFor[s.key]
-                return (
-                  <div key={s.key} className="flex items-start gap-2.5">
-                    <span
-                      className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${toneDot[s.tone]}`}
-                    />
-                    <Icon className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-900">
-                        {s.headline}
-                      </p>
-                      {s.detail && (
-                        <p className="text-xs text-gray-500">{s.detail}</p>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            <div className="rounded-lg bg-purple-50 p-3">
-              <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-purple-700">
-                <Target className="h-3.5 w-3.5" />
-                This week&apos;s focus
+        <div className="space-y-2.5">
+          {digest.sections.map((s) => {
+        const Icon = iconFor[s.key]
+        return (
+          <div key={s.key} className="flex items-start gap-2.5">
+            <span
+              className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${toneDot[s.tone]}`}
+            />
+            <Icon className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-gray-900">
+                {s.headline}
               </p>
-              <ul className="space-y-1.5">
-                {digest.actions.map((a, idx) => (
-                  <li key={idx} className="text-sm text-purple-900">
-                    {a.text}
-                  </li>
-                ))}
-              </ul>
+              {s.detail && (
+                <p className="text-xs text-gray-500">{s.detail}</p>
+              )}
             </div>
           </div>
+        )
+          })}
+        </div>
+
+        <div className="rounded-lg bg-purple-50 p-3">
+          <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-purple-700">
+        <Target className="h-3.5 w-3.5" />
+        This week&apos;s focus
+          </p>
+          <ul className="space-y-1.5">
+        {digest.actions.map((a, idx) => (
+          <li key={idx} className="text-sm text-purple-900">
+            {a.text}
+          </li>
+        ))}
+          </ul>
+        </div>
+          </div>
         )}
-      </CardContent>
-    </Card>
+    </InsightCard>
   )
 }

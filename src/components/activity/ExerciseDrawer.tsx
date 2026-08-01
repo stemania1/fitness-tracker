@@ -80,7 +80,7 @@ export function ExerciseDrawer({
                         {completedSets}/{totalSets} sets
                       </span>
                       {calories > 0 && (
-                        <span className="flex items-center gap-0.5 text-orange-400">
+                        <span className="flex items-center gap-0.5 text-amber-500">
                           <Flame className="h-3 w-3" />
                           {calories}
                         </span>

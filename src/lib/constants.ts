@@ -89,3 +89,74 @@ export const MAX_WORKOUT_DAYS = 7
 
 export const PF_DUMBBELL_MAX_WEIGHT = 75
 export const PF_FIXED_BARBELL_MAX_WEIGHT = 60
+
+// ── Card accents ────────────────────────────────────────────────────────
+//
+// Card header icons had drifted to seventeen distinct hues across
+// twenty-six cards — purple, orange, indigo, amber, teal, rose, cyan, blue,
+// yellow, violet, lime, red, emerald — so the dashboard read as a pile of
+// unrelated widgets rather than one product.
+//
+// The rule: colour means something, or it means nothing. Four semantic
+// tokens carry meaning; everything else is neutral, because a card's
+// identity comes from its title and icon shape, not its hue. That keeps the
+// coloured cards genuinely scannable — if every card is coloured, none is.
+
+export const CARD_ACCENTS = {
+  /** Actions and the plan — the things you're meant to do. */
+  brand: "text-purple-600",
+  /** Achievement: streaks, records, goals moving the right way. */
+  progress: "text-emerald-600",
+  /** Worth a look: nudges, watch-this readings. */
+  attention: "text-amber-600",
+  /** Something is wrong or needs care. */
+  danger: "text-red-600",
+  /** The default. Identity only, no signal. */
+  neutral: "text-gray-400",
+} as const
+
+export type CardAccent = keyof typeof CARD_ACCENTS
+
+/**
+ * Chip / pill backgrounds, for the same four meanings plus neutral.
+ *
+ * Every classification scale in the app had independently invented its own
+ * middle stop — "medium" confidence was blue, "average" VO2 was blue,
+ * "moderate" energy was sky, "moderate" readiness was blue. A scale needs
+ * steps, not new hues: not-yet / getting-there / good reads perfectly well as
+ * neutral / attention / progress.
+ */
+export const CHIP_TONES = {
+  brand: "bg-purple-100 text-purple-700",
+  progress: "bg-emerald-100 text-emerald-700",
+  attention: "bg-amber-100 text-amber-700",
+  danger: "bg-red-100 text-red-700",
+  neutral: "bg-gray-100 text-gray-600",
+} as const
+
+/** The softer variant, for panels and inline callouts rather than pills. */
+export const PANEL_TONES = {
+  brand: "bg-purple-50 text-purple-700",
+  progress: "bg-emerald-50 text-emerald-700",
+  attention: "bg-amber-50 text-amber-700",
+  danger: "bg-red-50 text-red-700",
+  neutral: "bg-gray-50 text-gray-600",
+} as const
+
+/**
+ * Macro colours — categorical, not semantic.
+ *
+ * The tokens above encode *meaning* (good / watch / wrong). A stacked macro
+ * bar needs the opposite: hues whose only job is to be told apart, with no
+ * implication that fat is worse than protein. Flattening these to neutral
+ * would make the bar unreadable, so they stay distinct — but they live here,
+ * named, rather than being invented inline per component.
+ *
+ * Anything outside a macro breakdown should use CHIP_TONES instead.
+ */
+export const MACRO_TONES = {
+  protein: { chip: "bg-rose-50 text-rose-700", bar: "bg-rose-400", text: "text-rose-700" },
+  carbs: { chip: "bg-amber-50 text-amber-700", bar: "bg-amber-400", text: "text-amber-700" },
+  fat: { chip: "bg-sky-50 text-sky-700", bar: "bg-sky-400", text: "text-sky-700" },
+  sugar: { chip: "bg-fuchsia-50 text-fuchsia-700", bar: "bg-fuchsia-400", text: "text-fuchsia-700" },
+} as const

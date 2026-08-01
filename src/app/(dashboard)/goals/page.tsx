@@ -61,6 +61,9 @@ import {
   Target,
 } from "lucide-react"
 import type { UserGoal, UserProfile } from "@/types/database"
+import { formatMediumDate, formatShortDate } from "@/lib/dates"
+import { getAuthUserId } from "@/lib/supabase/user-query"
+import { useProfile } from "@/hooks/useProfile"
 
 const supabase = createClient()
 
@@ -83,46 +86,7 @@ function goalProgress(goal: UserGoal): number {
   return Math.min(100, Math.round((current / target) * 100))
 }
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  })
-}
-
-function formatChartDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  })
-}
-
 // ─── Data fetching ─────────────────────────────────────────────
-
-async function getAuthUserId(): Promise<string> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) throw new Error("Not authenticated")
-  return user.id
-}
-
-function useProfile() {
-  return useQuery({
-    queryKey: ["profile"],
-    queryFn: async () => {
-      const userId = await getAuthUserId()
-      const { data, error } = await supabase
-        .from("user_profiles")
-        .select("*")
-        .eq("id", userId)
-        .single()
-      if (error) throw error
-      return data as UserProfile
-    },
-  })
-}
 
 function useGoals() {
   return useQuery({
@@ -163,7 +127,10 @@ function useWorkoutLogs() {
       const userId = await getAuthUserId()
       const { data, error } = await supabase
         .from("workout_logs")
-        .select("id, started_at, finished_at")
+        // Must match the other ["workout-logs-all"] definitions — same key,
+        // same shape, or whichever mounts first decides what the others read.
+        // finished_at was selected here and never used.
+        .select("id, started_at")
         .eq("user_id", userId)
         .order("started_at", { ascending: true })
       if (error) throw error
@@ -592,7 +559,7 @@ function GoalCard({
           <div className="flex items-center justify-between text-xs text-gray-500">
             <span>{progress}% complete</span>
             {goal.deadline && (
-              <span>Due {formatDate(goal.deadline)}</span>
+              <span>Due {formatMediumDate(goal.deadline)}</span>
             )}
           </div>
 
@@ -639,7 +606,7 @@ export default function GoalsPage() {
   const weightChartData = useMemo(
     () =>
       (weightLogs ?? []).map((w) => ({
-        date: formatChartDate(w.logged_at),
+        date: formatShortDate(w.logged_at),
         weight: w.weight,
       })),
     [weightLogs]

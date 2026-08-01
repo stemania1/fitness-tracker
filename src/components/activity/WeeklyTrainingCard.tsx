@@ -12,6 +12,8 @@ import {
   formatVolume,
   type WeekExercise,
 } from "@/lib/weekly-summary"
+import { useUserQuery } from "@/lib/supabase/user-query"
+import { CARD_ACCENTS } from "@/lib/constants"
 
 const supabase = createClient()
 
@@ -32,18 +34,14 @@ export function WeeklyTrainingCard() {
     []
   )
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["weekly-training", weekStart],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data, isLoading } = useUserQuery(
+    ["weekly-training", weekStart],
+    async (userId: string) => {
 
       const { data: logs } = await supabase
         .from("workout_logs")
         .select("id")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .gte("started_at", weekStart)
 
       const sessions = logs?.length ?? 0
@@ -99,14 +97,14 @@ export function WeeklyTrainingCard() {
       })
 
       return summarizeWeekTraining(exercises, sessions)
-    },
-  })
+    }
+  )
 
   return (
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-base">
-          <CalendarCheck className="h-5 w-5 text-purple-500" />
+          <CalendarCheck className={`h-5 w-5 ${CARD_ACCENTS.progress}`} />
           Training This Week
         </CardTitle>
       </CardHeader>
