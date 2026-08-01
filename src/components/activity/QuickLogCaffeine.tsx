@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label"
 import { Coffee } from "lucide-react"
 import { CAFFEINE_PRESETS } from "@/lib/caffeine"
 import { BackdateChips, nowLocalDatetimeString } from "./BackdateChips"
+import { getAuthUserId } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
 
@@ -41,16 +42,13 @@ export function QuickLogCaffeine() {
       if (!Number.isFinite(mgNum) || mgNum <= 0) {
         throw new Error("Enter a valid caffeine amount")
       }
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      const userId = await getAuthUserId()
 
       const when = loggedAt ? new Date(loggedAt) : new Date()
       if (Number.isNaN(when.getTime())) throw new Error("Invalid date")
 
       const { error } = await supabase.from("caffeine_logs").insert({
-        user_id: user.id,
+        user_id: userId,
         mg: mgNum,
         source,
         logged_at: when.toISOString(),

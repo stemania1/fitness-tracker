@@ -15,6 +15,7 @@ import {
 } from "@/lib/caffeine"
 import { localTimeValue, withLocalTime } from "@/lib/meal-time"
 import { useBedtimePlan } from "@/hooks/useBedtimePlan"
+import { useUserQuery, getAuthUserId } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
 
@@ -53,30 +54,23 @@ export function CaffeineCard() {
   const [editingTimeId, setEditingTimeId] = useState<string | null>(null)
   const [timeDraft, setTimeDraft] = useState("")
 
-  const { data: logs, isLoading } = useQuery({
-    queryKey: ["caffeine-today-list", dayStart],
-    queryFn: async (): Promise<CaffeineRow[]> => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data: logs, isLoading } = useUserQuery(
+    ["caffeine-today-list", dayStart],
+    async (userId: string): Promise<CaffeineRow[]> => {
       const { data, error } = await supabase
         .from("caffeine_logs")
         .select("id, mg, source, logged_at")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .gte("logged_at", dayStart)
         .order("logged_at", { ascending: true })
       if (error) throw error
       return data ?? []
-    },
-  })
+    }
+  )
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      const userId = await getAuthUserId()
       const { error } = await supabase
         .from("caffeine_logs")
         .delete()
@@ -99,10 +93,7 @@ export function CaffeineCard() {
   // and late-caffeine sleep signals, so a wrong time matters here.
   const updateTimeMutation = useMutation({
     mutationFn: async ({ id, loggedAt }: { id: string; loggedAt: string }) => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      const userId = await getAuthUserId()
       const { error } = await supabase
         .from("caffeine_logs")
         .update({ logged_at: loggedAt })

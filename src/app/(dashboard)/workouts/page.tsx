@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Dumbbell, Plus, Clock, ChevronRight, Sparkles } from "lucide-react"
 import { SPLIT_TYPES } from "@/lib/constants"
+import { useUserQuery } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
 
@@ -24,26 +25,22 @@ function splitLabel(splitType: string): string {
 }
 
 export default function WorkoutsPage() {
-  const { data: templates, isLoading } = useQuery({
-    queryKey: ["workout-templates"],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data: templates, isLoading } = useUserQuery(
+    ["workout-templates"],
+    async (userId: string) => {
 
       const { data, error } = await supabase
         .from("workout_templates")
         .select(
           "id, name, split_type, estimated_mins, is_generated, created_at, template_exercises(id)"
         )
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .order("created_at", { ascending: false })
 
       if (error) throw error
       return data as any[]
-    },
-  })
+    }
+  )
 
   return (
     <div className="space-y-6">

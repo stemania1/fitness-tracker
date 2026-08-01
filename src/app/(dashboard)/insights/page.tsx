@@ -18,6 +18,7 @@ import { WeeklyTrainingCard } from "@/components/activity/WeeklyTrainingCard"
 import { RecentPRsCard } from "@/components/activity/RecentPRsCard"
 import { RecentWorkoutsCard } from "@/components/activity/RecentWorkoutsCard"
 import { VolumeTrendCard } from "@/components/activity/VolumeTrendCard"
+import { useProfile } from "@/hooks/useProfile"
 
 const supabase = createClient()
 
@@ -52,21 +53,7 @@ function Section({
  */
 export default function InsightsPage() {
   // Only needed for the VO2 max percentile bands.
-  const { data: profile } = useQuery({
-    queryKey: ["insights-profile"],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
-      const { data } = await supabase
-        .from("user_profiles")
-        .select("age, sex")
-        .eq("id", user.id)
-        .single()
-      return data
-    },
-  })
+  const { data: profile } = useProfile()
 
   return (
     <div className="space-y-8">

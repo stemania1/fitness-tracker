@@ -28,6 +28,7 @@ import {
 import { DayNav } from "./DayNav"
 import { dayLabel, dayWindow } from "@/lib/day-nav"
 import { useSwipe } from "@/hooks/useSwipe"
+import { getAuthUserId } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
 
@@ -103,16 +104,13 @@ export function NutritionCard({
     // or editing a meal) still refresh this card whatever day it's showing.
     queryKey: ["food-logs-today", startIso],
     queryFn: async (): Promise<FoodLogRow[]> => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      const userId = await getAuthUserId()
       const { data, error } = await supabase
         .from("food_logs")
         .select(
           "id, description, meal_type, calories, protein_g, carbs_g, fat_g, sugar_g, glycemic_load, confidence, image_path, logged_at"
         )
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .gte("logged_at", startIso)
         .lt("logged_at", endIso)
         .order("logged_at", { ascending: true })
@@ -125,12 +123,9 @@ export function NutritionCard({
   // timestamp, so you don't have to photograph the same food again.
   const logAgain = useMutation({
     mutationFn: async (meal: FoodLogRow) => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      const userId = await getAuthUserId()
       const { error } = await supabase.from("food_logs").insert({
-        user_id: user.id,
+        user_id: userId,
         description: meal.description,
         // Value comes straight from a stored row, so it's a valid meal_type.
         meal_type: meal.meal_type as
@@ -161,10 +156,7 @@ export function NutritionCard({
 
   const deleteMeal = useMutation({
     mutationFn: async (meal: FoodLogRow) => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      const userId = await getAuthUserId()
       const { error } = await supabase
         .from("food_logs")
         .delete()
@@ -197,10 +189,7 @@ export function NutritionCard({
       meal: FoodLogRow
       loggedAt: string
     }) => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      const userId = await getAuthUserId()
       const { error } = await supabase
         .from("food_logs")
         .update({ logged_at: loggedAt })
@@ -226,10 +215,7 @@ export function NutritionCard({
       meal: FoodLogRow
       factor: number
     }) => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      const userId = await getAuthUserId()
       const { error } = await supabase
         .from("food_logs")
         .update({

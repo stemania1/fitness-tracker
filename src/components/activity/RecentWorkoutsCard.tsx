@@ -7,28 +7,25 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Dumbbell, ChevronRight } from "lucide-react"
 import { formatShortDate } from "@/lib/dates"
+import { useUserQuery } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
 
 /** The three most recent workouts, each linking to its full log. */
 export function RecentWorkoutsCard() {
-  const { data: recentWorkouts, isLoading: recentLoading } = useQuery({
-    queryKey: ["recent-workouts"],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data: recentWorkouts, isLoading: recentLoading } = useUserQuery(
+    ["recent-workouts"],
+    async (userId: string) => {
       const { data, error } = await supabase
         .from("workout_logs")
         .select("id, name, started_at, duration_mins")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .order("started_at", { ascending: false })
         .limit(3)
       if (error) throw error
       return data
-    },
-  })
+    }
+  )
 
   return (
     <Card>

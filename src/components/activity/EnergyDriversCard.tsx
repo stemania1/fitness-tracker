@@ -1,7 +1,6 @@
 "use client"
 
 import { useMemo } from "react"
-import { useQuery } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -13,6 +12,7 @@ import {
 } from "@/lib/energy-correlations"
 import { classifyMealGl } from "@/lib/glycemic-load"
 import { localDateOf as localDate, shiftDateString as shiftDate } from "@/lib/dates"
+import { useUserQuery } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
 
@@ -38,13 +38,9 @@ const SPECS: FactorSpec[] = [
  * tracks with higher or lower energy. Sharpens as check-ins accumulate.
  */
 export function EnergyDriversCard() {
-  const { data, isLoading } = useQuery({
-    queryKey: ["energy-drivers", WINDOW_DAYS],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data, isLoading } = useUserQuery(
+    ["energy-drivers", WINDOW_DAYS],
+    async (userId: string) => {
       const sinceIso = new Date(Date.now() - WINDOW_DAYS * 86_400_000).toISOString()
       const sinceDate = localDate(sinceIso)
 
@@ -53,32 +49,32 @@ export function EnergyDriversCard() {
           supabase
             .from("energy_checkins")
             .select("level, logged_on")
-            .eq("user_id", user.id)
+            .eq("user_id", userId)
             .gte("logged_on", sinceDate),
           supabase
             .from("food_logs")
             .select("calories, glycemic_load, logged_at")
-            .eq("user_id", user.id)
+            .eq("user_id", userId)
             .gte("logged_at", sinceIso),
           supabase
             .from("caffeine_logs")
             .select("mg, logged_at")
-            .eq("user_id", user.id)
+            .eq("user_id", userId)
             .gte("logged_at", sinceIso),
           supabase
             .from("workout_logs")
             .select("started_at")
-            .eq("user_id", user.id)
+            .eq("user_id", userId)
             .gte("started_at", sinceIso),
           supabase
             .from("creatine_logs")
             .select("taken_on")
-            .eq("user_id", user.id)
+            .eq("user_id", userId)
             .gte("taken_on", sinceDate),
           supabase
             .from("oura_daily")
             .select("day, sleep_score, sleep_minutes, readiness_score")
-            .eq("user_id", user.id)
+            .eq("user_id", userId)
             .gte("day", sinceDate),
         ])
 
@@ -146,8 +142,8 @@ export function EnergyDriversCard() {
         })
       }
       return { days, energyDayCount: energyByDay.size }
-    },
-  })
+    }
+  )
 
   const insights = useMemo(
     () => (data ? analyzeEnergyDrivers(data.days, SPECS) : []),

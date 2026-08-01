@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label"
 import { Timer } from "lucide-react"
 import { cooperVo2Max, type FitnessTestType } from "@/lib/fitness-tests"
 import { localToday } from "@/lib/dates"
+import { getAuthUserId } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
 
@@ -40,13 +41,10 @@ export function QuickLogFitnessTest() {
         )
       }
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      const userId = await getAuthUserId()
 
       const { error } = await supabase.from("fitness_tests").insert({
-        user_id: user.id,
+        user_id: userId,
         test_type: testType,
         result: resultNum,
         tested_at: testedAt,

@@ -20,6 +20,7 @@ import {
   type DigestInput,
   type Tone,
 } from "@/lib/weekly-digest"
+import { useUserQuery } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
 
@@ -38,13 +39,9 @@ const iconFor = { fitness: Dumbbell, weight: Scale, energy: Sparkles }
  * from the same signals the individual cards use.
  */
 export function WeeklyDigestCard() {
-  const { data, isLoading } = useQuery({
-    queryKey: ["weekly-digest"],
-    queryFn: async (): Promise<DigestInput> => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data, isLoading } = useUserQuery(
+    ["weekly-digest"],
+    async (userId: string): Promise<DigestInput> => {
 
       const now = Date.now()
       const since70Iso = new Date(now - 70 * DAY).toISOString()
@@ -57,32 +54,32 @@ export function WeeklyDigestCard() {
           supabase
             .from("user_profiles")
             .select("current_weight, target_weight")
-            .eq("id", user.id)
+            .eq("id", userId)
             .single(),
           supabase
             .from("weight_logs")
             .select("weight, logged_at")
-            .eq("user_id", user.id)
+            .eq("user_id", userId)
             .gte("logged_at", since70Iso),
           supabase
             .from("food_logs")
             .select("calories, logged_at")
-            .eq("user_id", user.id)
+            .eq("user_id", userId)
             .gte("logged_at", since70Iso),
           supabase
             .from("workout_logs")
             .select("started_at")
-            .eq("user_id", user.id)
+            .eq("user_id", userId)
             .gte("started_at", since21Iso),
           supabase
             .from("energy_checkins")
             .select("level, logged_on")
-            .eq("user_id", user.id)
+            .eq("user_id", userId)
             .gte("logged_on", d14),
           supabase
             .from("oura_daily")
             .select("day, sleep_score, sleep_minutes, readiness_score")
-            .eq("user_id", user.id)
+            .eq("user_id", userId)
             .gte("day", localDateString(new Date(now - 21 * DAY))),
         ])
 
@@ -153,8 +150,8 @@ export function WeeklyDigestCard() {
         sleepDeltaHours: sleepTrend.delta,
         topEnergyInsight: null,
       }
-    },
-  })
+    }
+  )
 
   const digest = useMemo(() => (data ? buildWeeklyDigest(data) : null), [data])
 

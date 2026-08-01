@@ -21,6 +21,7 @@ import {
   nowLocalDatetimeString,
 } from "@/components/activity/BackdateChips"
 import { Dumbbell, Plus, Trash2 } from "lucide-react"
+import { getAuthUserId } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
 
@@ -78,10 +79,7 @@ export function QuickLogStrength() {
       if (!selected) throw new Error("Pick an exercise")
       if (validSets.length === 0) throw new Error("Enter at least one set")
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      const userId = await getAuthUserId()
 
       const idMap = await ensureExercisesExist(supabase, [selected.id])
       const dbExerciseId = idMap.get(selected.id)
@@ -99,7 +97,7 @@ export function QuickLogStrength() {
       const { data: workoutLog, error: wErr } = await supabase
         .from("workout_logs")
         .insert({
-          user_id: user.id,
+          user_id: userId,
           name: selected.name,
           started_at: startedAt.toISOString(),
           finished_at: finished.toISOString(),

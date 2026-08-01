@@ -62,6 +62,8 @@ import {
 } from "lucide-react"
 import type { UserGoal, UserProfile } from "@/types/database"
 import { formatMediumDate, formatShortDate } from "@/lib/dates"
+import { getAuthUserId } from "@/lib/supabase/user-query"
+import { useProfile } from "@/hooks/useProfile"
 
 const supabase = createClient()
 
@@ -85,30 +87,6 @@ function goalProgress(goal: UserGoal): number {
 }
 
 // ─── Data fetching ─────────────────────────────────────────────
-
-async function getAuthUserId(): Promise<string> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) throw new Error("Not authenticated")
-  return user.id
-}
-
-function useProfile() {
-  return useQuery({
-    queryKey: ["profile"],
-    queryFn: async () => {
-      const userId = await getAuthUserId()
-      const { data, error } = await supabase
-        .from("user_profiles")
-        .select("*")
-        .eq("id", userId)
-        .single()
-      if (error) throw error
-      return data as UserProfile
-    },
-  })
-}
 
 function useGoals() {
   return useQuery({
@@ -149,7 +127,10 @@ function useWorkoutLogs() {
       const userId = await getAuthUserId()
       const { data, error } = await supabase
         .from("workout_logs")
-        .select("id, started_at, finished_at")
+        // Must match the other ["workout-logs-all"] definitions — same key,
+        // same shape, or whichever mounts first decides what the others read.
+        // finished_at was selected here and never used.
+        .select("id, started_at")
         .eq("user_id", userId)
         .order("started_at", { ascending: true })
       if (error) throw error

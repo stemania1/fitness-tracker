@@ -13,6 +13,7 @@ import {
   CREATINE_DOSE_OPTIONS,
   DEFAULT_CREATINE_TARGET_G,
 } from "@/lib/creatine-streak"
+import { useUserQuery, getAuthUserId } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
 
@@ -31,26 +32,22 @@ export function CreatineCard() {
   const queryClient = useQueryClient()
   const [busy, setBusy] = useState(false)
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["creatine-logs", today],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data, isLoading } = useUserQuery(
+    ["creatine-logs", today],
+    async (userId: string) => {
       // A window wide enough to cover any realistic streak.
       const sinceStr = daysAgoDateString(400)
       const [logsRes, profileRes] = await Promise.all([
         supabase
           .from("creatine_logs")
           .select("taken_on, dose_g")
-          .eq("user_id", user.id)
+          .eq("user_id", userId)
           .gte("taken_on", sinceStr)
           .order("taken_on", { ascending: false }),
         supabase
           .from("user_profiles")
           .select("creatine_target_g")
-          .eq("id", user.id)
+          .eq("id", userId)
           .single(),
       ])
       if (logsRes.error) throw logsRes.error
@@ -58,8 +55,8 @@ export function CreatineCard() {
         logs: (logsRes.data ?? []) as CreatineRow[],
         targetG: profileRes.data?.creatine_target_g ?? DEFAULT_CREATINE_TARGET_G,
       }
-    },
-  })
+    }
+  )
 
   const logs = useMemo(() => data?.logs ?? [], [data])
   const todayTotal = useMemo(
@@ -83,13 +80,10 @@ export function CreatineCard() {
   /** Add a dose to today's running total (upsert on the day's row). */
   const addDose = useMutation({
     mutationFn: async (grams: number) => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      const userId = await getAuthUserId()
       const next = Math.round((todayTotal + grams) * 10) / 10
       const { error } = await supabase.from("creatine_logs").upsert(
-        { user_id: user.id, taken_on: today, dose_g: next },
+        { user_id: userId, taken_on: today, dose_g: next },
         { onConflict: "user_id,taken_on" }
       )
       if (error) throw error
@@ -102,14 +96,11 @@ export function CreatineCard() {
   /** Clear today's log entirely (undo a mistaken tap). */
   const clearToday = useMutation({
     mutationFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      const userId = await getAuthUserId()
       const { error } = await supabase
         .from("creatine_logs")
         .delete()
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .eq("taken_on", today)
       if (error) throw error
     },

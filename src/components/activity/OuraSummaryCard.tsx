@@ -30,6 +30,7 @@ import { formatSleepDuration } from "@/lib/oura"
 import { zoneRange, classifyHeartRate } from "@/lib/heart-rate"
 import { RingBatteryIndicator } from "@/components/activity/RingBatteryIndicator"
 import { localToday } from "@/lib/dates"
+import { useProfile } from "@/hooks/useProfile"
 
 const supabase = createClient()
 
@@ -67,21 +68,8 @@ export function OuraSummaryCard() {
     retry: false,
   })
 
-  const { data: age } = useQuery({
-    queryKey: ["oura-card-age"],
-    queryFn: async (): Promise<number | null> => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
-      const { data } = await supabase
-        .from("user_profiles")
-        .select("age")
-        .eq("id", user.id)
-        .single()
-      return data?.age ?? null
-    },
-  })
+  const { data: profile } = useProfile()
+  const age = profile?.age ?? null
 
   const ouraSummary = ouraResult?.summary ?? null
   const ouraConnected = ouraResult?.connected ?? false

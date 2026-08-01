@@ -1,11 +1,8 @@
 "use client"
 
 import { useMemo } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { createClient } from "@/lib/supabase/client"
 import { buildBedtimePlan, type BedtimePlan } from "@/lib/bedtime"
-
-const supabase = createClient()
+import { useProfile } from "@/hooks/useProfile"
 
 /**
  * The user's sleep-anchored bedtime plan — bedtime, wind-down and the
@@ -23,21 +20,7 @@ export function useBedtimePlan(): {
   plan: BedtimePlan | null
   isLoading: boolean
 } {
-  const { data: profile, isLoading } = useQuery({
-    queryKey: ["bedtime-profile"],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
-      const { data } = await supabase
-        .from("user_profiles")
-        .select("wake_time, sleep_goal_hours")
-        .eq("id", user.id)
-        .single()
-      return data
-    },
-  })
+  const { data: profile, isLoading } = useProfile()
 
   // Memoized on the two inputs: consumers put the plan (or its cutoff) in
   // useMemo dependency lists, and a fresh object every render would recompute

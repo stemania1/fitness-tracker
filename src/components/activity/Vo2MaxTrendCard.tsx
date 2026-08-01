@@ -32,6 +32,7 @@ import { classifyVo2Max, type Sex } from "@/lib/vo2max"
 import { vo2MaxPercentile, percentileLabel } from "@/lib/vo2max-percentile"
 import { QuickLogFitnessTest } from "./QuickLogFitnessTest"
 import { formatShortDate, parseLocalDay } from "@/lib/dates"
+import { useUserQuery } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
 
@@ -51,22 +52,18 @@ interface Vo2MaxTrendCardProps {
 }
 
 export function Vo2MaxTrendCard({ age, sex }: Vo2MaxTrendCardProps) {
-  const { data: tests, isLoading: testsLoading } = useQuery({
-    queryKey: ["fitness-tests"],
-    queryFn: async (): Promise<FitnessTestEntry[]> => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data: tests, isLoading: testsLoading } = useUserQuery(
+    ["fitness-tests"],
+    async (userId: string): Promise<FitnessTestEntry[]> => {
       const { data, error } = await supabase
         .from("fitness_tests")
         .select("test_type, result, tested_at")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .order("tested_at", { ascending: true })
       if (error) throw error
       return data ?? []
-    },
-  })
+    }
+  )
 
   const { data: ouraSamples, isLoading: ouraLoading } = useQuery({
     queryKey: ["oura-vo2-history"],

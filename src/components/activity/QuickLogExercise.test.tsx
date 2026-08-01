@@ -47,6 +47,7 @@ vi.mock("@/lib/supabase/exercises", () => ({
 }))
 
 import { QuickLogExercise } from "./QuickLogExercise"
+import { resetAuthUserId } from "@/lib/supabase/user-query"
 
 // The component reads the cardio default from the static catalog at import
 // time. Anchor the default we test against.
@@ -55,6 +56,9 @@ const defaultCardio = exerciseCatalog.find(
 )!
 
 beforeEach(() => {
+  // The auth user id is cached for the session; clear it so a test
+  // that simulates a signed-out user isn't served the previous id.
+  resetAuthUserId()
   mocks.getUser.mockReset()
   mocks.workoutLogsInsertSingle
     .mockReset()

@@ -17,6 +17,7 @@ import {
 } from "recharts"
 import { buildWeeklyVolumeTrend, shouldSuggestDeload } from "@/lib/volume-trend"
 import { useStrengthSets } from "@/hooks/useStrengthSets"
+import { useUserQuery } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
 
@@ -32,25 +33,23 @@ export function VolumeTrendCard() {
   const { data: allStrengthSets, isLoading: strengthSetsLoading } =
     useStrengthSets()
 
-  const { data: latestReadiness } = useQuery({
-    queryKey: ["oura-latest-readiness"],
-    queryFn: async (): Promise<number | null> => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data: latestReadiness } = useUserQuery(
+    ["oura-latest-readiness"],
+    async (userId: string): Promise<number | null> => {
       const { data, error } = await supabase
         .from("oura_daily")
         .select("readiness_score")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .not("readiness_score", "is", null)
         .order("day", { ascending: false })
         .limit(1)
       if (error) throw error
       return data?.[0]?.readiness_score ?? null
     },
-    retry: false,
-  })
+    {
+      retry: false,
+    }
+  )
 
   const volumeTrend = useMemo(
     () => buildWeeklyVolumeTrend(allStrengthSets ?? [], 8),

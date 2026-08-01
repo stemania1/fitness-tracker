@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
 import { ensureExercisesExist } from "@/lib/supabase/exercises"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
@@ -11,6 +11,8 @@ import {
   generateWorkout,
   type GeneratedWorkout,
 } from "@/lib/workout-generator"
+import { useProfile } from "@/hooks/useProfile"
+import { getAuthUserId } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
 
@@ -27,21 +29,7 @@ export function ExpressWorkoutCard() {
   const [minutes, setMinutes] = useState<number | null>(null)
   const [workout, setWorkout] = useState<GeneratedWorkout | null>(null)
 
-  const { data: profile } = useQuery({
-    queryKey: ["express-profile"],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
-      const { data } = await supabase
-        .from("user_profiles")
-        .select("primary_goal, fitness_level, limitations, age")
-        .eq("id", user.id)
-        .single()
-      return data
-    },
-  })
+  const { data: profile } = useProfile()
 
   function pick(mins: number) {
     setMinutes(mins)
@@ -59,10 +47,7 @@ export function ExpressWorkoutCard() {
 
   const save = useMutation({
     mutationFn: async (w: GeneratedWorkout) => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      const userId = await getAuthUserId()
       const idMap = await ensureExercisesExist(
         supabase,
         w.exercises.map((e) => e.exerciseId)
@@ -70,7 +55,7 @@ export function ExpressWorkoutCard() {
       const { data: template, error: tErr } = await supabase
         .from("workout_templates")
         .insert({
-          user_id: user.id,
+          user_id: userId,
           name: w.name,
           split_type: "express",
           estimated_mins: w.estimatedMins,

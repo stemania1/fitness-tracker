@@ -23,6 +23,7 @@ import {
 } from "@/lib/food-estimate"
 import { classifyMealGl, GL_WALK_TIP } from "@/lib/glycemic-load"
 import { BackdateChips, nowLocalDatetimeString } from "./BackdateChips"
+import { getAuthUserId } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
 
@@ -183,15 +184,12 @@ export function QuickLogFood() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!estimate) throw new Error("Nothing to save")
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      const userId = await getAuthUserId()
 
       // Upload the photo (best-effort — a failed upload still logs the meal).
       let imagePath: string | null = null
       if (image?.blob) {
-        const path = `${user.id}/${uuid()}.jpg`
+        const path = `${userId}/${uuid()}.jpg`
         const { error: upErr } = await supabase.storage
           .from("meal-photos")
           .upload(path, image.blob, { contentType: "image/jpeg" })
@@ -211,7 +209,7 @@ export function QuickLogFood() {
       if (Number.isNaN(when.getTime())) throw new Error("Invalid date")
 
       const { error: insErr } = await supabase.from("food_logs").insert({
-        user_id: user.id,
+        user_id: userId,
         description: estimate.description,
         meal_type: mealType,
         calories: estimate.calories,

@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
 import { exercises as exerciseCatalog } from "@/data/exercises"
 import type { SetWithMeta } from "@/lib/personal-records"
+import { useUserQuery } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
 
@@ -23,13 +24,9 @@ export function useStrengthSets() {
     []
   )
 
-  return useQuery({
-    queryKey: ["all-strength-sets"],
-    queryFn: async (): Promise<SetWithMeta[]> => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  return useUserQuery(
+    ["all-strength-sets"],
+    async (userId: string): Promise<SetWithMeta[]> => {
       const { data, error } = await supabase
         .from("set_logs")
         .select(`
@@ -40,7 +37,7 @@ export function useStrengthSets() {
             workout_log:workout_logs!inner(user_id, started_at)
           )
         `)
-        .eq("exercise_log.workout_log.user_id", user.id)
+        .eq("exercise_log.workout_log.user_id", userId)
         .eq("exercise_log.exercise.exercise_type", "strength")
         .not("weight", "is", null)
       if (error) throw error
@@ -67,6 +64,6 @@ export function useStrengthSets() {
           }
         })
         .filter((s) => s.exerciseName && s.startedAt)
-    },
-  })
+    }
+  )
 }

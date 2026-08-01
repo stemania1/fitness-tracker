@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client"
 import { ensureExercisesExist } from "@/lib/supabase/exercises"
 import { TRAINING_PLAN_PRESETS } from "@/data/template-presets"
 import { Check, Plus } from "lucide-react"
+import { useUserQuery, getAuthUserId } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
 
@@ -18,22 +19,18 @@ const PRESET_NAMES = TRAINING_PLAN_PRESETS.map((p) => p.name)
 export function AddPlanTemplates() {
   const queryClient = useQueryClient()
 
-  const { data: existingNames, isLoading } = useQuery({
-    queryKey: ["plan-preset-templates"],
-    queryFn: async (): Promise<string[]> => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data: existingNames, isLoading } = useUserQuery(
+    ["plan-preset-templates"],
+    async (userId: string): Promise<string[]> => {
       const { data, error } = await supabase
         .from("workout_templates")
         .select("name")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .in("name", PRESET_NAMES)
       if (error) throw error
       return (data ?? []).map((t) => t.name)
-    },
-  })
+    }
+  )
 
   const missing = TRAINING_PLAN_PRESETS.filter(
     (p) => !(existingNames ?? []).includes(p.name)
@@ -41,10 +38,7 @@ export function AddPlanTemplates() {
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      const userId = await getAuthUserId()
 
       const allExerciseIds = [
         ...new Set(
@@ -57,7 +51,7 @@ export function AddPlanTemplates() {
         const { data: template, error: templateError } = await supabase
           .from("workout_templates")
           .insert({
-            user_id: user.id,
+            user_id: userId,
             name: preset.name,
             description: preset.description,
             split_type: preset.splitType,

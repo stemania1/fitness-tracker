@@ -16,6 +16,7 @@ import {
 } from "@/lib/adaptive-tdee"
 import type { WeightPoint } from "@/lib/weight-projection"
 import { epochDay } from "@/lib/dates"
+import { useUserQuery } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
 
@@ -34,13 +35,9 @@ const confidenceStyle: Record<Exclude<TdeeConfidence, "insufficient">, string> =
  * many should I eat?" answer, self-correcting as data accrues.
  */
 export function EnergyBalanceCard() {
-  const { data, isLoading } = useQuery({
-    queryKey: ["energy-balance", WINDOW_DAYS],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data, isLoading } = useUserQuery(
+    ["energy-balance", WINDOW_DAYS],
+    async (userId: string) => {
       const sinceIso = new Date(
         Date.now() - WINDOW_DAYS * 86_400_000
       ).toISOString()
@@ -49,17 +46,17 @@ export function EnergyBalanceCard() {
         supabase
           .from("user_profiles")
           .select("current_weight, target_weight")
-          .eq("id", user.id)
+          .eq("id", userId)
           .single(),
         supabase
           .from("weight_logs")
           .select("weight, logged_at")
-          .eq("user_id", user.id)
+          .eq("user_id", userId)
           .gte("logged_at", sinceIso),
         supabase
           .from("food_logs")
           .select("calories, logged_at")
-          .eq("user_id", user.id)
+          .eq("user_id", userId)
           .gte("logged_at", sinceIso),
       ])
 
@@ -85,8 +82,8 @@ export function EnergyBalanceCard() {
         weighIns,
         intake,
       }
-    },
-  })
+    }
+  )
 
   const view = useMemo(() => {
     if (!data) return null

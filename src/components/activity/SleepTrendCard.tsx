@@ -21,6 +21,7 @@ import {
   type OuraDailyPoint,
   type OuraMetric,
 } from "@/lib/oura-trends"
+import { useUserQuery } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
 
@@ -55,18 +56,14 @@ function shortDay(day: string): string {
 export function SleepTrendCard() {
   const [metric, setMetric] = useState<OuraMetric>("sleepHours")
 
-  const { data: rows, isLoading } = useQuery({
-    queryKey: ["oura-trend", WINDOW_DAYS],
-    queryFn: async (): Promise<OuraDailyPoint[]> => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data: rows, isLoading } = useUserQuery(
+    ["oura-trend", WINDOW_DAYS],
+    async (userId: string): Promise<OuraDailyPoint[]> => {
       const sinceStr = daysAgoDateString(WINDOW_DAYS)
       const { data, error } = await supabase
         .from("oura_daily")
         .select("day, sleep_score, sleep_minutes, readiness_score")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .gte("day", sinceStr)
       if (error) throw error
       return (data ?? []).map((r) => ({
@@ -75,8 +72,8 @@ export function SleepTrendCard() {
         sleepMinutes: r.sleep_minutes,
         readinessScore: r.readiness_score,
       }))
-    },
-  })
+    }
+  )
 
   const cfg = METRICS.find((m) => m.key === metric)!
   const trend = useMemo(

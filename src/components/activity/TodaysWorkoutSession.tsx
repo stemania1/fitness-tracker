@@ -16,6 +16,7 @@ import { Progress } from "@/components/ui/progress"
 import { CheckCircle2, Circle, Moon, ArrowLeft } from "lucide-react"
 import { todaysWorkout } from "@/lib/todays-workout"
 import { localToday } from "@/lib/dates"
+import { getAuthUserId } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
 
@@ -74,10 +75,7 @@ export function TodaysWorkoutSession() {
 
   const finishMutation = useMutation({
     mutationFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      const userId = await getAuthUserId()
 
       const start = startedAt ?? new Date().toISOString()
       const finished = new Date().toISOString()
@@ -87,7 +85,7 @@ export function TodaysWorkoutSession() {
       )
 
       const { error } = await supabase.from("workout_logs").insert({
-        user_id: user.id,
+        user_id: userId,
         name: workout.title,
         started_at: start,
         finished_at: finished,

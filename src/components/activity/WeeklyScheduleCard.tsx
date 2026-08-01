@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { CalendarRange, Dumbbell, Timer, Moon } from "lucide-react"
 import { buildWeeklySchedule } from "@/lib/weekly-schedule"
+import { useProfile } from "@/hooks/useProfile"
 
 const supabase = createClient()
 
@@ -22,23 +23,7 @@ const kindStyle = {
  * work on weekends. Complements the fixed 12-week plan.
  */
 export function WeeklyScheduleCard() {
-  const { data: profile, isLoading } = useQuery({
-    queryKey: ["weekly-schedule-profile"],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
-      const { data } = await supabase
-        .from("user_profiles")
-        .select(
-          "workout_days, wake_time, weekday_workout_minutes, weekend_workout_minutes"
-        )
-        .eq("id", user.id)
-        .single()
-      return data
-    },
-  })
+  const { data: profile, isLoading } = useProfile()
 
   const schedule = profile
     ? buildWeeklySchedule({

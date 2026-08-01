@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Scale } from "lucide-react"
+import { getAuthUserId } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
 
@@ -28,16 +29,13 @@ export function QuickLogWeight() {
       const weightNum = parseFloat(weight)
       if (!weightNum || weightNum <= 0) throw new Error("Enter a valid weight")
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      const userId = await getAuthUserId()
 
       // Insert into weight_logs
       const { error: insertError } = await supabase
         .from("weight_logs")
         .insert({
-          user_id: user.id,
+          user_id: userId,
           weight: weightNum,
           logged_at: new Date().toISOString(),
         })
@@ -47,7 +45,7 @@ export function QuickLogWeight() {
       const { error: updateError } = await supabase
         .from("user_profiles")
         .update({ current_weight: weightNum })
-        .eq("id", user.id)
+        .eq("id", userId)
       if (updateError) throw updateError
     },
     onSuccess: () => {

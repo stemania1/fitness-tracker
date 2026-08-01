@@ -17,6 +17,8 @@ import {
   ResponsiveContainer,
 } from "recharts"
 import { formatShortDate } from "@/lib/dates"
+import { useProfile } from "@/hooks/useProfile"
+import { useUserQuery } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
 
@@ -26,39 +28,21 @@ const supabase = createClient()
  * points to draw a line.
  */
 export function WeightTrendCard() {
-  const { data: weightLogs, isLoading: weightLoading } = useQuery({
-    queryKey: ["weight-logs-recent"],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data: weightLogs, isLoading: weightLoading } = useUserQuery(
+    ["weight-logs-recent"],
+    async (userId: string) => {
       const { data, error } = await supabase
         .from("weight_logs")
         .select("weight, logged_at")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .order("logged_at", { ascending: true })
         .limit(30)
       if (error) throw error
       return data ?? []
-    },
-  })
+    }
+  )
 
-  const { data: profile, isLoading: profileLoading } = useQuery({
-    queryKey: ["weight-target-profile"],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
-      const { data } = await supabase
-        .from("user_profiles")
-        .select("target_weight, current_weight")
-        .eq("id", user.id)
-        .single()
-      return data
-    },
-  })
+  const { data: profile, isLoading: profileLoading } = useProfile()
 
   const latestWeight = weightLogs?.length
     ? weightLogs[weightLogs.length - 1]

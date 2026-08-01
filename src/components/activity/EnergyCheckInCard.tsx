@@ -17,6 +17,7 @@ import {
 import type { HrvStatus } from "@/lib/recovery"
 import type { CaffeineLevel } from "@/lib/caffeine"
 import { localToday } from "@/lib/dates"
+import { useUserQuery, getAuthUserId } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
 
@@ -78,34 +79,27 @@ export function EnergyCheckInCard({
   const [reselecting, setReselecting] = useState(false)
 
   const today = localToday()
-  const { data: todaysLevel, isLoading } = useQuery({
-    queryKey: ["energy-checkins", today],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data: todaysLevel, isLoading } = useUserQuery(
+    ["energy-checkins", today],
+    async (userId: string) => {
       const { data, error } = await supabase
         .from("energy_checkins")
         .select("level")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .eq("logged_on", today)
         .order("created_at", { ascending: false })
         .limit(1)
       if (error) throw error
       return (data?.[0]?.level ?? null) as EnergyLevel | null
-    },
-  })
+    }
+  )
 
   const mutation = useMutation({
     mutationFn: async (level: EnergyLevel) => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      const userId = await getAuthUserId()
       const hour = new Date().getHours()
       const { error } = await supabase.from("energy_checkins").insert({
-        user_id: user.id,
+        user_id: userId,
         level,
         logged_hour: hour,
         part_of_day: partOfDay(hour),

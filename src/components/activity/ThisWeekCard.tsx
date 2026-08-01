@@ -1,7 +1,6 @@
 "use client"
 
 import { useMemo } from "react"
-import { useQuery } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
@@ -10,6 +9,8 @@ import { Flame } from "lucide-react"
 import { exercises as exerciseCatalog } from "@/data/exercises"
 import { estimateStrengthCalories, estimateCardioCalories } from "@/lib/calories"
 import { calcWeeklyStreak, startOfWeekISO } from "@/lib/weekly-progress"
+import { useProfile } from "@/hooks/useProfile"
+import { useUserQuery } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
 
@@ -26,82 +27,56 @@ export function ThisWeekCard() {
     []
   )
 
-  const { data: profile, isLoading: profileLoading } = useQuery({
-    queryKey: ["this-week-profile"],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
-      const { data } = await supabase
-        .from("user_profiles")
-        .select("workout_days")
-        .eq("id", user.id)
-        .single()
-      return data
-    },
-  })
+  const { data: profile, isLoading: profileLoading } = useProfile()
 
-  const { data: weeklyWorkouts, isLoading: weeklyLoading } = useQuery({
-    queryKey: ["weekly-workouts", weekStart],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data: weeklyWorkouts, isLoading: weeklyLoading } = useUserQuery(
+    ["weekly-workouts", weekStart],
+    async (userId) => {
       const { data, error } = await supabase
         .from("workout_logs")
         .select("id")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .gte("started_at", weekStart)
       if (error) throw error
       return data
-    },
-  })
+    }
+  )
 
   // Shared key with the dashboard's own all-logs query, so this reads cache.
-  const { data: allWorkoutLogs, isLoading: allWorkoutsLoading } = useQuery({
-    queryKey: ["workout-logs-all"],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data: allWorkoutLogs, isLoading: allWorkoutsLoading } = useUserQuery(
+    ["workout-logs-all"],
+    async (userId) => {
       const { data, error } = await supabase
         .from("workout_logs")
         .select("id, started_at")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .order("started_at", { ascending: true })
       if (error) throw error
       return data
-    },
-  })
+    }
+  )
 
-  const { data: weeklyCalories, isLoading: caloriesLoading } = useQuery({
-    queryKey: ["weekly-calories", weekStart],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  // The RMR correction reads from the shared profile rather than its own
+  // fetch. weightLbs is in the key on purpose: logging a weigh-in invalidates
+  // ["profile"], and keying on the new weight is what makes this recompute
+  // instead of serving calories derived from the old one.
+  const weightLbs = profile?.current_weight ?? 170
+  const calorieProfile = useMemo(
+    () => ({
+      age: profile?.age,
+      sex: profile?.sex,
+      heightInches: profile?.height_inches,
+    }),
+    [profile?.age, profile?.sex, profile?.height_inches]
+  )
 
-      // User weight + profile fields for the RMR calorie correction.
-      const { data: prof } = await supabase
-        .from("user_profiles")
-        .select("current_weight, age, sex, height_inches")
-        .eq("id", user.id)
-        .single()
-      const weightLbs = prof?.current_weight ?? 170
-      const calorieProfile = {
-        age: prof?.age,
-        sex: prof?.sex,
-        heightInches: prof?.height_inches,
-      }
-
+  const { data: weeklyCalories, isLoading: caloriesLoading } = useUserQuery(
+    ["weekly-calories", weekStart, weightLbs],
+    async (userId) => {
       const { data: logs } = await supabase
         .from("workout_logs")
         .select("id")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .gte("started_at", weekStart)
       if (!logs || logs.length === 0) return 0
 
@@ -168,7 +143,8 @@ export function ThisWeekCard() {
 
       return totalCal
     },
-  })
+    { enabled: profile !== undefined }
+  )
 
   const workoutTarget = profile?.workout_days ?? 4
   const completedWorkouts = weeklyWorkouts?.length ?? 0

@@ -22,6 +22,7 @@ import {
   nowLocalDatetimeString,
 } from "@/components/activity/BackdateChips"
 import { Timer } from "lucide-react"
+import { getAuthUserId } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
 
@@ -70,10 +71,7 @@ export function QuickLogExercise() {
       if (!totalMins || totalMins <= 0)
         throw new Error("Enter a valid duration")
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      const userId = await getAuthUserId()
 
       const exerciseName = selectedExercise?.name ?? "Cardio"
 
@@ -93,7 +91,7 @@ export function QuickLogExercise() {
       const { data: workoutLog, error: wErr } = await supabase
         .from("workout_logs")
         .insert({
-          user_id: user.id,
+          user_id: userId,
           name: exerciseName,
           started_at: startedAt.toISOString(),
           finished_at: finished.toISOString(),

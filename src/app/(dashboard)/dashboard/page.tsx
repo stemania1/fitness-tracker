@@ -53,6 +53,7 @@ import { CaffeineCard } from "@/components/activity/CaffeineCard"
 import { CreatineCard } from "@/components/activity/CreatineCard"
 import { OuraSummaryCard } from "@/components/activity/OuraSummaryCard"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
+import { useUserQuery } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
 
@@ -90,20 +91,18 @@ function OuraInsightRow({ insight }: { insight: OuraInsight }) {
 }
 
 export default function DashboardPage() {
-  const { data: profile, isLoading: profileLoading } = useQuery({
-    queryKey: ["profile"],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data: profile, isLoading: profileLoading } = useUserQuery(
+    ["profile"],
+    async (userId: string) => {
       const { data, error } = await supabase
         .from("user_profiles")
         .select("*")
-        .eq("id", user.id)
+        .eq("id", userId)
         .single()
       if (error) throw error
       return data
-    },
-  })
+    }
+  )
 
   // Start Workout opens the day's session in the logger (weights + previous
   // performance) on training days; rest days go to the lightweight rest screen.
@@ -115,54 +114,48 @@ export default function DashboardPage() {
     []
   )
 
-  const { data: allWorkoutLogs } = useQuery({
-    queryKey: ["workout-logs-all"],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data: allWorkoutLogs } = useUserQuery(
+    ["workout-logs-all"],
+    async (userId: string) => {
       const { data, error } = await supabase
         .from("workout_logs")
         .select("id, started_at")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .order("started_at", { ascending: true })
       if (error) throw error
       return data
-    },
-  })
+    }
+  )
 
   // Last ~9 days of logs + recent fitness tests feed the missed-session
   // detector behind the Today's Plan card (lib/plan-adaptation).
-  const { data: planCatchupWorkouts } = useQuery({
-    queryKey: ["plan-adaptation-workouts"],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data: planCatchupWorkouts } = useUserQuery(
+    ["plan-adaptation-workouts"],
+    async (userId: string) => {
       const since = new Date(Date.now() - 9 * 24 * 60 * 60 * 1000)
       const { data, error } = await supabase
         .from("workout_logs")
         .select("name, started_at")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .gte("started_at", since.toISOString())
       if (error) throw error
       return data ?? []
-    },
-  })
+    }
+  )
 
-  const { data: planCatchupTests } = useQuery({
-    queryKey: ["plan-adaptation-tests"],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data: planCatchupTests } = useUserQuery(
+    ["plan-adaptation-tests"],
+    async (userId: string) => {
       const since = new Date(Date.now() - 21 * 24 * 60 * 60 * 1000)
       const { data, error } = await supabase
         .from("fitness_tests")
         .select("test_type, tested_at")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .gte("tested_at", since.toISOString().slice(0, 10))
       if (error) throw error
       return data ?? []
-    },
-  })
+    }
+  )
 
   // Oura Ring daily summary
   const { data: ouraResult } = useQuery<{
@@ -232,23 +225,21 @@ export default function DashboardPage() {
   // Today's fuel, for the energy read: total calories in + recency of the last
   // meal. Its own lightweight query (distinct key from the Nutrition card so
   // neither clobbers the other's cached shape).
-  const { data: todaysFuelLogs } = useQuery({
-    queryKey: ["energy-fuel-today"],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data: todaysFuelLogs } = useUserQuery(
+    ["energy-fuel-today"],
+    async (userId: string) => {
       const dayStart = new Date()
       dayStart.setHours(0, 0, 0, 0)
       const { data, error } = await supabase
         .from("food_logs")
         .select("calories, logged_at")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .gte("logged_at", dayStart.toISOString())
         .order("logged_at", { ascending: true })
       if (error) throw error
       return data ?? []
-    },
-  })
+    }
+  )
 
   const fuelState = useMemo(() => {
     if (!todaysFuelLogs) return null
@@ -267,23 +258,21 @@ export default function DashboardPage() {
 
   // Today's caffeine, for the energy read (alertness/crash) and the
   // late-caffeine sleep warning.
-  const { data: todaysCaffeine } = useQuery({
-    queryKey: ["caffeine-today"],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data: todaysCaffeine } = useUserQuery(
+    ["caffeine-today"],
+    async (userId: string) => {
       const dayStart = new Date()
       dayStart.setHours(0, 0, 0, 0)
       const { data, error } = await supabase
         .from("caffeine_logs")
         .select("mg, logged_at")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .gte("logged_at", dayStart.toISOString())
         .order("logged_at", { ascending: true })
       if (error) throw error
       return data ?? []
-    },
-  })
+    }
+  )
 
   // The late-caffeine warning judges against the user's own cutoff, derived
   // from their wake time and sleep goal.
@@ -334,53 +323,47 @@ export default function DashboardPage() {
     }
   }, [ouraSync, queryClient])
 
-  const { data: energyCheckedInToday } = useQuery({
-    queryKey: ["energy-checkin-exists", todayStr],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data: energyCheckedInToday } = useUserQuery(
+    ["energy-checkin-exists", todayStr],
+    async (userId: string) => {
       const { data, error } = await supabase
         .from("energy_checkins")
         .select("id")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .eq("logged_on", todayStr)
         .limit(1)
       if (error) throw error
       return (data?.length ?? 0) > 0
-    },
-  })
+    }
+  )
 
-  const { data: creatineTakenToday } = useQuery({
-    queryKey: ["creatine-today", todayStr],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data: creatineTakenToday } = useUserQuery(
+    ["creatine-today", todayStr],
+    async (userId: string) => {
       const { data, error } = await supabase
         .from("creatine_logs")
         .select("id")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .eq("taken_on", todayStr)
         .limit(1)
       if (error) throw error
       return (data?.length ?? 0) > 0
-    },
-  })
+    }
+  )
 
-  const { data: lastWeighInAt } = useQuery({
-    queryKey: ["last-weigh-in"],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data: lastWeighInAt } = useUserQuery(
+    ["last-weigh-in"],
+    async (userId: string) => {
       const { data, error } = await supabase
         .from("weight_logs")
         .select("logged_at")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .order("logged_at", { ascending: false })
         .limit(1)
       if (error) throw error
       return (data?.[0]?.logged_at ?? null) as string | null
-    },
-  })
+    }
+  )
 
   const reminders = useMemo(() => {
     const now = new Date()

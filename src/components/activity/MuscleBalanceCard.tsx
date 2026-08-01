@@ -9,6 +9,7 @@ import { Scale3d, AlertTriangle, CheckCircle2 } from "lucide-react"
 import { exercises as staticExercises } from "@/data/exercises"
 import { formatMuscleGroup } from "@/lib/muscle-groups"
 import { analyzeMuscleBalance, type MuscleSet } from "@/lib/muscle-balance"
+import { useUserQuery } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
 
@@ -21,13 +22,9 @@ const WINDOW_DAYS = 28
  * legs skipped).
  */
 export function MuscleBalanceCard() {
-  const { data: sets, isLoading } = useQuery({
-    queryKey: ["muscle-balance", WINDOW_DAYS],
-    queryFn: async (): Promise<MuscleSet[]> => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+  const { data: sets, isLoading } = useUserQuery(
+    ["muscle-balance", WINDOW_DAYS],
+    async (userId: string): Promise<MuscleSet[]> => {
       const sinceIso = new Date(
         Date.now() - WINDOW_DAYS * 86_400_000
       ).toISOString()
@@ -35,7 +32,7 @@ export function MuscleBalanceCard() {
       const { data, error } = await supabase
         .from("workout_logs")
         .select("started_at, exercise_logs(exercises(name), set_logs(weight, reps))")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .gte("started_at", sinceIso)
       if (error) throw error
 
@@ -68,8 +65,8 @@ export function MuscleBalanceCard() {
         }
       }
       return out
-    },
-  })
+    }
+  )
 
   const balance = useMemo(
     () => (sets ? analyzeMuscleBalance(sets) : null),
