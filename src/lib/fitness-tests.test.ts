@@ -3,7 +3,8 @@ import {
   cooperVo2Max,
   buildVo2Trend,
   latestPullupMax,
-  type FitnessTestEntry,  cooperWorkoutPayload,
+  type FitnessTestEntry,  cooperWorkoutPayload,  cooperDistanceToMeters,
+  metersToMiles,
 } from "./fitness-tests"
 import { localDateString } from "@/lib/dates"
 
@@ -176,5 +177,33 @@ describe("cooperWorkoutPayload", () => {
       now,
     })
     expect(exercises.some((e) => e.id === p.exercises[0].exerciseId)).toBe(true)
+  })
+})
+
+describe("cooperDistanceToMeters", () => {
+  it("converts miles to meters", () => {
+    expect(cooperDistanceToMeters(1.22, "mi")).toBe(1963.4)
+    expect(cooperDistanceToMeters(1, "mi")).toBe(1609.3)
+  })
+
+  it("passes meters through unchanged", () => {
+    expect(cooperDistanceToMeters(2400, "m")).toBe(2400)
+  })
+
+  it("rejects values that would store as NaN or nonsense", () => {
+    expect(cooperDistanceToMeters(0, "mi")).toBeNull()
+    expect(cooperDistanceToMeters(-1, "m")).toBeNull()
+    expect(cooperDistanceToMeters(Number.NaN, "mi")).toBeNull()
+  })
+
+  it("round-trips against metersToMiles", () => {
+    const meters = cooperDistanceToMeters(1.22, "mi")!
+    expect(metersToMiles(meters)).toBe(1.22)
+  })
+
+  it("gives the same VO2 whichever unit was typed", () => {
+    const fromMiles = cooperVo2Max(cooperDistanceToMeters(1.22, "mi")!)
+    const fromMeters = cooperVo2Max(cooperDistanceToMeters(1963.4, "m")!)
+    expect(fromMiles).toBe(fromMeters)
   })
 })

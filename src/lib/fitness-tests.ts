@@ -167,3 +167,30 @@ export function cooperWorkoutPayload(opts: {
     ],
   }
 }
+
+export type DistanceUnit = "mi" | "m"
+
+/**
+ * Cooper distance in the user's chosen input unit, as meters.
+ *
+ * Storage stays metric: `fitness_tests.result` for a cooper_run is meters,
+ * because the VO2 formula is metric and historical rows would become
+ * ambiguous if the unit varied per row. The unit is an input concern only —
+ * the same split the rest of the app uses for weight.
+ *
+ * Returns null for anything unparseable so callers can gate on it rather
+ * than storing NaN.
+ */
+export function cooperDistanceToMeters(
+  value: number,
+  unit: DistanceUnit
+): number | null {
+  if (!Number.isFinite(value) || value <= 0) return null
+  const meters = unit === "mi" ? value * METERS_PER_MILE : value
+  return Math.round(meters * 10) / 10
+}
+
+/** Meters as miles, for display. */
+export function metersToMiles(meters: number): number {
+  return Math.round((meters / METERS_PER_MILE) * 100) / 100
+}

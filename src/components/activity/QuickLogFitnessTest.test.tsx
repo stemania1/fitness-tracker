@@ -64,6 +64,12 @@ afterEach(() => {
   cleanup()
 })
 
+/** The distance unit defaults to miles; these tests are explicit about it. */
+function selectUnit(u: "mi" | "m") {
+  fireEvent.click(// A bare string name is an exact match, so "m" does not match "mi".
+    screen.getByRole("button", { name: u }))
+}
+
 function renderWithClient(ui: React.ReactElement) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -99,12 +105,42 @@ describe("QuickLogFitnessTest", () => {
   it("shows a live VO2 Max preview for a Cooper distance", async () => {
     renderWithClient(<QuickLogFitnessTest />)
     await openDialog()
+    selectUnit("m")
     fireEvent.change(screen.getByLabelText(/distance covered/i), {
       target: { value: "2400" },
     })
     // (2400 - 504.9) / 44.73 = 42.4
     expect(await screen.findByText(/estimated vo2 max/i)).toBeInTheDocument()
     expect(screen.getByText("42.4")).toBeInTheDocument()
+  })
+
+  it("accepts the distance in miles and converts it for the estimate", async () => {
+    renderWithClient(<QuickLogFitnessTest />)
+    await openDialog()
+    // Miles is the default — the app is imperial and treadmills read miles.
+    fireEvent.change(screen.getByLabelText(/distance covered/i), {
+      target: { value: "1.22" },
+    })
+    expect(await screen.findByText(/estimated vo2 max/i)).toBeInTheDocument()
+    // 1.22 mi = 1963.4 m -> (1963.4 - 504.9) / 44.73 = 32.6
+    expect(screen.getByText("32.6")).toBeInTheDocument()
+    // The converted value is shown so a mis-set unit is caught before saving.
+    expect(screen.getByText(/1963\.4 m/)).toBeInTheDocument()
+  })
+
+  it("stores meters even when the distance was typed in miles", async () => {
+    mocks.getUser.mockResolvedValue({ data: { user: { id: "user-1" } } })
+    renderWithClient(<QuickLogFitnessTest />)
+    await openDialog()
+    fireEvent.change(screen.getByLabelText(/distance covered/i), {
+      target: { value: "1.22" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }))
+
+    await waitFor(() => {
+      expect(mocks.insert).toHaveBeenCalled()
+    })
+    expect(mocks.insert.mock.calls[0][0].result).toBe(1963.4)
   })
 
   it("switches to a reps input for the pull-up test and clears the value", async () => {
@@ -130,6 +166,7 @@ describe("QuickLogFitnessTest", () => {
     mocks.getUser.mockResolvedValue({ data: { user: { id: "user-1" } } })
     renderWithClient(<QuickLogFitnessTest />)
     await openDialog()
+    selectUnit("m")
     fireEvent.change(screen.getByLabelText(/distance covered/i), {
       target: { value: "2400" },
     })
@@ -185,6 +222,7 @@ describe("QuickLogFitnessTest", () => {
     mocks.getUser.mockResolvedValue({ data: { user: null } })
     renderWithClient(<QuickLogFitnessTest />)
     await openDialog()
+    selectUnit("m")
     fireEvent.change(screen.getByLabelText(/distance covered/i), {
       target: { value: "2400" },
     })
@@ -199,6 +237,7 @@ describe("QuickLogFitnessTest", () => {
     mocks.insert.mockResolvedValue({ error: { message: "row violates RLS" } })
     renderWithClient(<QuickLogFitnessTest />)
     await openDialog()
+    selectUnit("m")
     fireEvent.change(screen.getByLabelText(/distance covered/i), {
       target: { value: "2400" },
     })

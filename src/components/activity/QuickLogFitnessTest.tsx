@@ -9,6 +9,9 @@ import { Timer } from "lucide-react"
 import {
   cooperVo2Max,
   cooperWorkoutPayload,
+  cooperDistanceToMeters,
+  metersToMiles,
+  type DistanceUnit,
   type FitnessTestType,
 } from "@/lib/fitness-tests"
 import { saveWorkout } from "@/lib/save-workout"
@@ -25,27 +28,37 @@ export function QuickLogFitnessTest() {
   const [testType, setTestType] = useState<FitnessTestType>("cooper_run")
   const [result, setResult] = useState("")
   const [testedAt, setTestedAt] = useState(localToday)
+  // Miles by default: the rest of the app is imperial and treadmills here
+  // read in miles. Storage stays metric — see cooperDistanceToMeters.
+  const [unit, setUnit] = useState<DistanceUnit>("mi")
   const queryClient = useQueryClient()
 
   const isCooper = testType === "cooper_run"
   const resultNum = parseFloat(result)
-  const previewVo2 =
-    isCooper && Number.isFinite(resultNum) ? cooperVo2Max(resultNum) : null
+  const isMiles = unit === "mi"
+  /** The Cooper distance in meters, whichever unit was typed. */
+  const distanceMeters = isCooper
+    ? cooperDistanceToMeters(resultNum, unit)
+    : null
+  const previewVo2 = distanceMeters != null ? cooperVo2Max(distanceMeters) : null
 
   const mutation = useMutation({
     mutationFn: async () => {
-      if (!Number.isFinite(resultNum) || resultNum <= 0) {
-        throw new Error(
-          isCooper ? "Enter a valid distance" : "Enter a valid rep count"
-        )
+      if (isCooper && distanceMeters == null) {
+        throw new Error("Enter a valid distance")
       }
+      if (!isCooper && (!Number.isFinite(resultNum) || resultNum <= 0)) {
+        throw new Error("Enter a valid rep count")
+      }
+      // Always stored in meters, whatever the input unit was.
+      const storedResult = isCooper ? distanceMeters! : resultNum
 
       const userId = await getAuthUserId()
 
       const { error } = await supabase.from("fitness_tests").insert({
         user_id: userId,
         test_type: testType,
-        result: resultNum,
+        result: storedResult,
         tested_at: testedAt,
       })
       if (error) throw error
@@ -61,7 +74,7 @@ export function QuickLogFitnessTest() {
             supabase,
             cooperWorkoutPayload({
               userId,
-              distanceMeters: resultNum,
+              distanceMeters: storedResult,
               testedAt,
             })
           )
@@ -127,21 +140,49 @@ export function QuickLogFitnessTest() {
 
         <div className="space-y-2">
           <Label htmlFor="qlft-result">
-            {isCooper ? "Distance covered (meters)" : "Strict reps"}
+            {isCooper
+              ? `Distance covered (${isMiles ? "miles" : "meters"})`
+              : "Strict reps"}
           </Label>
-          <Input
-            id="qlft-result"
-            type="number"
-            min={1}
-            max={isCooper ? 9999 : 200}
-            step={isCooper ? "any" : "1"}
-            placeholder={isCooper ? "e.g. 2400" : "e.g. 5"}
-            value={result}
-            onChange={(e) => setResult(e.target.value)}
-            autoFocus
-          />
-          {previewVo2 != null && (
+          <div className="flex items-center gap-2">
+            <Input
+              id="qlft-result"
+              type="number"
+              min={isCooper ? 0 : 1}
+              max={isCooper ? (isMiles ? 20 : 30000) : 200}
+              step={isCooper ? "any" : "1"}
+              placeholder={isCooper ? (isMiles ? "e.g. 1.22" : "e.g. 2400") : "e.g. 5"}
+              value={result}
+              onChange={(e) => setResult(e.target.value)}
+              autoFocus
+            />
+            {isCooper && (
+              <div
+                className="flex shrink-0 rounded-lg bg-gray-100 p-1"
+                role="group"
+                aria-label="Distance unit"
+              >
+                {(["mi", "m"] as const).map((u) => (
+                  <button
+                    key={u}
+                    type="button"
+                    aria-pressed={unit === u}
+                    className={typeButtonClass(unit === u)}
+                    onClick={() => setUnit(u)}
+                  >
+                    {u}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {previewVo2 != null && distanceMeters != null && (
             <p className="text-xs text-gray-500">
+              {/* The converted value is shown so a mis-set unit is obvious
+                  before saving rather than after. */}
+              {isMiles
+                ? `${distanceMeters} m · `
+                : `${metersToMiles(distanceMeters)} mi · `}
               Estimated VO2 Max:{" "}
               <span className="font-semibold text-gray-900">
                 {previewVo2}
