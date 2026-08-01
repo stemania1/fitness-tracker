@@ -3,8 +3,9 @@ import {
   cooperVo2Max,
   buildVo2Trend,
   latestPullupMax,
-  type FitnessTestEntry,
+  type FitnessTestEntry,  cooperWorkoutPayload,
 } from "./fitness-tests"
+import { localDateString } from "@/lib/dates"
 
 describe("cooperVo2Max", () => {
   it("applies the Cooper formula and rounds to one decimal", () => {
@@ -93,5 +94,87 @@ describe("latestPullupMax", () => {
       reps: 8,
       tested_at: "2026-08-15",
     })
+  })
+})
+
+describe("cooperWorkoutPayload", () => {
+  const now = new Date(2026, 7, 1, 9, 30) // Sat 1 Aug 2026, 09:30 local
+
+  it("converts the distance to miles", () => {
+    const p = cooperWorkoutPayload({
+      userId: "u1",
+      distanceMeters: 1963.4, // 1.22 miles
+      testedAt: "2026-08-01",
+      now,
+    })
+    expect(p.exercises[0].completedSets[0].distanceMiles).toBe(1.22)
+  })
+
+  it("logs the 12 measured minutes, not an invented warm-up", () => {
+    const p = cooperWorkoutPayload({
+      userId: "u1",
+      distanceMeters: 2400,
+      testedAt: "2026-08-01",
+      now,
+    })
+    expect(p.durationMins).toBe(12)
+    expect(p.exercises[0].completedSets[0].durationMins).toBe(12)
+    const span =
+      new Date(p.finishedAt).getTime() - new Date(p.startedAt).getTime()
+    expect(span).toBe(12 * 60_000)
+  })
+
+  it("records the protocol's 1% incline", () => {
+    const p = cooperWorkoutPayload({
+      userId: "u1",
+      distanceMeters: 2400,
+      testedAt: "2026-08-01",
+      now,
+    })
+    expect(p.exercises[0].completedSets[0].inclinePercent).toBe(1)
+  })
+
+  it("ends at the current time for a test logged today", () => {
+    const p = cooperWorkoutPayload({
+      userId: "u1",
+      distanceMeters: 2400,
+      testedAt: "2026-08-01",
+      now,
+    })
+    expect(new Date(p.finishedAt).getTime()).toBe(now.getTime())
+  })
+
+  it("anchors a backdated test to its own day, not today", () => {
+    const p = cooperWorkoutPayload({
+      userId: "u1",
+      distanceMeters: 2400,
+      testedAt: "2026-07-25",
+      now,
+    })
+    // Midday on the tested day, so it stays on that local day in any zone.
+    expect(localDateString(new Date(p.finishedAt))).toBe("2026-07-25")
+  })
+
+  it("uses the treadmill and names itself recognisably", () => {
+    const p = cooperWorkoutPayload({
+      userId: "u1",
+      distanceMeters: 2400,
+      testedAt: "2026-08-01",
+      now,
+    })
+    expect(p.name).toMatch(/cooper/i)
+    expect(p.exercises[0].exerciseId).toBe("treadmill-run")
+    expect(p.appendToLogId).toBeNull()
+  })
+
+  it("maps to a real catalog exercise id", async () => {
+    const { exercises } = await import("@/data/exercises")
+    const p = cooperWorkoutPayload({
+      userId: "u1",
+      distanceMeters: 2400,
+      testedAt: "2026-08-01",
+      now,
+    })
+    expect(exercises.some((e) => e.id === p.exercises[0].exerciseId)).toBe(true)
   })
 })

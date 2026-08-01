@@ -18,13 +18,35 @@ const mocks = vi.hoisted(() => ({
   insert: vi.fn(),
 }))
 
+// A Cooper test now also writes a workout via saveWorkout, which chains
+// .insert().select().single() and resolves catalog ids — so the stub has to
+// answer more than a bare insert.
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({
     auth: { getUser: mocks.getUser },
     from: (_table: string) => ({
-      insert: mocks.insert,
+      insert: (row: unknown) => {
+        const res = mocks.insert(row)
+        return Object.assign(Promise.resolve(res ?? { error: null }), {
+          select: () => ({
+            single: () =>
+              Promise.resolve({ data: { id: "log-1" }, error: null }),
+          }),
+        })
+      },
+      select: () => ({
+        in: () => Promise.resolve({ data: [], error: null }),
+      }),
+      upsert: () => ({
+        select: () => Promise.resolve({ data: [], error: null }),
+      }),
     }),
   }),
+}))
+
+vi.mock("@/lib/supabase/exercises", () => ({
+  ensureExercisesExist: async (_c: unknown, ids: string[]) =>
+    new Map(ids.map((id) => [id, `uuid-${id}`])),
 }))
 
 import { QuickLogFitnessTest } from "./QuickLogFitnessTest"
@@ -114,13 +136,22 @@ describe("QuickLogFitnessTest", () => {
     fireEvent.click(screen.getByRole("button", { name: /^save$/i }))
 
     await waitFor(() => {
-      expect(mocks.insert).toHaveBeenCalledTimes(1)
+      expect(mocks.insert).toHaveBeenCalled()
     })
     const row = mocks.insert.mock.calls[0][0]
     expect(row.user_id).toBe("user-1")
     expect(row.test_type).toBe("cooper_run")
     expect(row.result).toBe(2400)
     expect(row.tested_at).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+
+    // A Cooper test also lands as a workout, so it counts toward the week's
+    // total and doesn't read as a missed session.
+    await waitFor(() => {
+      const names = mocks.insert.mock.calls.map(
+        (c) => (c[0] as { name?: string }).name
+      )
+      expect(names).toContain("Cooper 12-min test")
+    })
 
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).toBeNull()
@@ -143,6 +174,11 @@ describe("QuickLogFitnessTest", () => {
     const row = mocks.insert.mock.calls[0][0]
     expect(row.test_type).toBe("pullup_max")
     expect(row.result).toBe(5)
+
+    // Deliberately no companion workout: the pull-up max is the first
+    // exercise of a Pull A session that gets logged on its own, so minting a
+    // second workout would double-count the day.
+    expect(mocks.insert).toHaveBeenCalledTimes(1)
   })
 
   it("shows 'Not authenticated' when there is no user", async () => {

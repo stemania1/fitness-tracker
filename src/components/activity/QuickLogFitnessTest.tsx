@@ -6,7 +6,14 @@ import { createClient } from "@/lib/supabase/client"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Timer } from "lucide-react"
-import { cooperVo2Max, type FitnessTestType } from "@/lib/fitness-tests"
+import {
+  cooperVo2Max,
+  cooperWorkoutPayload,
+  type FitnessTestType,
+} from "@/lib/fitness-tests"
+import { saveWorkout } from "@/lib/save-workout"
+import { invalidateWorkoutData } from "@/lib/queries/invalidate"
+import { queryKeys } from "@/lib/queries/keys"
 import { localToday } from "@/lib/dates"
 import { getAuthUserId } from "@/lib/supabase/user-query"
 import { QuickLogDialog } from "@/components/activity/QuickLogDialog"
@@ -42,9 +49,33 @@ export function QuickLogFitnessTest() {
         tested_at: testedAt,
       })
       if (error) throw error
+
+      // A Cooper test replaces that day's session, so it has to count as one:
+      // toward the week's total, the streak, calories, and — outside the three
+      // designated test weeks — so the missed-session detector doesn't flag the
+      // slot you just went maximal on. The pull-up max is deliberately not
+      // converted; it rides inside a Pull A session that gets logged already.
+      if (isCooper) {
+        try {
+          await saveWorkout(
+            supabase,
+            cooperWorkoutPayload({
+              userId,
+              distanceMeters: resultNum,
+              testedAt,
+            })
+          )
+        } catch {
+          // The test itself is saved and is the thing that must not be lost.
+          // A failed companion workout is a counting problem, not a data-loss
+          // one, so don't fail the mutation and make the user re-enter it.
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fitness-tests"] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.ouraVo2History })
+      invalidateWorkoutData(queryClient)
       setOpen(false)
       setResult("")
       setTestedAt(localToday())
