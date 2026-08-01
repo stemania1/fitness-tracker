@@ -27,6 +27,7 @@ import {
 } from "lucide-react"
 import { GOALS, FITNESS_LEVELS, SPLIT_TYPES } from "@/lib/constants"
 import { useUserQuery, getAuthUserId } from "@/lib/supabase/user-query"
+import { useProfile } from "@/hooks/useProfile"
 
 const supabase = createClient()
 
@@ -50,18 +51,7 @@ export default function GenerateWorkoutPage() {
   >(null)
   const [includeExpress, setIncludeExpress] = useState(false)
 
-  const { data: profile, isLoading: profileLoading } = useUserQuery(
-    ["profile"],
-    async (userId: string) => {
-      const { data, error } = await supabase
-        .from("user_profiles")
-        .select("*")
-        .eq("id", userId)
-        .single()
-      if (error) throw error
-      return data
-    }
-  )
+  const { data: profile, isLoading: profileLoading } = useProfile()
 
   function handleGenerate() {
     if (!profile) return
