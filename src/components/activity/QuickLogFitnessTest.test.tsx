@@ -51,11 +51,13 @@ vi.mock("@/lib/supabase/exercises", () => ({
 
 import { QuickLogFitnessTest } from "./QuickLogFitnessTest"
 import { resetAuthUserId } from "@/lib/supabase/user-query"
+import { listPending, localStorageQueue } from "@/lib/pending-workouts"
 
 beforeEach(() => {
   // The auth user id is cached for the session; clear it so a test
   // that simulates a signed-out user isn't served the previous id.
   resetAuthUserId()
+  window.localStorage.clear()
   mocks.getUser.mockReset()
   mocks.insert.mockReset().mockResolvedValue({ error: null })
 })
@@ -193,6 +195,32 @@ describe("QuickLogFitnessTest", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).toBeNull()
     })
+  })
+
+  it("queues the companion workout when saving it fails, rather than losing it", async () => {
+    mocks.getUser.mockResolvedValue({ data: { user: { id: "user-1" } } })
+    // First insert (fitness_tests) succeeds; the workout insert blows up.
+    mocks.insert
+      .mockReturnValueOnce({ error: null })
+      .mockImplementationOnce(() => {
+        throw new Error("network")
+      })
+    renderWithClient(<QuickLogFitnessTest />)
+    await openDialog()
+    fireEvent.change(screen.getByLabelText(/distance covered/i), {
+      target: { value: "1.22" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }))
+
+    // The test result still saved and the dialog still closed...
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull()
+    })
+    // ...and the workout is queued for OfflineSyncManager to retry, rather
+    // than silently dropped, which is what made this invisible before.
+    const queued = listPending(localStorageQueue)
+    expect(queued).toHaveLength(1)
+    expect(queued[0].payload.name).toBe("Cooper 12-min test")
   })
 
   it("inserts a pullup_max row with the entered reps", async () => {
