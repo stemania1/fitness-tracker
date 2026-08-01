@@ -15,6 +15,7 @@ import {
   type FitnessTestType,
 } from "@/lib/fitness-tests"
 import { saveWorkout } from "@/lib/save-workout"
+import { addPending, localStorageQueue } from "@/lib/pending-workouts"
 import { invalidateWorkoutData } from "@/lib/queries/invalidate"
 import { queryKeys } from "@/lib/queries/keys"
 import { localToday } from "@/lib/dates"
@@ -69,19 +70,28 @@ export function QuickLogFitnessTest() {
       // slot you just went maximal on. The pull-up max is deliberately not
       // converted; it rides inside a Pull A session that gets logged already.
       if (isCooper) {
+        const payload = cooperWorkoutPayload({
+          userId,
+          distanceMeters: storedResult,
+          testedAt,
+        })
         try {
-          await saveWorkout(
-            supabase,
-            cooperWorkoutPayload({
-              userId,
-              distanceMeters: storedResult,
-              testedAt,
-            })
-          )
+          await saveWorkout(supabase, payload)
         } catch {
-          // The test itself is saved and is the thing that must not be lost.
-          // A failed companion workout is a counting problem, not a data-loss
-          // one, so don't fail the mutation and make the user re-enter it.
+          // Don't fail the mutation — the test result is the thing that must
+          // not be lost, and making the user re-enter a maximal effort is a
+          // worse outcome than a delayed workout row.
+          //
+          // But don't swallow it either. Swallowing is what made this
+          // invisible: a Cooper that failed to become a workout looked
+          // identical to one that never tried, and the week's total was just
+          // quietly wrong. Queue it instead, so OfflineSyncManager retries it
+          // and its pending pill says something is outstanding.
+          addPending(localStorageQueue, {
+            id: crypto.randomUUID(),
+            queuedAt: new Date().toISOString(),
+            payload,
+          })
         }
       }
     },
