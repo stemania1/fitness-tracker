@@ -90,6 +90,32 @@ describe("plannedSession", () => {
     expect(s.exercises[0].reps).toMatch(/min/)
   })
 
+  it("carries the protocol into the cardio note, not just 'log time'", () => {
+    // The screen you hold mid-session has to tell you what to run. These
+    // bullets used to live only on the plan card, which is no help at the gym.
+    const s = plannedSession(d(2026, 7, 11)) // Saturday = 4×4
+    const notes = s.exercises[0].notes ?? ""
+    expect(notes).toMatch(/4 min @ ~90-95% max HR \/ 3 min easy recovery/)
+    expect(notes).toMatch(/10-min warm-up/)
+    expect(notes).toMatch(/log total time and distance/i)
+    // Multi-line so the logger can render it as lines, not a run-on sentence.
+    expect(notes.split("\n").length).toBeGreaterThan(3)
+  })
+
+  it("leads the cardio note with the phase-adjusted round count", () => {
+    // "4×4" in the title is a name, not this week's prescription — the round
+    // count changes by phase, so it has to be the first thing you read.
+    const notes = plannedSession(d(2026, 7, 11)).exercises[0].notes ?? ""
+    expect(notes.split("\n")[0]).toMatch(/this phase/i)
+    expect(notes.split("\n")[0]).toMatch(/rounds/i)
+  })
+
+  it("gives the 30/30 day its own protocol, not the 4×4 one", () => {
+    const notes = plannedSession(d(2026, 7, 12)).exercises[0].notes ?? "" // Sunday
+    expect(notes).toMatch(/30s hard \/ 30s easy/)
+    expect(notes).not.toMatch(/90-95% max HR/)
+  })
+
   it("pre-loads one bike entry for the 30/30 interval day", () => {
     const s = plannedSession(d(2026, 7, 12)) // Sunday = 30/30 + Zone 2
     expect(s.exercises).toHaveLength(1)

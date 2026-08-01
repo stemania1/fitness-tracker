@@ -631,7 +631,7 @@ export default function LogWorkoutPage() {
                         like it was prescribing a movement the user couldn't
                         do. Called out as the instruction it is. */}
                     {currentExercise.notes && (
-                      <p className="mt-1.5 rounded-md bg-purple-50 px-2 py-1 text-xs text-purple-900">
+                      <p className="mt-1.5 whitespace-pre-line rounded-md bg-purple-50 px-2 py-1 text-xs leading-relaxed text-purple-900">
                         <span className="font-semibold">Today: </span>
                         {currentExercise.notes}
                       </p>
