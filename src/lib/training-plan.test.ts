@@ -33,13 +33,14 @@ describe("planWeekNumber", () => {
 
 describe("sessionForDate", () => {
   it("prescribes the AM-lane weekday sessions", () => {
-    expect(sessionForDate(d(2026, 7, 7)).key).toBe("pull-b") // Tue
-    expect(sessionForDate(d(2026, 7, 9)).key).toBe("pull-a") // Thu
+    // July predates the 1 Aug revision, so the original layout applies.
+    expect(sessionForDate(d(2026, 7, 7)).key).toBe("intervals-4x4") // Tue
+    expect(sessionForDate(d(2026, 7, 9)).key).toBe("pull-b") // Thu
     expect(sessionForDate(d(2026, 7, 10)).key).toBe("rest") // Fri
   })
 
   it("prescribes the weekend sessions", () => {
-    expect(sessionForDate(d(2026, 7, 11)).key).toBe("intervals-4x4") // Sat
+    expect(sessionForDate(d(2026, 7, 11)).key).toBe("pull-a") // Sat
     expect(sessionForDate(d(2026, 7, 12)).key).toBe("intervals-3030") // Sun
   })
 })
@@ -62,7 +63,7 @@ describe("todayPlan", () => {
   it("flags the deload week", () => {
     // Week 7: Aug 17-23, 2026. Saturday is the interval day, so it carries
     // the cardio phase note.
-    const plan = todayPlan(d(2026, 8, 22)) // Saturday of week 7
+    const plan = todayPlan(d(2026, 8, 22)) // Saturday of week 7 (new layout)
     expect(plan.week).toBe(7)
     expect(plan.isDeload).toBe(true)
     expect(plan.sessionNote).toMatch(/2 rounds/i)
@@ -76,12 +77,12 @@ describe("todayPlan", () => {
   })
 
   it("gives phase-adjusted notes per session type", () => {
-    // Week 1 Saturday: 4x4 day in Base phase.
-    expect(todayPlan(d(2026, 7, 11)).sessionNote).toMatch(/3 rounds/)
+    // Week 1 Tuesday: 4x4 day in Base phase (original layout).
+    expect(todayPlan(d(2026, 7, 7)).sessionNote).toMatch(/3 rounds/)
     // Week 3 Sunday (Jul 26): 30/30 day in Build phase... week of Jul 20 = week 3.
     expect(todayPlan(d(2026, 7, 26)).sessionNote).toMatch(/3 sets of 10/)
-    // Week 2 Tuesday: strength note.
-    expect(todayPlan(d(2026, 7, 14)).sessionNote).toMatch(/reps in the tank/i)
+    // Week 2 Saturday: strength note (original layout).
+    expect(todayPlan(d(2026, 7, 18)).sessionNote).toMatch(/reps in the tank/i)
     // Rest days carry no phase note.
     expect(todayPlan(d(2026, 7, 10)).sessionNote).toBeNull()
   })
@@ -92,5 +93,31 @@ describe("todayPlan", () => {
     expect(plan.session.key).toBe("pull-b")
     expect(plan.phase).toBeNull()
     expect(plan.sessionNote).toBeNull()
+  })
+})
+
+describe("sessionForDate — schedule revisions", () => {
+  // The plan moved both VO2 sessions to the weekend effective 2026-08-01.
+  it("resolves a past day under the schedule that was in force then", () => {
+    // Thursday 30 July was Pull B; it only became Pull A from 1 August.
+    expect(sessionForDate(d(2026, 7, 30)).title).toBe("Pull B — strength")
+    // Tuesday 28 July was still the 4×4 day.
+    expect(sessionForDate(d(2026, 7, 28)).type).toBe("cardio")
+  })
+
+  it("resolves a day after the change under the new schedule", () => {
+    expect(sessionForDate(d(2026, 8, 6)).title).toBe("Pull A — strength")
+    expect(sessionForDate(d(2026, 8, 4)).title).toBe("Pull B — strength")
+  })
+
+  it("switches exactly on the effective date, not around it", () => {
+    // 31 July (Fri) is rest under both, so compare the Saturdays either side.
+    expect(sessionForDate(d(2026, 7, 25)).type).toBe("strength") // old: Pull A
+    expect(sessionForDate(d(2026, 8, 1)).type).toBe("cardio") // new: 4×4
+  })
+
+  it("keeps rest days rest across the change", () => {
+    expect(sessionForDate(d(2026, 7, 31)).type).toBe("rest")
+    expect(sessionForDate(d(2026, 8, 7)).type).toBe("rest")
   })
 })

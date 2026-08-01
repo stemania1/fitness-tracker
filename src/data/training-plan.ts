@@ -49,7 +49,7 @@ export interface PlanSession {
  * cardio days back to back — if that starts accumulating, alternate 4×4 and
  * 30/30 across weekends rather than doing both every week.
  */
-export const WEEKLY_SCHEDULE: Record<number, PlanSession> = {
+const WEEKEND_VO2_SCHEDULE: Record<number, PlanSession> = {
   1: {
     key: "rest-gtg",
     title: "Rest",
@@ -174,6 +174,151 @@ export const PLAN_PHASES: PlanPhase[] = [
   },
 ]
 
+/**
+ * The layout the plan launched with: the 4×4 on Tuesday at 5:45 AM.
+ *
+ * Kept because history is real. The plan changed mid-block, and resolving a
+ * past day against the *current* schedule reports sessions you actually did
+ * as missed — Thursday used to be Pull B, so a Pull B logged on 30 July reads
+ * as a missing Pull A once Thursday becomes a Pull A day.
+ */
+const ORIGINAL_SCHEDULE: Record<number, PlanSession> = {
+  1: {
+    key: "rest-gtg",
+    title: "Rest",
+    type: "rest",
+    time: "",
+    durationMins: 0,
+    details: [
+      "Optional: grease-the-groove pull-up sets at home (easy singles/doubles, never to failure)",
+    ],
+  },
+  2: {
+    key: "intervals-4x4",
+    title: "VO2 Max intervals — 4×4",
+    type: "cardio",
+    time: "5:45 AM",
+    durationMins: 40,
+    details: [
+      "10-min warm-up, then 4 min @ ~90-95% max HR / 3 min easy recovery",
+      "Treadmill or StairMaster",
+      "If Oura readiness is red, swap for easy Zone 2 and slide intervals to tomorrow",
+    ],
+  },
+  3: {
+    key: "rest-walk",
+    title: "Rest",
+    type: "rest",
+    time: "",
+    durationMins: 0,
+    details: ["Optional: 20-30 min easy walk after dinner"],
+  },
+  4: {
+    key: "pull-b",
+    title: "Pull B — strength",
+    type: "strength",
+    time: "5:45 AM",
+    durationMins: 45,
+    details: [
+      "Assisted pull-ups 5×4-6 (10-15 lb less assistance than Pull A)",
+      "Scapular pulls 3×8 · single-arm DB row 3×8-10/side",
+      "Cable face pull 3×12-15 · farmer hold 3×30s",
+    ],
+  },
+  5: {
+    key: "rest",
+    title: "Rest",
+    type: "rest",
+    time: "",
+    durationMins: 0,
+    details: ["Full rest before the weekend sessions"],
+  },
+  6: {
+    key: "pull-a",
+    title: "Pull A + Zone 2 finisher",
+    type: "strength",
+    time: "8:00 AM",
+    durationMins: 75,
+    details: [
+      "Assisted pull-ups 4×6-8 · slow negatives 3×3-5 (5-sec lowering)",
+      "Lat pulldown 3×8-12 · seated row 3×10-12 · hollow hold 3×20-30s",
+      "Finish with 15-20 min easy Zone 2 (bike/elliptical)",
+    ],
+  },
+  0: {
+    key: "intervals-3030",
+    title: "30/30 intervals + Zone 2",
+    type: "cardio",
+    time: "8:00 AM",
+    durationMins: 75,
+    details: [
+      "10-min warm-up, then 30s hard / 30s easy — stationary bike ideal",
+      "Weeks 1-2: 2×8 reps · build to 3×10 by week 6",
+      "Finish with 30 min Zone 2 cool-down",
+    ],
+  },
+}
+
+/**
+ * Schedule revisions, oldest first, each effective from a local YYYY-MM-DD.
+ *
+ * A twelve-week plan meets a real life and gets rearranged; that is a
+ * property of the plan, not an accident. Recording when each layout took
+ * effect keeps the Plan page, the calendar export and the missed-session
+ * detector honest about what was actually prescribed on a given day.
+ *
+ * Add a revision rather than editing the newest one in place — editing
+ * rewrites history and the phantom "missed session" nudges come back.
+ */
+const pad2 = (n: number) => String(n).padStart(2, "0")
+
+export type TestDays = Record<"pullup_max" | "cooper_run", number>
+
+export const SCHEDULE_REVISIONS: Array<{
+  effectiveFrom: string
+  schedule: Record<number, PlanSession>
+  /** Test slots move with the layout — they are part of it, not beside it. */
+  testDays: TestDays
+}> = [
+  {
+    effectiveFrom: PLAN_START_DATE,
+    schedule: ORIGINAL_SCHEDULE,
+    // Pull-up max on Saturday's Pull A; Cooper replaced Sunday's intervals.
+    testDays: { pullup_max: 6, cooper_run: 0 },
+  },
+  {
+    // Weekday early mornings were not working for max-effort interval work.
+    effectiveFrom: "2026-08-01",
+    schedule: WEEKEND_VO2_SCHEDULE,
+    // Pull-up max rides Thursday's Pull A; Cooper replaces Saturday's 4×4,
+    // which follows Friday's rest day.
+    testDays: { pullup_max: 4, cooper_run: 6 },
+  },
+]
+
+/** The revision in force on a given local day. */
+function revisionForDay(date: Date) {
+  const day = `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
+  let active = SCHEDULE_REVISIONS[0]
+  for (const rev of SCHEDULE_REVISIONS) {
+    if (rev.effectiveFrom <= day) active = rev
+  }
+  return active
+}
+
+/** Which day of the week each test occupies on a given day, as getDay(). */
+export function testDaysForDay(date: Date): TestDays {
+  return revisionForDay(date).testDays
+}
+
+/** The schedule in force on a given local day. */
+export function scheduleForDay(date: Date): Record<number, PlanSession> {
+  return revisionForDay(date).schedule
+}
+
+/** The current layout — for anything meaning "the plan as it stands now". */
+export const WEEKLY_SCHEDULE = WEEKEND_VO2_SCHEDULE
+
 export interface PlanTest {
   week: number
   title: string
@@ -191,10 +336,8 @@ export interface PlanTest {
  * The pull-up max rides the Pull A session; the Cooper test replaces the
  * 4×4, which follows Friday's rest day so you arrive fresh.
  */
-export const TEST_DAYS: Record<"pullup_max" | "cooper_run", number> = {
-  pullup_max: 4, // Thursday — Pull A
-  cooper_run: 6, // Saturday — replaces the 4×4 intervals
-}
+export const TEST_DAYS: TestDays =
+  SCHEDULE_REVISIONS[SCHEDULE_REVISIONS.length - 1].testDays
 
 export const PLAN_TESTS: PlanTest[] = [
   {

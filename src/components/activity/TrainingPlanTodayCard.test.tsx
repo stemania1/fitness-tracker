@@ -16,13 +16,13 @@ afterEach(() => {
 
 describe("TrainingPlanTodayCard", () => {
   it("shows the week badge and today's session for a week-1 interval day", () => {
-    renderAt("2026-07-11T08:00:00") // Saturday, week 1 — the 4×4 day
-    expect(screen.getByText(/week 1 of 12/i)).toBeInTheDocument()
+    renderAt("2026-08-08T08:00:00") // Saturday, week 5 — the 4×4 day
+    expect(screen.getByText(/week 5 of 12/i)).toBeInTheDocument()
     expect(screen.getByText(/VO2 Max intervals/i)).toBeInTheDocument()
-    // Base-phase note for the 4×4 day.
-    expect(screen.getByText(/3 rounds/i)).toBeInTheDocument()
-    // Baseline test callout appears throughout week 1.
-    expect(screen.getByText(/baseline tests/i)).toBeInTheDocument()
+    // Build-phase note for the 4×4 day.
+    expect(screen.getByText(/4 rounds/i)).toBeInTheDocument()
+    // Week 5 is not a test week, so no test callout.
+    expect(screen.queryByText(/baseline tests/i)).toBeNull()
   })
 
   it("shows a rest day without a time or phase note", () => {
@@ -44,25 +44,25 @@ describe("TrainingPlanTodayCard", () => {
   })
 
   it("links to the full plan page", () => {
-    renderAt("2026-07-11T08:00:00")
+    renderAt("2026-08-08T08:00:00")
     const link = screen.getByRole("link", { name: /view full plan/i })
     expect(link).toHaveAttribute("href", "/plan")
   })
 
   it("green-lights an interval day at high readiness", () => {
-    renderAt("2026-07-11T08:00:00", 90) // Saturday intervals, week 1
+    renderAt("2026-08-08T08:00:00", 90) // Saturday intervals
     expect(screen.getByText(/green light/i)).toBeInTheDocument()
   })
 
   it("downshifts an interval day at low readiness", () => {
-    renderAt("2026-07-11T08:00:00", 60) // Saturday intervals
+    renderAt("2026-08-08T08:00:00", 60) // Saturday intervals
     expect(screen.getByText(/downshift, don't skip/i)).toBeInTheDocument()
     // "Zone 2" also appears in the session's own details, hence getAllByText.
     expect(screen.getAllByText(/zone 2/i).length).toBeGreaterThan(0)
   })
 
   it("shows no readiness gate when the score is unavailable", () => {
-    renderAt("2026-07-11T08:00:00", null)
+    renderAt("2026-08-08T08:00:00", null)
     expect(screen.queryByText(/green light/i)).toBeNull()
     expect(screen.queryByText(/downshift/i)).toBeNull()
   })

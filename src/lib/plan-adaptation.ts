@@ -19,7 +19,7 @@
 import {
   PLAN_START_DATE,
   PLAN_TESTS,
-  TEST_DAYS,
+  testDaysForDay,
   type PlanSession,
 } from "@/data/training-plan"
 import { planWeekNumber, sessionForDate } from "@/lib/training-plan"
@@ -142,12 +142,17 @@ export function planSuggestion(
   // plan is measured against. Oldest scheduled test first.
   for (const planTest of PLAN_TESTS) {
     const monday = mondayOfWeek(planTest.week)
-    // Day-of-week comes from TEST_DAYS so this cannot drift from the
-    // schedule. mondayOfWeek is day 1, so the offset is getDay() - 1.
+    // Day-of-week comes from the revision in force during *that* week, so a
+    // later schedule change cannot retroactively move a past test slot.
+    //
+    // The week runs Monday..Sunday, but getDay() puts Sunday at 0. Offsetting
+    // by `getDay() - 1` therefore lands a Sunday slot on the Sunday *before*
+    // the week; (getDay() + 6) % 7 maps Mon->0 ... Sun->6 as intended.
+    const testDays = testDaysForDay(monday)
     const slots = (["pullup_max", "cooper_run"] as const)
       .map((type) => ({
         type,
-        day: addDays(monday, TEST_DAYS[type] - 1),
+        day: addDays(monday, (testDays[type] + 6) % 7),
       }))
       .sort((a, b) => a.day.getTime() - b.day.getTime())
     for (const slot of slots) {
@@ -193,7 +198,7 @@ export function planSuggestion(
     // The Cooper slot in a test week is handled above, not as a regular
     // miss — the test replaces that day's intervals.
     if (
-      day.getDay() === TEST_DAYS.cooper_run &&
+      day.getDay() === testDaysForDay(day).cooper_run &&
       PLAN_TESTS.some((t) => t.week === week)
     )
       continue

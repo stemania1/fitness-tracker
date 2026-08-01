@@ -6,7 +6,7 @@ const d = (y: number, m: number, day: number) => new Date(y, m - 1, day, 12)
 
 describe("todaysWorkout", () => {
   it("expands a Pull A day into named exercise items with sets/reps", () => {
-    const w = todaysWorkout(d(2026, 7, 9)) // Thursday week 1 = Pull A
+    const w = todaysWorkout(d(2026, 8, 6)) // Thursday week 1 = Pull A
     expect(w.title).toMatch(/pull a/i)
     expect(w.type).toBe("strength")
     expect(w.isRest).toBe(false)
@@ -24,30 +24,31 @@ describe("todaysWorkout", () => {
   })
 
   it("expands a Pull B day from its preset", () => {
-    const w = todaysWorkout(d(2026, 7, 7)) // Tuesday week 1 = Pull B
+    const w = todaysWorkout(d(2026, 8, 4)) // Tuesday week 1 = Pull B
     expect(w.title).toMatch(/pull b/i)
     expect(w.items[0].label).toBe("Assisted Pull-Up")
     expect(w.items.length).toBeGreaterThan(3)
   })
 
   it("uses the session detail bullets as items for a cardio day", () => {
-    const w = todaysWorkout(d(2026, 7, 11)) // Saturday = 4×4 intervals
+    const w = todaysWorkout(d(2026, 8, 8)) // Saturday = 4×4 intervals
     expect(w.type).toBe("cardio")
     expect(w.items.length).toBeGreaterThan(0)
     expect(w.items[0].label).toMatch(/warm-up/i)
-    // Phase note surfaces for the interval day.
-    expect(w.sessionNote).toMatch(/3 rounds/i)
+    // Phase note surfaces for the interval day. August is week 5 (Build),
+    // which prescribes 4 rounds — the count is phase-driven, not fixed.
+    expect(w.sessionNote).toMatch(/4 rounds/i)
   })
 
   it("marks a rest day with no items", () => {
-    const w = todaysWorkout(d(2026, 7, 10)) // Friday week 1 = rest
+    const w = todaysWorkout(d(2026, 8, 7)) // Friday week 1 = rest
     expect(w.isRest).toBe(true)
     expect(w.items).toEqual([])
   })
 
   it("flags a deload week and surfaces a test title on test weekends", () => {
     expect(todaysWorkout(d(2026, 8, 18)).isDeload).toBe(true) // week 7
-    expect(todaysWorkout(d(2026, 7, 11)).testTitle).toMatch(/baseline/i)
+    expect(todaysWorkout(d(2026, 7, 11)).testTitle).toMatch(/baseline/i) // week 1
   })
 
   it("still returns the weekly session after the plan ends (week null)", () => {
@@ -59,7 +60,7 @@ describe("todaysWorkout", () => {
 
 describe("plannedSession", () => {
   it("pre-loads Pull A lifts, lifts only", () => {
-    const s = plannedSession(d(2026, 7, 9)) // Thursday = Pull A
+    const s = plannedSession(d(2026, 8, 6)) // Thursday = Pull A
     expect(s.isRest).toBe(false)
     expect(s.name).toMatch(/pull a/i)
     // First lift is the assisted pull-up with its rep target and rest.
@@ -74,7 +75,7 @@ describe("plannedSession", () => {
   })
 
   it("pre-loads Pull B lifts with no cardio finisher", () => {
-    const s = plannedSession(d(2026, 7, 7)) // Tuesday = Pull B
+    const s = plannedSession(d(2026, 8, 4)) // Tuesday = Pull B
     expect(s.name).toMatch(/pull b/i)
     expect(s.exercises.length).toBe(5)
     expect(
@@ -83,7 +84,7 @@ describe("plannedSession", () => {
   })
 
   it("pre-loads one running entry for the 4×4 interval day", () => {
-    const s = plannedSession(d(2026, 7, 11)) // Saturday = 4×4 intervals
+    const s = plannedSession(d(2026, 8, 8)) // Saturday = 4×4 intervals
     expect(s.isRest).toBe(false)
     expect(s.exercises).toHaveLength(1)
     expect(s.exercises[0].exerciseId).toBe("treadmill-run")
@@ -93,7 +94,7 @@ describe("plannedSession", () => {
   it("carries the protocol into the cardio note, not just 'log time'", () => {
     // The screen you hold mid-session has to tell you what to run. These
     // bullets used to live only on the plan card, which is no help at the gym.
-    const s = plannedSession(d(2026, 7, 11)) // Saturday = 4×4
+    const s = plannedSession(d(2026, 8, 8)) // Saturday = 4×4
     const notes = s.exercises[0].notes ?? ""
     expect(notes).toMatch(/4 min @ ~90-95% max HR \/ 3 min easy recovery/)
     expect(notes).toMatch(/10-min warm-up/)
@@ -105,25 +106,25 @@ describe("plannedSession", () => {
   it("leads the cardio note with the phase-adjusted round count", () => {
     // "4×4" in the title is a name, not this week's prescription — the round
     // count changes by phase, so it has to be the first thing you read.
-    const notes = plannedSession(d(2026, 7, 11)).exercises[0].notes ?? ""
+    const notes = plannedSession(d(2026, 8, 8)).exercises[0].notes ?? ""
     expect(notes.split("\n")[0]).toMatch(/this phase/i)
     expect(notes.split("\n")[0]).toMatch(/rounds/i)
   })
 
   it("gives the 30/30 day its own protocol, not the 4×4 one", () => {
-    const notes = plannedSession(d(2026, 7, 12)).exercises[0].notes ?? "" // Sunday
+    const notes = plannedSession(d(2026, 8, 9)).exercises[0].notes ?? "" // Sunday
     expect(notes).toMatch(/30s hard \/ 30s easy/)
     expect(notes).not.toMatch(/90-95% max HR/)
   })
 
   it("pre-loads one bike entry for the 30/30 interval day", () => {
-    const s = plannedSession(d(2026, 7, 12)) // Sunday = 30/30 + Zone 2
+    const s = plannedSession(d(2026, 8, 9)) // Sunday = 30/30 + Zone 2
     expect(s.exercises).toHaveLength(1)
     expect(s.exercises[0].exerciseId).toBe("stationary-bike-exercise")
   })
 
   it("returns no exercises on a rest day", () => {
-    const s = plannedSession(d(2026, 7, 10)) // Friday = rest
+    const s = plannedSession(d(2026, 8, 7)) // Friday = rest
     expect(s.isRest).toBe(true)
     expect(s.exercises).toEqual([])
   })
@@ -131,8 +132,8 @@ describe("plannedSession", () => {
   it("maps every planned exercise to a real catalog id", async () => {
     const { exercises } = await import("@/data/exercises")
     const ids = new Set(exercises.map((e) => e.id))
-    for (const day of [7, 9, 11, 12]) {
-      for (const ex of plannedSession(d(2026, 7, day)).exercises) {
+    for (const day of [4, 6, 8, 9]) {
+      for (const ex of plannedSession(d(2026, 8, day)).exercises) {
         expect(ids.has(ex.exerciseId)).toBe(true)
       }
     }
