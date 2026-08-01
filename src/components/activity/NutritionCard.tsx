@@ -29,6 +29,7 @@ import { DayNav } from "./DayNav"
 import { dayLabel, dayWindow } from "@/lib/day-nav"
 import { useSwipe } from "@/hooks/useSwipe"
 import { getAuthUserId } from "@/lib/supabase/user-query"
+import { CARD_ACCENTS, CHIP_TONES } from "@/lib/constants"
 
 const supabase = createClient()
 
@@ -49,7 +50,7 @@ interface FoodLogRow {
 
 const confidenceBadge: Record<string, string> = {
   low: "bg-amber-100 text-amber-700",
-  medium: "bg-blue-100 text-blue-700",
+  medium: CHIP_TONES.neutral,
   high: "bg-emerald-100 text-emerald-700",
 }
 
@@ -266,7 +267,7 @@ export function NutritionCard({
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <Utensils className="h-5 w-5 text-orange-500" />
+          <Utensils className={`h-5 w-5 ${CARD_ACCENTS.neutral}`} />
           <DayNav
             label={`${dayLabel(offset)}'s Nutrition`}
             onPrev={() => setOffset((o) => o - 1)}

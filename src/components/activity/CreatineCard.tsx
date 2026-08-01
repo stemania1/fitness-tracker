@@ -14,6 +14,7 @@ import {
   DEFAULT_CREATINE_TARGET_G,
 } from "@/lib/creatine-streak"
 import { useUserQuery, getAuthUserId } from "@/lib/supabase/user-query"
+import { CARD_ACCENTS } from "@/lib/constants"
 
 const supabase = createClient()
 
@@ -113,7 +114,7 @@ export function CreatineCard() {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <Pill className="h-5 w-5 text-indigo-500" />
+          <Pill className={`h-5 w-5 ${CARD_ACCENTS.neutral}`} />
           Creatine
         </CardTitle>
       </CardHeader>
@@ -154,7 +155,7 @@ export function CreatineCard() {
               aria-valuemax={progress.targetG}
             >
               <div
-                className={`h-full rounded-full ${progress.met ? "bg-emerald-500" : "bg-indigo-500"}`}
+                className={`h-full rounded-full ${progress.met ? "bg-emerald-500" : "bg-purple-500"}`}
                 style={{ width: `${progress.pct}%` }}
               />
             </div>
@@ -167,7 +168,7 @@ export function CreatineCard() {
                   type="button"
                   onClick={() => addDose.mutate(g)}
                   disabled={busy}
-                  className="flex-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-2 text-sm font-medium text-indigo-800 transition-colors hover:bg-indigo-100 disabled:opacity-50"
+                  className="flex-1 rounded-lg border border-purple-200 bg-purple-50 px-2 py-2 text-sm font-medium text-purple-800 transition-colors hover:bg-purple-100 disabled:opacity-50"
                 >
                   +{g} g
                 </button>
@@ -189,7 +190,7 @@ export function CreatineCard() {
             {/* Habit streak */}
             <div className="flex items-center gap-1.5 border-t border-gray-100 pt-2.5 text-xs">
               <Flame
-                className={`h-4 w-4 ${streak > 0 ? "text-orange-500" : "text-gray-300"}`}
+                className={`h-4 w-4 ${streak > 0 ? "text-emerald-600" : "text-gray-300"}`}
               />
               <span className="text-gray-600">
                 <span className="font-semibold text-gray-900">{streak}</span> day

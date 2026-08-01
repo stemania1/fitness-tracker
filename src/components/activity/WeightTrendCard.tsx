@@ -19,6 +19,7 @@ import {
 import { formatShortDate } from "@/lib/dates"
 import { useProfile } from "@/hooks/useProfile"
 import { useUserQuery } from "@/lib/supabase/user-query"
+import { CARD_ACCENTS } from "@/lib/constants"
 
 const supabase = createClient()
 
@@ -94,7 +95,7 @@ export function WeightTrendCard() {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-base">
-            <Scale className="h-5 w-5 text-blue-500" />
+            <Scale className={`h-5 w-5 ${CARD_ACCENTS.neutral}`} />
             Weight Trend
           </CardTitle>
           {!weightLoading && latestWeight && (

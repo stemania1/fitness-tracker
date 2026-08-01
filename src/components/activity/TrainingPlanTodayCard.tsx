@@ -17,17 +17,18 @@ import type { PlanSuggestion } from "@/lib/plan-adaptation"
 import { DayNav } from "./DayNav"
 import { dayLabel, offsetDate } from "@/lib/day-nav"
 import { useSwipe } from "@/hooks/useSwipe"
+import { CARD_ACCENTS, CHIP_TONES, PANEL_TONES } from "@/lib/constants"
 
 const typeStyles: Record<string, string> = {
-  cardio: "bg-cyan-100 text-cyan-700",
-  strength: "bg-purple-100 text-purple-700",
-  rest: "bg-gray-100 text-gray-600",
+  cardio: CHIP_TONES.brand,
+  strength: CHIP_TONES.brand,
+  rest: CHIP_TONES.neutral,
 }
 
 const gateStyles: Record<Exclude<GateAction, "none">, string> = {
-  go: "bg-emerald-50 text-emerald-700",
-  moderate: "bg-blue-50 text-blue-700",
-  downshift: "bg-amber-50 text-amber-700",
+  go: PANEL_TONES.progress,
+  moderate: PANEL_TONES.neutral,
+  downshift: PANEL_TONES.attention,
 }
 
 interface TrainingPlanTodayCardProps {
@@ -69,7 +70,7 @@ export function TrainingPlanTodayCard({
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-base">
-            <CalendarCheck className="h-5 w-5 text-purple-500" />
+            <CalendarCheck className={`h-5 w-5 ${CARD_ACCENTS.brand}`} />
             <DayNav
               label={`${dayLabel(offset)}'s Plan`}
               onPrev={isToday ? undefined : () => setOffset((o) => o - 1)}
@@ -131,7 +132,7 @@ export function TrainingPlanTodayCard({
         )}
 
         {plan.sessionNote && (
-          <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">
+          <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
             {plan.sessionNote}
           </p>
         )}

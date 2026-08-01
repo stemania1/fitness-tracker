@@ -13,6 +13,7 @@ import {
   type WeekExercise,
 } from "@/lib/weekly-summary"
 import { useUserQuery } from "@/lib/supabase/user-query"
+import { CARD_ACCENTS } from "@/lib/constants"
 
 const supabase = createClient()
 
@@ -103,7 +104,7 @@ export function WeeklyTrainingCard() {
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-base">
-          <CalendarCheck className="h-5 w-5 text-purple-500" />
+          <CalendarCheck className={`h-5 w-5 ${CARD_ACCENTS.progress}`} />
           Training This Week
         </CardTitle>
       </CardHeader>

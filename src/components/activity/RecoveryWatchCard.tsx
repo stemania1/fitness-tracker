@@ -14,6 +14,7 @@ import { Activity, TrendingDown, TrendingUp, Stethoscope } from "lucide-react"
 import { hrvBaseline, type HrvStatus } from "@/lib/recovery"
 import type { DailyMetrics } from "@/lib/sleep-insights"
 import { EMERGENCY_NOTE, shouldSuggestClinician } from "@/data/seek-care"
+import { CARD_ACCENTS } from "@/lib/constants"
 
 const statusBadge: Record<HrvStatus, { label: string; className: string }> = {
   normal: { label: "On track", className: "bg-emerald-100 text-emerald-700" },
@@ -51,7 +52,7 @@ export function RecoveryWatchCard() {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-base">
-            <Activity className="h-5 w-5 text-rose-500" />
+            <Activity className={`h-5 w-5 ${CARD_ACCENTS.attention}`} />
             Recovery Watch
           </CardTitle>
           <Badge className={statusBadge[baseline.status].className}>

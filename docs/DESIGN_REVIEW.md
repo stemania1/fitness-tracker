@@ -11,8 +11,8 @@ concern per file), and the recent extractions (`workout-edits`,
 > tests across 136 files passing. The claim was right by luck, not by
 > evidence.
 
-**Status:** items 1–5 are implemented (see the table at the end). Everything
-else stands as written.
+**Status:** items 1–5, 10 and 11 are implemented (see the table at the end).
+Items 6–9 stand as written.
 
 The problems are not in `lib/`. They are in the **seam between components and
 Supabase**, and in the **UI layer**, where the same five shapes have been
@@ -378,12 +378,17 @@ Worth fixing in the primitive — roughly 40 lines.
 | 7 | `<QuickLogDialog>` shell (2.2) | −250 lines | medium |
 | 8 | Centralize query keys in `lib/queries/` (1.3, 1.4, 1.5) | Kills the collision class | medium |
 | 9 | Thin `dashboard/page.tsx` to composition (2.6) | 577 → ~200 lines | medium |
-| 10 | Dashboard grouping + Insights in nav (4.1, 4.2) | Surfaces built-and-buried features | needs your call |
-| 11 | Accent-token palette + regenerate style guide (§3) | Coherent product | medium |
+| ~~10~~ | ~~Dashboard grouping + Insights in nav (4.1, 4.2)~~ — **done** | Surfaces built-and-buried features | needs your call |
+| ~~11~~ | ~~Accent-token palette + regenerate style guide (§3)~~ — **done** | Coherent product | medium |
 
-1–5 are done. 10 and 11 are product decisions rather than refactors and
-shouldn't be done without a call from you — particularly which of the five nav
-tabs gives way to Insights.
+1–5, 10 and 11 are done. Items 6–9 remain: the `<InsightCard>` and
+`<QuickLogDialog>` shells, centralizing query keys, and thinning
+`dashboard/page.tsx` to composition.
+
+On item 10 the call made was Plan out, Insights in — Plan stays reachable at
+`/plan` from the Today's Plan card. On item 11, `MACRO_TONES` is a deliberate
+exception to the token rule: macro colours are categorical, not semantic, and
+flattening them would make the stacked bar unreadable.
 
 ### What landed, measured
 
@@ -396,7 +401,10 @@ tabs gives way to Insights.
 | `formatDate` definitions | 4 | 0 (4 named helpers in `lib/dates`) |
 | `max-w-*` in the app shell | 0 | `CONTENT_COLUMN`, shared by 3 |
 | Dialogs with focus trap / restore / unique ids | 0 | all |
-| Tests | 1291 | 1316 |
+| Distinct accent hues in activity cards | 15 | 4 + neutral (+ 4 categorical macro) |
+| Card header icon hues | 17 | 4 tokens |
+| Nav tabs reaching Insights | 0 | 1 |
+| Tests | 1291 | 1322 |
 
 Note the auth-user id is now cached for the session. It is cleared on
 sign-in/sign-out via `QueryProvider`, but any test that simulates a signed-out

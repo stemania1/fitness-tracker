@@ -11,6 +11,7 @@ import { estimateStrengthCalories, estimateCardioCalories } from "@/lib/calories
 import { calcWeeklyStreak, startOfWeekISO } from "@/lib/weekly-progress"
 import { useProfile } from "@/hooks/useProfile"
 import { useUserQuery } from "@/lib/supabase/user-query"
+import { CARD_ACCENTS } from "@/lib/constants"
 
 const supabase = createClient()
 
@@ -162,7 +163,7 @@ export function ThisWeekCard() {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <Flame className="h-5 w-5 text-orange-500" />
+          <Flame className={`h-5 w-5 ${CARD_ACCENTS.progress}`} />
           This Week
         </CardTitle>
       </CardHeader>
@@ -189,8 +190,8 @@ export function ThisWeekCard() {
               <Progress value={weeklyProgress} />
             </div>
             {!caloriesLoading && weeklyCalories != null && weeklyCalories > 0 && (
-              <div className="flex items-center gap-2 rounded-lg bg-orange-50 px-3 py-2">
-                <Flame className="h-4 w-4 text-orange-500" />
+              <div className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2">
+                <Flame className="h-4 w-4 text-gray-400" />
                 <span className="text-sm text-gray-700">
                   <span className="font-semibold text-gray-900">
                     {weeklyCalories.toLocaleString()}
@@ -200,8 +201,8 @@ export function ThisWeekCard() {
               </div>
             )}
             {!allWorkoutsLoading && weeklyStreak >= 1 && (
-              <div className="flex items-center gap-2 rounded-lg bg-orange-50 px-3 py-2">
-                <Flame className="h-4 w-4 text-orange-500" />
+              <div className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2">
+                <Flame className="h-4 w-4 text-emerald-600" />
                 <span className="text-sm text-gray-700">
                   <span className="font-semibold text-gray-900">
                     {weeklyStreak}

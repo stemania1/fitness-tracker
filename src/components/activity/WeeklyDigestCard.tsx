@@ -21,6 +21,7 @@ import {
   type Tone,
 } from "@/lib/weekly-digest"
 import { useUserQuery } from "@/lib/supabase/user-query"
+import { CARD_ACCENTS } from "@/lib/constants"
 
 const supabase = createClient()
 
@@ -159,7 +160,7 @@ export function WeeklyDigestCard() {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <ClipboardList className="h-5 w-5 text-purple-500" />
+          <ClipboardList className={`h-5 w-5 ${CARD_ACCENTS.progress}`} />
           Weekly Check-In
         </CardTitle>
       </CardHeader>

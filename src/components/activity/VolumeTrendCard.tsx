@@ -18,6 +18,7 @@ import {
 import { buildWeeklyVolumeTrend, shouldSuggestDeload } from "@/lib/volume-trend"
 import { useStrengthSets } from "@/hooks/useStrengthSets"
 import { useUserQuery } from "@/lib/supabase/user-query"
+import { CARD_ACCENTS } from "@/lib/constants"
 
 const supabase = createClient()
 
@@ -69,7 +70,7 @@ export function VolumeTrendCard() {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <TrendingUp className="h-5 w-5 text-purple-500" />
+          <TrendingUp className={`h-5 w-5 ${CARD_ACCENTS.progress}`} />
           Volume Trend
         </CardTitle>
         <p className="text-xs text-gray-500">

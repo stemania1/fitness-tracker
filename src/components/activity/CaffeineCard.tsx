@@ -16,6 +16,7 @@ import {
 import { localTimeValue, withLocalTime } from "@/lib/meal-time"
 import { useBedtimePlan } from "@/hooks/useBedtimePlan"
 import { useUserQuery, getAuthUserId } from "@/lib/supabase/user-query"
+import { CARD_ACCENTS } from "@/lib/constants"
 
 const supabase = createClient()
 
@@ -138,7 +139,7 @@ export function CaffeineCard() {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <Coffee className="h-5 w-5 text-amber-600" />
+          <Coffee className={`h-5 w-5 ${CARD_ACCENTS.neutral}`} />
           Today&apos;s Caffeine
         </CardTitle>
       </CardHeader>
@@ -192,9 +193,9 @@ export function CaffeineCard() {
             )}
 
             {late.late && (
-              <div className="flex items-start gap-2 rounded-lg border border-indigo-200 bg-indigo-50 p-3">
-                <Moon className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" aria-hidden="true" />
-                <p className="text-xs text-indigo-800">{late.message}</p>
+              <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <Moon className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
+                <p className="text-xs text-amber-800">{late.message}</p>
               </div>
             )}
 

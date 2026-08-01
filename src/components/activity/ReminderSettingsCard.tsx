@@ -21,6 +21,7 @@ import {
   type ReminderSettings,
 } from "@/lib/reminder-settings"
 import { getAuthUserId } from "@/lib/supabase/user-query"
+import { CARD_ACCENTS } from "@/lib/constants"
 
 const supabase = createClient()
 
@@ -155,7 +156,7 @@ export function ReminderSettingsCard({ initial }: { initial: ReminderSettings })
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Bell className="h-5 w-5 text-purple-500" />
+          <Bell className={`h-5 w-5 ${CARD_ACCENTS.neutral}`} />
           Reminders
         </CardTitle>
       </CardHeader>

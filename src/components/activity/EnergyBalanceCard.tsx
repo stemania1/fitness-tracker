@@ -17,15 +17,16 @@ import {
 import type { WeightPoint } from "@/lib/weight-projection"
 import { epochDay } from "@/lib/dates"
 import { useUserQuery } from "@/lib/supabase/user-query"
+import { CARD_ACCENTS, CHIP_TONES, PANEL_TONES } from "@/lib/constants"
 
 const supabase = createClient()
 
 const WINDOW_DAYS = 70
 
 const confidenceStyle: Record<Exclude<TdeeConfidence, "insufficient">, string> = {
-  low: "bg-gray-100 text-gray-600",
-  medium: "bg-blue-100 text-blue-700",
-  high: "bg-emerald-100 text-emerald-700",
+  low: CHIP_TONES.neutral,
+  medium: CHIP_TONES.attention,
+  high: CHIP_TONES.progress,
 }
 
 /**
@@ -101,7 +102,7 @@ export function EnergyBalanceCard() {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <Scale className="h-5 w-5 text-teal-600" />
+          <Scale className={`h-5 w-5 ${CARD_ACCENTS.neutral}`} />
           Energy Balance
         </CardTitle>
       </CardHeader>
@@ -157,7 +158,7 @@ export function EnergyBalanceCard() {
             </div>
 
             {view.target != null && view.rate !== 0 && (
-              <div className="rounded-lg bg-teal-50 px-3 py-2 text-sm text-teal-900">
+              <div className="rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700">
                 <span className="font-semibold">
                   Aim for ~{view.target.toLocaleString()} cal/day
                 </span>{" "}
@@ -166,7 +167,7 @@ export function EnergyBalanceCard() {
               </div>
             )}
             {view.rate === 0 && (
-              <p className="rounded-lg bg-teal-50 px-3 py-2 text-sm text-teal-900">
+              <p className="rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700">
                 You&apos;re at your goal weight — about{" "}
                 <span className="font-semibold">
                   {view.est.tdee.toLocaleString()} cal/day

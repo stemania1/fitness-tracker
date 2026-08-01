@@ -22,6 +22,7 @@ import {
   type OuraMetric,
 } from "@/lib/oura-trends"
 import { useUserQuery } from "@/lib/supabase/user-query"
+import { CARD_ACCENTS } from "@/lib/constants"
 
 const supabase = createClient()
 
@@ -86,7 +87,7 @@ export function SleepTrendCard() {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2 text-base">
-            <Moon className="h-5 w-5 text-indigo-500" />
+            <Moon className={`h-5 w-5 ${CARD_ACCENTS.neutral}`} />
             Sleep &amp; Recovery
           </CardTitle>
           <div className="flex gap-1">
@@ -97,7 +98,7 @@ export function SleepTrendCard() {
                 onClick={() => setMetric(m.key)}
                 className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
                   metric === m.key
-                    ? "bg-indigo-600 text-white"
+                    ? "bg-purple-600 text-white"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 }`}
               >

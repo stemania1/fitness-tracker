@@ -12,6 +12,7 @@ import {
 } from "@/lib/personal-records"
 import { useStrengthSets } from "@/hooks/useStrengthSets"
 import { formatShortDate } from "@/lib/dates"
+import { CARD_ACCENTS } from "@/lib/constants"
 
 /**
  * New weight and rep records from the last 30 days. Combines weight and rep
@@ -40,7 +41,7 @@ export function RecentPRsCard() {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <Trophy className="h-5 w-5 text-yellow-500" />
+          <Trophy className={`h-5 w-5 ${CARD_ACCENTS.progress}`} />
           Recent PRs
         </CardTitle>
         <p className="text-xs text-gray-500">

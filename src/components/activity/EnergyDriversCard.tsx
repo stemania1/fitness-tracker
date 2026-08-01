@@ -13,6 +13,7 @@ import {
 import { classifyMealGl } from "@/lib/glycemic-load"
 import { localDateOf as localDate, shiftDateString as shiftDate } from "@/lib/dates"
 import { useUserQuery } from "@/lib/supabase/user-query"
+import { CARD_ACCENTS } from "@/lib/constants"
 
 const supabase = createClient()
 
@@ -154,7 +155,7 @@ export function EnergyDriversCard() {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <Sparkles className="h-5 w-5 text-violet-500" />
+          <Sparkles className={`h-5 w-5 ${CARD_ACCENTS.neutral}`} />
           What moves your energy
         </CardTitle>
       </CardHeader>

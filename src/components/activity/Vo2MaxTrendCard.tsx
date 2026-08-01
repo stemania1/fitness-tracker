@@ -33,13 +33,14 @@ import { vo2MaxPercentile, percentileLabel } from "@/lib/vo2max-percentile"
 import { QuickLogFitnessTest } from "./QuickLogFitnessTest"
 import { formatShortDate, parseLocalDay } from "@/lib/dates"
 import { useUserQuery } from "@/lib/supabase/user-query"
+import { CARD_ACCENTS, CHIP_TONES, PANEL_TONES } from "@/lib/constants"
 
 const supabase = createClient()
 
 const ratingBadge: Record<string, { label: string; className: string }> = {
-  excellent: { label: "Excellent", className: "bg-emerald-100 text-emerald-700" },
-  average: { label: "Average", className: "bg-blue-100 text-blue-700" },
-  low: { label: "Room to improve", className: "bg-amber-100 text-amber-700" },
+  excellent: { label: "Excellent", className: CHIP_TONES.progress },
+  average: { label: "Average", className: CHIP_TONES.neutral },
+  low: { label: "Room to improve", className: CHIP_TONES.attention },
 }
 
 function formatDay(day: string): string {
@@ -119,7 +120,7 @@ export function Vo2MaxTrendCard({ age, sex }: Vo2MaxTrendCardProps) {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-base">
-            <TrendingUp className="h-5 w-5 text-cyan-500" />
+            <TrendingUp className={`h-5 w-5 ${CARD_ACCENTS.neutral}`} />
             VO2 Max Trend
           </CardTitle>
           <QuickLogFitnessTest />

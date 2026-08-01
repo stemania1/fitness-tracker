@@ -13,6 +13,7 @@ import {
 } from "@/lib/workout-generator"
 import { useProfile } from "@/hooks/useProfile"
 import { getAuthUserId } from "@/lib/supabase/user-query"
+import { CARD_ACCENTS } from "@/lib/constants"
 
 const supabase = createClient()
 
@@ -96,7 +97,7 @@ export function ExpressWorkoutCard() {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <Zap className="h-5 w-5 text-amber-500" />
+          <Zap className={`h-5 w-5 ${CARD_ACCENTS.brand}`} />
           Express workout
         </CardTitle>
       </CardHeader>

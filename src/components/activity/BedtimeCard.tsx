@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { BedDouble, Coffee, Moon } from "lucide-react"
 import { formatClockTime } from "@/lib/bedtime"
 import { useBedtimePlan } from "@/hooks/useBedtimePlan"
+import { CARD_ACCENTS } from "@/lib/constants"
 
 /**
  * Sleep-anchored bedtime target: with a fixed wake time (an early commute,
@@ -20,7 +21,7 @@ export function BedtimeCard() {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <BedDouble className="h-5 w-5 text-indigo-500" />
+          <BedDouble className={`h-5 w-5 ${CARD_ACCENTS.neutral}`} />
           Bedtime Target
         </CardTitle>
       </CardHeader>
@@ -35,7 +36,7 @@ export function BedtimeCard() {
             </p>
             <Link
               href="/profile"
-              className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
+              className="text-sm font-medium text-purple-600 hover:text-purple-700"
             >
               Set wake time →
             </Link>
@@ -52,8 +53,8 @@ export function BedtimeCard() {
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-center gap-2 rounded-lg bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
-                <Moon className="h-4 w-4 shrink-0 text-indigo-500" />
+              <div className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                <Moon className="h-4 w-4 shrink-0 text-gray-400" />
                 <span>
                   Wind down by{" "}
                   <span className="font-semibold">

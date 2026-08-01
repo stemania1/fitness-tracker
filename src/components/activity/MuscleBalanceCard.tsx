@@ -10,6 +10,7 @@ import { exercises as staticExercises } from "@/data/exercises"
 import { formatMuscleGroup } from "@/lib/muscle-groups"
 import { analyzeMuscleBalance, type MuscleSet } from "@/lib/muscle-balance"
 import { useUserQuery } from "@/lib/supabase/user-query"
+import { CARD_ACCENTS } from "@/lib/constants"
 
 const supabase = createClient()
 
@@ -80,7 +81,7 @@ export function MuscleBalanceCard() {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <Scale3d className="h-5 w-5 text-rose-500" />
+          <Scale3d className={`h-5 w-5 ${CARD_ACCENTS.neutral}`} />
           Muscle Balance
         </CardTitle>
       </CardHeader>
@@ -103,7 +104,7 @@ export function MuscleBalanceCard() {
                   </span>
                   <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100">
                     <div
-                      className="h-full rounded-full bg-rose-400"
+                      className="h-full rounded-full bg-purple-400"
                       style={{ width: `${g.sharePct}%` }}
                     />
                   </div>

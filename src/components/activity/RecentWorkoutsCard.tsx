@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Dumbbell, ChevronRight } from "lucide-react"
 import { formatShortDate } from "@/lib/dates"
 import { useUserQuery } from "@/lib/supabase/user-query"
+import { CARD_ACCENTS } from "@/lib/constants"
 
 const supabase = createClient()
 
@@ -32,7 +33,7 @@ export function RecentWorkoutsCard() {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-base">
-            <Dumbbell className="h-5 w-5 text-purple-500" />
+            <Dumbbell className={`h-5 w-5 ${CARD_ACCENTS.neutral}`} />
             Recent Workouts
           </CardTitle>
           <Link

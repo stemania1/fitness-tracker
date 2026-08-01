@@ -31,6 +31,7 @@ import { zoneRange, classifyHeartRate } from "@/lib/heart-rate"
 import { RingBatteryIndicator } from "@/components/activity/RingBatteryIndicator"
 import { localToday } from "@/lib/dates"
 import { useProfile } from "@/hooks/useProfile"
+import { CARD_ACCENTS } from "@/lib/constants"
 
 const supabase = createClient()
 
@@ -84,7 +85,7 @@ export function OuraSummaryCard() {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-base">
-            <Activity className="h-5 w-5 text-teal-500" />
+            <Activity className={`h-5 w-5 ${CARD_ACCENTS.neutral}`} />
             Today&apos;s Oura Summary
           </CardTitle>
           <RingBatteryIndicator battery={ouraSummary?.ringBattery ?? null} />
@@ -116,8 +117,8 @@ export function OuraSummaryCard() {
             <div className="grid grid-cols-2 gap-3">
               {/* Sleep */}
               {(ouraSummary.sleep || ouraSummary.sleepPeriod) && (
-                <div className="rounded-lg bg-indigo-50 p-3">
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-indigo-600">
+                <div className="rounded-lg bg-gray-50 p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-gray-600">
                     <Moon className="h-3.5 w-3.5" />
                     Sleep
                   </div>
@@ -141,8 +142,8 @@ export function OuraSummaryCard() {
 
               {/* Readiness */}
               {ouraSummary.readiness && (
-                <div className="rounded-lg bg-emerald-50 p-3">
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+                <div className="rounded-lg bg-gray-50 p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-gray-600">
                     <Zap className="h-3.5 w-3.5" />
                     Readiness
                   </div>
@@ -161,8 +162,8 @@ export function OuraSummaryCard() {
 
               {/* Activity */}
               {ouraSummary.activity && (
-                <div className="rounded-lg bg-orange-50 p-3">
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-orange-600">
+                <div className="rounded-lg bg-gray-50 p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-gray-600">
                     <Flame className="h-3.5 w-3.5" />
                     Activity
                   </div>
@@ -177,8 +178,8 @@ export function OuraSummaryCard() {
 
               {/* Heart Rate */}
               {ouraSummary.restingHeartRate && (
-                <div className="rounded-lg bg-red-50 p-3">
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-red-500">
+                <div className="rounded-lg bg-gray-50 p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-gray-600">
                     <Heart className="h-3.5 w-3.5" />
                     Avg Heart Rate
                   </div>
@@ -191,8 +192,8 @@ export function OuraSummaryCard() {
 
               {/* Blood Oxygen */}
               {ouraSummary.spo2?.spo2_percentage?.average != null && (
-                <div className="rounded-lg bg-sky-50 p-3">
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-sky-600">
+                <div className="rounded-lg bg-gray-50 p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-gray-600">
                     <Wind className="h-3.5 w-3.5" />
                     Blood Oxygen
                   </div>
@@ -205,8 +206,8 @@ export function OuraSummaryCard() {
 
               {/* Stress */}
               {ouraSummary.stress?.day_summary && (
-                <div className="rounded-lg bg-violet-50 p-3">
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-violet-600">
+                <div className="rounded-lg bg-gray-50 p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-gray-600">
                     <Brain className="h-3.5 w-3.5" />
                     Stress
                   </div>
@@ -223,8 +224,8 @@ export function OuraSummaryCard() {
 
               {/* Resilience */}
               {ouraSummary.resilience?.level && (
-                <div className="rounded-lg bg-teal-50 p-3">
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-teal-600">
+                <div className="rounded-lg bg-gray-50 p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-gray-600">
                     <Shield className="h-3.5 w-3.5" />
                     Resilience
                   </div>
@@ -237,8 +238,8 @@ export function OuraSummaryCard() {
 
               {/* VO2 Max */}
               {ouraSummary.vo2Max != null && (
-                <div className="rounded-lg bg-cyan-50 p-3">
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-cyan-600">
+                <div className="rounded-lg bg-gray-50 p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-gray-600">
                     <TrendingUp className="h-3.5 w-3.5" />
                     VO2 Max
                   </div>

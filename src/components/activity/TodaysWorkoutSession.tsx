@@ -158,7 +158,7 @@ export function TodaysWorkoutSession() {
             </CardHeader>
             <CardContent className="space-y-3">
               {workout.sessionNote && (
-                <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
                   {workout.sessionNote}
                 </p>
               )}

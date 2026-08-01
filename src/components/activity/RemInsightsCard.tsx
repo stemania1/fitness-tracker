@@ -27,6 +27,7 @@ import {
   type CorrelationStrength,
 } from "@/lib/sleep-insights"
 import { formatShortDate, parseLocalDay } from "@/lib/dates"
+import { CARD_ACCENTS, CHIP_TONES } from "@/lib/constants"
 
 const WINDOWS = [30, 60, 90] as const
 
@@ -35,7 +36,7 @@ const strengthBadge: Record<
   { label: string; className: string }
 > = {
   strong: { label: "Strong", className: "bg-purple-100 text-purple-700" },
-  moderate: { label: "Moderate", className: "bg-blue-100 text-blue-700" },
+  moderate: { label: "Moderate", className: CHIP_TONES.neutral },
   weak: { label: "Weak", className: "bg-slate-100 text-slate-600" },
   none: { label: "No link", className: "bg-gray-100 text-gray-500" },
 }
@@ -100,7 +101,7 @@ export function RemInsightsCard() {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-base">
-            <Moon className="h-5 w-5 text-indigo-500" />
+            <Moon className={`h-5 w-5 ${CARD_ACCENTS.neutral}`} />
             REM &amp; Sleep Insights
           </CardTitle>
           <div className="flex rounded-lg bg-gray-100 p-0.5">

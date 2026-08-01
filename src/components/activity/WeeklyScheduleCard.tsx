@@ -8,12 +8,13 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { CalendarRange, Dumbbell, Timer, Moon } from "lucide-react"
 import { buildWeeklySchedule } from "@/lib/weekly-schedule"
 import { useProfile } from "@/hooks/useProfile"
+import { CARD_ACCENTS } from "@/lib/constants"
 
 const supabase = createClient()
 
 const kindStyle = {
   strength: { icon: Dumbbell, cls: "text-purple-500" },
-  long: { icon: Timer, cls: "text-cyan-600" },
+  long: { icon: Timer, cls: "text-gray-400" },
   rest: { icon: Moon, cls: "text-gray-300" },
 } as const
 
@@ -39,7 +40,7 @@ export function WeeklyScheduleCard() {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2 text-base">
-            <CalendarRange className="h-5 w-5 text-teal-600" />
+            <CalendarRange className={`h-5 w-5 ${CARD_ACCENTS.brand}`} />
             Your Realistic Week
           </CardTitle>
           {schedule && (
@@ -92,7 +93,7 @@ export function WeeklyScheduleCard() {
               Built from your workout days and available time.{" "}
               <Link
                 href="/profile"
-                className="font-medium text-teal-700 hover:underline"
+                className="font-medium text-purple-700 hover:underline"
               >
                 Adjust in profile
               </Link>

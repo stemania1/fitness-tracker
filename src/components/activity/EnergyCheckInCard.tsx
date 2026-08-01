@@ -18,6 +18,7 @@ import type { HrvStatus } from "@/lib/recovery"
 import type { CaffeineLevel } from "@/lib/caffeine"
 import { localToday } from "@/lib/dates"
 import { useUserQuery, getAuthUserId } from "@/lib/supabase/user-query"
+import { CARD_ACCENTS, CHIP_TONES, PANEL_TONES } from "@/lib/constants"
 
 const supabase = createClient()
 
@@ -49,15 +50,15 @@ const LEVELS: Array<{ value: EnergyLevel; label: string }> = [
 ]
 
 const bandStyle: Record<EnergyBand, { chip: string; label: string }> = {
-  low: { chip: "bg-amber-100 text-amber-700", label: "Low" },
-  moderate: { chip: "bg-sky-100 text-sky-700", label: "Moderate" },
-  high: { chip: "bg-emerald-100 text-emerald-700", label: "High" },
+  low: { chip: CHIP_TONES.attention, label: "Low" },
+  moderate: { chip: CHIP_TONES.neutral, label: "Moderate" },
+  high: { chip: CHIP_TONES.progress, label: "High" },
 }
 
 const verdictStyle: Record<EnergyReadout["verdict"], string> = {
   matches: "border-emerald-200 bg-emerald-50",
   below: "border-amber-200 bg-amber-50",
-  above: "border-sky-200 bg-sky-50",
+  above: "border-gray-200 bg-gray-50",
 }
 
 /**
@@ -137,7 +138,7 @@ export function EnergyCheckInCard({
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center justify-between text-base">
           <span className="flex items-center gap-2">
-            <BatteryCharging className="h-5 w-5 text-lime-500" />
+            <BatteryCharging className={`h-5 w-5 ${CARD_ACCENTS.neutral}`} />
             Energy Check-In
           </span>
           <span
@@ -164,7 +165,7 @@ export function EnergyCheckInCard({
                   type="button"
                   disabled={mutation.isPending}
                   onClick={() => mutation.mutate(l.value)}
-                  className="flex flex-col items-center gap-1 rounded-lg border border-gray-200 px-1 py-2 text-center transition-colors hover:border-lime-300 hover:bg-lime-50 disabled:opacity-50"
+                  className="flex flex-col items-center gap-1 rounded-lg border border-gray-200 px-1 py-2 text-center transition-colors hover:border-purple-300 hover:bg-purple-50 disabled:opacity-50"
                 >
                   <span className="text-lg font-semibold text-gray-900">{l.value}</span>
                   <span className="text-[10px] leading-tight text-gray-500">{l.label}</span>
@@ -179,7 +180,7 @@ export function EnergyCheckInCard({
           <div className="space-y-3">
             <div className={`rounded-lg border p-3 ${verdictStyle[readout.verdict]}`}>
               <p className="flex items-center gap-1.5 text-sm font-semibold text-gray-900">
-                <Sparkles className="h-4 w-4 text-lime-600" />
+                <Sparkles className="h-4 w-4 text-purple-600" />
                 {readout.headline}
               </p>
               <p className="mt-1 text-sm text-gray-700">{readout.detail}</p>
@@ -215,9 +216,9 @@ export function EnergyCheckInCard({
         {/* Forward-looking sleep note: shown whenever caffeine ran late today,
             independent of the current energy read. */}
         {caffeineWarning && (
-          <div className="mt-3 flex items-start gap-2 rounded-lg border border-indigo-200 bg-indigo-50 p-3">
-            <Moon className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" aria-hidden="true" />
-            <p className="text-xs text-indigo-800">{caffeineWarning}</p>
+          <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <Moon className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
+            <p className="text-xs text-amber-800">{caffeineWarning}</p>
           </div>
         )}
       </CardContent>
