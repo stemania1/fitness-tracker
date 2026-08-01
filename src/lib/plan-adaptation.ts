@@ -19,6 +19,7 @@
 import {
   PLAN_START_DATE,
   PLAN_TESTS,
+  TEST_DAYS,
   type PlanSession,
 } from "@/data/training-plan"
 import { planWeekNumber, sessionForDate } from "@/lib/training-plan"
@@ -141,10 +142,14 @@ export function planSuggestion(
   // plan is measured against. Oldest scheduled test first.
   for (const planTest of PLAN_TESTS) {
     const monday = mondayOfWeek(planTest.week)
-    const slots = [
-      { type: "pullup_max", day: addDays(monday, 5) }, // Saturday
-      { type: "cooper_run", day: addDays(monday, 6) }, // Sunday
-    ]
+    // Day-of-week comes from TEST_DAYS so this cannot drift from the
+    // schedule. mondayOfWeek is day 1, so the offset is getDay() - 1.
+    const slots = (["pullup_max", "cooper_run"] as const)
+      .map((type) => ({
+        type,
+        day: addDays(monday, TEST_DAYS[type] - 1),
+      }))
+      .sort((a, b) => a.day.getTime() - b.day.getTime())
     for (const slot of slots) {
       const daysSince = diffDays(t0, slot.day)
       // Not overdue yet (the day isn't over), or expired.
@@ -185,9 +190,13 @@ export function planSuggestion(
     if (week == null) continue
     const session = sessionForDate(day)
     if (session.type === "rest") continue
-    // Test-week Sundays are the Cooper slot — handled above, not a
-    // regular miss (the test replaces the intervals those weeks).
-    if (day.getDay() === 0 && PLAN_TESTS.some((t) => t.week === week)) continue
+    // The Cooper slot in a test week is handled above, not as a regular
+    // miss — the test replaces that day's intervals.
+    if (
+      day.getDay() === TEST_DAYS.cooper_run &&
+      PLAN_TESTS.some((t) => t.week === week)
+    )
+      continue
     if (loggedOn(workouts, session.title, day)) continue
 
     const rest = nextSessionDay(t0, "rest")

@@ -6,7 +6,7 @@ const d = (y: number, m: number, day: number) => new Date(y, m - 1, day, 12)
 
 describe("todaysWorkout", () => {
   it("expands a Pull A day into named exercise items with sets/reps", () => {
-    const w = todaysWorkout(d(2026, 7, 11)) // Saturday week 1 = Pull A
+    const w = todaysWorkout(d(2026, 7, 9)) // Thursday week 1 = Pull A
     expect(w.title).toMatch(/pull a/i)
     expect(w.type).toBe("strength")
     expect(w.isRest).toBe(false)
@@ -24,14 +24,14 @@ describe("todaysWorkout", () => {
   })
 
   it("expands a Pull B day from its preset", () => {
-    const w = todaysWorkout(d(2026, 7, 9)) // Thursday week 1 = Pull B
+    const w = todaysWorkout(d(2026, 7, 7)) // Tuesday week 1 = Pull B
     expect(w.title).toMatch(/pull b/i)
     expect(w.items[0].label).toBe("Assisted Pull-Up")
     expect(w.items.length).toBeGreaterThan(3)
   })
 
   it("uses the session detail bullets as items for a cardio day", () => {
-    const w = todaysWorkout(d(2026, 7, 7)) // Tuesday = 4×4 intervals
+    const w = todaysWorkout(d(2026, 7, 11)) // Saturday = 4×4 intervals
     expect(w.type).toBe("cardio")
     expect(w.items.length).toBeGreaterThan(0)
     expect(w.items[0].label).toMatch(/warm-up/i)
@@ -53,27 +53,28 @@ describe("todaysWorkout", () => {
   it("still returns the weekly session after the plan ends (week null)", () => {
     const w = todaysWorkout(d(2026, 10, 6)) // after week 12
     expect(w.week).toBeNull()
-    expect(w.type).toBe("cardio") // Tuesday rhythm persists
+    expect(w.type).toBe("strength") // Tuesday rhythm persists (Pull B)
   })
 })
 
 describe("plannedSession", () => {
-  it("pre-loads Pull A lifts plus the Zone 2 bike finisher", () => {
-    const s = plannedSession(d(2026, 7, 11)) // Saturday = Pull A
+  it("pre-loads Pull A lifts, lifts only", () => {
+    const s = plannedSession(d(2026, 7, 9)) // Thursday = Pull A
     expect(s.isRest).toBe(false)
     expect(s.name).toMatch(/pull a/i)
     // First lift is the assisted pull-up with its rep target and rest.
     expect(s.exercises[0].exerciseId).toBe("assisted-pull-up")
     expect(s.exercises[0].reps).toBe("6-8")
     expect(s.exercises[0].sets).toBe(4)
-    // Last entry is the Zone 2 cardio finisher on the bike.
-    const last = s.exercises[s.exercises.length - 1]
-    expect(last.exerciseId).toBe("stationary-bike-exercise")
-    expect(last.reps).toMatch(/min/)
+    // The Zone 2 finisher went away when Pull A moved to a 5:45 AM weekday
+    // slot; Sunday's 30 min carries those aerobic minutes now.
+    expect(
+      s.exercises.some((e) => e.exerciseId === "stationary-bike-exercise")
+    ).toBe(false)
   })
 
   it("pre-loads Pull B lifts with no cardio finisher", () => {
-    const s = plannedSession(d(2026, 7, 9)) // Thursday = Pull B
+    const s = plannedSession(d(2026, 7, 7)) // Tuesday = Pull B
     expect(s.name).toMatch(/pull b/i)
     expect(s.exercises.length).toBe(5)
     expect(
@@ -82,7 +83,7 @@ describe("plannedSession", () => {
   })
 
   it("pre-loads one running entry for the 4×4 interval day", () => {
-    const s = plannedSession(d(2026, 7, 7)) // Tuesday = 4×4 intervals
+    const s = plannedSession(d(2026, 7, 11)) // Saturday = 4×4 intervals
     expect(s.isRest).toBe(false)
     expect(s.exercises).toHaveLength(1)
     expect(s.exercises[0].exerciseId).toBe("treadmill-run")

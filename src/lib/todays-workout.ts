@@ -112,18 +112,9 @@ export function plannedSession(date: Date): PlannedSession {
       restSeconds: ex.restSeconds,
       notes: ex.notes,
     }))
-    // Pull A finishes with 15-20 min easy Zone 2 — pre-add it so the aerobic
-    // minutes get logged in the same session as the lifts.
-    if (session.key === "pull-a") {
-      exercises.push({
-        exerciseId: "stationary-bike-exercise",
-        sets: 1,
-        reps: "15-20 min",
-        restSeconds: 0,
-        notes:
-          "Zone 2 finisher — easy, conversational pace. Elliptical works too; swap the exercise if you used it.",
-      })
-    }
+    // Pull A used to carry a 15-20 min Zone 2 finisher. It moved to a 5:45 AM
+    // weekday slot, where that doesn't fit — Sunday's 30 min covers the
+    // aerobic minutes instead. Both pull days are now lifts only.
     return { name: session.title, isRest: false, exercises }
   }
 
