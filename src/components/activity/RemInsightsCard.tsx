@@ -26,6 +26,7 @@ import {
   type DailyMetrics,
   type CorrelationStrength,
 } from "@/lib/sleep-insights"
+import { formatShortDate, parseLocalDay } from "@/lib/dates"
 
 const WINDOWS = [30, 60, 90] as const
 
@@ -40,10 +41,7 @@ const strengthBadge: Record<
 }
 
 function formatDay(day: string): string {
-  return new Date(`${day}T00:00:00`).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  })
+  return formatShortDate(parseLocalDay(day))
 }
 
 export function RemInsightsCard() {

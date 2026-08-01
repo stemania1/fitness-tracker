@@ -31,6 +31,7 @@ import {
 import { classifyVo2Max, type Sex } from "@/lib/vo2max"
 import { vo2MaxPercentile, percentileLabel } from "@/lib/vo2max-percentile"
 import { QuickLogFitnessTest } from "./QuickLogFitnessTest"
+import { formatShortDate, parseLocalDay } from "@/lib/dates"
 
 const supabase = createClient()
 
@@ -41,10 +42,7 @@ const ratingBadge: Record<string, { label: string; className: string }> = {
 }
 
 function formatDay(day: string): string {
-  return new Date(`${day}T00:00:00`).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  })
+  return formatShortDate(parseLocalDay(day))
 }
 
 interface Vo2MaxTrendCardProps {

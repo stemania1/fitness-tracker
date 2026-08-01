@@ -61,6 +61,7 @@ import {
   Target,
 } from "lucide-react"
 import type { UserGoal, UserProfile } from "@/types/database"
+import { formatMediumDate, formatShortDate } from "@/lib/dates"
 
 const supabase = createClient()
 
@@ -81,21 +82,6 @@ function goalProgress(goal: UserGoal): number {
   const target = goal.target_value
   if (target === 0) return 0
   return Math.min(100, Math.round((current / target) * 100))
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  })
-}
-
-function formatChartDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  })
 }
 
 // ─── Data fetching ─────────────────────────────────────────────
@@ -592,7 +578,7 @@ function GoalCard({
           <div className="flex items-center justify-between text-xs text-gray-500">
             <span>{progress}% complete</span>
             {goal.deadline && (
-              <span>Due {formatDate(goal.deadline)}</span>
+              <span>Due {formatMediumDate(goal.deadline)}</span>
             )}
           </div>
 
@@ -639,7 +625,7 @@ export default function GoalsPage() {
   const weightChartData = useMemo(
     () =>
       (weightLogs ?? []).map((w) => ({
-        date: formatChartDate(w.logged_at),
+        date: formatShortDate(w.logged_at),
         weight: w.weight,
       })),
     [weightLogs]

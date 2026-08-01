@@ -16,13 +16,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Timer } from "lucide-react"
 import { cooperVo2Max, type FitnessTestType } from "@/lib/fitness-tests"
+import { localToday } from "@/lib/dates"
 
 const supabase = createClient()
-
-/** Today as YYYY-MM-DD in the user's local timezone. */
-function localToday(): string {
-  return new Date().toLocaleDateString("en-CA")
-}
 
 export function QuickLogFitnessTest() {
   const [open, setOpen] = useState(false)

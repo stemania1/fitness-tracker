@@ -34,6 +34,7 @@ import { QuickLogStrength } from "@/components/activity/QuickLogStrength"
 import { QuickLogWeight } from "@/components/activity/QuickLogWeight"
 import { TrainingPlanTodayCard } from "@/components/activity/TrainingPlanTodayCard"
 import { todaysWorkout } from "@/lib/todays-workout"
+import { localToday, localDateOf } from "@/lib/dates"
 import { EnergyCheckInCard } from "@/components/activity/EnergyCheckInCard"
 import { BedtimeCard } from "@/components/activity/BedtimeCard"
 import { WeeklyDigestCard } from "@/components/activity/WeeklyDigestCard"
@@ -171,7 +172,7 @@ export default function DashboardPage() {
   }>({
     queryKey: ["oura-summary"],
     queryFn: async () => {
-      const localDate = new Date().toLocaleDateString("en-CA") // YYYY-MM-DD in local tz
+      const localDate = localToday()
       const offsetMin = new Date().getTimezoneOffset() // e.g. 240 for EDT (UTC-4)
       const sign = offsetMin <= 0 ? "+" : "-"
       const absMin = Math.abs(offsetMin)
@@ -217,9 +218,9 @@ export default function DashboardPage() {
   // works on the subjective input alone when Oura data isn't available.
   const trainedToday = useMemo(() => {
     if (!allWorkoutLogs) return false
-    const today = new Date().toLocaleDateString("en-CA")
+    const today = localToday()
     return allWorkoutLogs.some(
-      (w) => new Date(w.started_at).toLocaleDateString("en-CA") === today
+      (w) => localDateOf(w.started_at) === today
     )
   }, [allWorkoutLogs])
 
@@ -312,7 +313,7 @@ export default function DashboardPage() {
   }, [todaysCaffeine, caffeineCutoff])
 
   // --- Reminders: small extra signals the other cards don't already fetch ---
-  const todayStr = new Date().toLocaleDateString("en-CA")
+  const todayStr = localToday()
   const queryClient = useQueryClient()
 
   // Backfill stored Oura daily history once a day (idempotent upsert on the

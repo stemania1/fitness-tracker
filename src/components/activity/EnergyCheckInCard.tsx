@@ -16,13 +16,9 @@ import {
 } from "@/lib/energy"
 import type { HrvStatus } from "@/lib/recovery"
 import type { CaffeineLevel } from "@/lib/caffeine"
+import { localToday } from "@/lib/dates"
 
 const supabase = createClient()
-
-/** Today as YYYY-MM-DD in the user's local timezone. */
-function localToday(): string {
-  return new Date().toLocaleDateString("en-CA")
-}
 
 export interface EnergyCheckInCardProps {
   /** Oura sleep score for last night, 0-100. */

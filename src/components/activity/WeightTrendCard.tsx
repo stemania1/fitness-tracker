@@ -16,6 +16,7 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from "recharts"
+import { formatShortDate } from "@/lib/dates"
 
 const supabase = createClient()
 
@@ -66,10 +67,7 @@ export function WeightTrendCard() {
   const weightChartData = useMemo(
     () =>
       (weightLogs ?? []).map((w) => ({
-        date: new Date(w.logged_at).toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-        }),
+        date: formatShortDate(w.logged_at),
         weight: w.weight,
       })),
     [weightLogs]

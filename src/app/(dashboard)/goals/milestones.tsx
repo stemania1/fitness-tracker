@@ -2,6 +2,7 @@
 
 import { Trophy, Lock } from "lucide-react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
+import { formatMediumDate } from "@/lib/dates"
 
 interface MilestoneDefinition {
   id: string
@@ -60,14 +61,6 @@ const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
     getDate: (data) => data.fourWeekStreakDate,
   },
 ]
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  })
-}
 
 interface MilestonesProps {
   data: MilestoneData
@@ -129,7 +122,7 @@ export default function Milestones({ data }: MilestonesProps) {
               </div>
               {milestone.achieved && milestone.dateAchieved && (
                 <span className="shrink-0 text-xs text-emerald-600">
-                  {formatDate(milestone.dateAchieved)}
+                  {formatMediumDate(milestone.dateAchieved)}
                 </span>
               )}
             </div>

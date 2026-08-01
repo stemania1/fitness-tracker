@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Dumbbell, ChevronRight } from "lucide-react"
+import { formatShortDate } from "@/lib/dates"
 
 const supabase = createClient()
 
@@ -64,10 +65,7 @@ export function RecentWorkoutsCard() {
                 <div>
                   <p className="font-medium text-gray-900">{workout.name}</p>
                   <p className="text-xs text-gray-500">
-                    {new Date(workout.started_at).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })}
+                    {formatShortDate(workout.started_at)}
                     {workout.duration_mins && (
                       <> &middot; {workout.duration_mins} min</>
                     )}

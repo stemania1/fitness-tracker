@@ -15,20 +15,16 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { CheckCircle2, Circle, Moon, ArrowLeft } from "lucide-react"
 import { todaysWorkout } from "@/lib/todays-workout"
+import { localToday } from "@/lib/dates"
 
 const supabase = createClient()
-
-/** Local YYYY-MM-DD for the storage key and started_at. */
-function localDay(): string {
-  return new Date().toLocaleDateString("en-CA")
-}
 
 export function TodaysWorkoutSession() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const workout = useMemo(() => todaysWorkout(new Date()), [])
 
-  const storageKey = `todays-workout:${localDay()}:${workout.title}`
+  const storageKey = `todays-workout:${localToday()}:${workout.title}`
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [startedAt, setStartedAt] = useState<string | null>(null)
 

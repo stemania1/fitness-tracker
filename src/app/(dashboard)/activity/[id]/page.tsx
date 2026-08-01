@@ -32,6 +32,7 @@ import {
 import { estimateOneRepMax } from "@/lib/personal-records"
 import { formatMuscleGroup } from "@/lib/muscle-groups"
 import { SessionRecapCard } from "@/components/activity/SessionRecapCard"
+import { formatLongDate } from "@/lib/dates"
 
 interface SetLogRow {
   id: string
@@ -63,16 +64,6 @@ interface WorkoutDetail {
   duration_mins: number | null
   notes: string | null
   exercises: ExerciseLogRow[]
-}
-
-function formatDate(dateStr: string): string {
-  const d = new Date(dateStr)
-  return d.toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  })
 }
 
 function formatTime(dateStr: string): string {
@@ -421,7 +412,7 @@ export default function WorkoutDetailPage() {
       <div className="mb-6 flex flex-wrap items-center gap-4 text-sm text-gray-500">
         <span className="flex items-center gap-1.5">
           <Calendar className="h-4 w-4" />
-          {formatDate(workout.started_at)}
+          {formatLongDate(workout.started_at)}
         </span>
         {workout.duration_mins != null && (
           <span className="flex items-center gap-1.5">

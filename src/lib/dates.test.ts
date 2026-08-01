@@ -6,6 +6,11 @@ import {
   localDateOf,
   daysAgoDateString,
   epochDay,
+  parseLocalDay,
+  formatShortDate,
+  formatWeekdayShort,
+  formatMediumDate,
+  formatLongDate,
   shiftDateString,
 } from "./dates"
 
@@ -87,5 +92,49 @@ describe("shiftDateString", () => {
   it("handles a leap day", () => {
     expect(shiftDateString("2028-02-28", 1)).toBe("2028-02-29")
     expect(shiftDateString("2028-02-29", 1)).toBe("2028-03-01")
+  })
+})
+
+describe("parseLocalDay", () => {
+  it("lands on local midnight of the given day, not UTC", () => {
+    const d = parseLocalDay("2026-08-01")
+    expect(d.getFullYear()).toBe(2026)
+    expect(d.getMonth()).toBe(7)
+    expect(d.getDate()).toBe(1)
+    expect(d.getHours()).toBe(0)
+  })
+
+  it("round-trips through localDateString", () => {
+    expect(localDateString(parseLocalDay("2028-02-29"))).toBe("2028-02-29")
+  })
+})
+
+describe("display formatters", () => {
+  // Built from local parts so the assertions hold in any timezone.
+  const aug1 = new Date(2026, 7, 1, 14, 30)
+
+  it("formatShortDate omits the year", () => {
+    expect(formatShortDate(aug1)).toBe("Aug 1")
+  })
+
+  it("formatWeekdayShort leads with the weekday", () => {
+    expect(formatWeekdayShort(aug1)).toBe("Sat, Aug 1")
+  })
+
+  it("formatMediumDate includes the year", () => {
+    expect(formatMediumDate(aug1)).toBe("Aug 1, 2026")
+  })
+
+  it("formatLongDate spells out weekday and month", () => {
+    expect(formatLongDate(aug1)).toBe("Saturday, August 1, 2026")
+  })
+
+  it("accepts an ISO string as well as a Date", () => {
+    expect(formatShortDate(aug1.toISOString())).toBe(formatShortDate(aug1))
+    expect(formatMediumDate(aug1.toISOString())).toBe(formatMediumDate(aug1))
+  })
+
+  it("formats a bare YYYY-MM-DD day without drifting a day", () => {
+    expect(formatShortDate(parseLocalDay("2026-08-01"))).toBe("Aug 1")
   })
 })

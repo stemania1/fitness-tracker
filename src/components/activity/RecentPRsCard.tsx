@@ -11,6 +11,7 @@ import {
   findRecentRepPRs,
 } from "@/lib/personal-records"
 import { useStrengthSets } from "@/hooks/useStrengthSets"
+import { formatShortDate } from "@/lib/dates"
 
 /**
  * New weight and rep records from the last 30 days. Combines weight and rep
@@ -61,10 +62,7 @@ export function RecentPRsCard() {
               const e1rm = pr.assisted
                 ? null
                 : estimateOneRepMax(pr.weight, pr.reps)
-              const date = new Date(pr.startedAt).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-              })
+              const date = formatShortDate(pr.startedAt)
               return (
                 <div
                   key={`${pr.kind}-${pr.exerciseName}-${pr.startedAt}`}

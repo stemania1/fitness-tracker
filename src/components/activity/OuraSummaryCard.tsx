@@ -29,6 +29,7 @@ import type { OuraSummary } from "@/lib/oura"
 import { formatSleepDuration } from "@/lib/oura"
 import { zoneRange, classifyHeartRate } from "@/lib/heart-rate"
 import { RingBatteryIndicator } from "@/components/activity/RingBatteryIndicator"
+import { localToday } from "@/lib/dates"
 
 const supabase = createClient()
 
@@ -48,7 +49,7 @@ export function OuraSummaryCard() {
   }>({
     queryKey: ["oura-summary"],
     queryFn: async () => {
-      const localDate = new Date().toLocaleDateString("en-CA") // YYYY-MM-DD in local tz
+      const localDate = localToday()
       const offsetMin = new Date().getTimezoneOffset() // e.g. 240 for EDT (UTC-4)
       const sign = offsetMin <= 0 ? "+" : "-"
       const absMin = Math.abs(offsetMin)
