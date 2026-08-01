@@ -39,7 +39,7 @@ import { adaptiveTarget } from "@/lib/adaptive-target"
 import { suggestedIncrement } from "@/lib/progressive-overload"
 import { useExerciseHistory } from "@/hooks/useExerciseHistory"
 import { useElapsedSeconds } from "@/hooks/useElapsedSeconds"
-import { isNewPersonalRecord, isNewAssistedRecord } from "@/lib/personal-records"
+import { isSessionPersonalRecord } from "@/lib/session-pr"
 import { type CalorieProfile } from "@/lib/calories"
 import { exerciseCalories, workoutCalories } from "@/lib/workout-calories"
 import {
@@ -488,6 +488,13 @@ export default function LogWorkoutPage() {
     !!currentExercise && isOutdoorRun(currentExercise)
   const isDistanceCardioExercise =
     !!currentExercise && isDistanceCardio(currentExercise)
+  // The header row and every set row must share a column template or they
+  // drift out of alignment — they were two copies of this expression.
+  const setGridCols = isDistanceCardioExercise
+    ? "grid-cols-[2.5rem_1fr_1fr_3.5rem_3rem]"
+    : isCardio
+      ? "grid-cols-[2.5rem_1fr_1fr_1fr_3rem]"
+      : "grid-cols-[2.5rem_1fr_1fr_3rem]"
 
   return (
     <div className="mx-auto max-w-lg">
@@ -687,11 +694,7 @@ export default function LogWorkoutPage() {
                 <div
                   className={cn(
                     "mb-2 grid items-center gap-2 text-xs font-medium uppercase text-gray-400",
-                    isDistanceCardioExercise
-                      ? "grid-cols-[2.5rem_1fr_1fr_3.5rem_3rem]"
-                      : isCardio
-                      ? "grid-cols-[2.5rem_1fr_1fr_1fr_3rem]"
-                      : "grid-cols-[2.5rem_1fr_1fr_3rem]"
+                    setGridCols
                   )}
                 >
                   <span className="text-center">Set</span>
@@ -726,42 +729,23 @@ export default function LogWorkoutPage() {
 
                 {/* Set rows */}
                 {currentExercise.sets.map((set, si) => {
-                  // PR = beats the all-time best AND every earlier completed set
-                  // this session. For assisted exercises "best" is the LEAST
-                  // weight (assistance), so the comparison flips.
-                  const assisted = currentExercise.assisted
-                  const earlierWeights = currentExercise.sets
-                    .slice(0, si)
-                    .filter((s) => s.completed && s.weight != null)
-                    .map((s) => s.weight!)
-                  const allTimeBest = assisted ? allTimeMinWeight : allTimeMaxWeight
-                  const candidates = [
-                    ...(allTimeBest != null ? [allTimeBest] : []),
-                    ...earlierWeights,
-                  ]
-                  const threshold = candidates.length
-                    ? assisted
-                      ? Math.min(...candidates)
-                      : Math.max(...candidates)
-                    : null
-                  const setForPR = { weight: set.weight, reps: set.reps }
-                  const isPR =
-                    !isCardio &&
-                    set.completed &&
-                    (assisted
-                      ? isNewAssistedRecord(setForPR, threshold)
-                      : isNewPersonalRecord(setForPR, threshold))
+                  // Beats the all-time best AND every earlier completed set
+                  // this session; inverted for assisted. See lib/session-pr.
+                  const isPR = isSessionPersonalRecord({
+                    sets: currentExercise.sets,
+                    index: si,
+                    assisted: currentExercise.assisted,
+                    allTimeMaxWeight,
+                    allTimeMinWeight,
+                    isCardio,
+                  })
 
                   return (
                   <div
                     key={si}
                     className={cn(
                       "mb-1.5 grid items-center gap-2 rounded-lg px-1 py-1.5 transition-colors",
-                      isDistanceCardioExercise
-                        ? "grid-cols-[2.5rem_1fr_1fr_3.5rem_3rem]"
-                        : isCardio
-                        ? "grid-cols-[2.5rem_1fr_1fr_1fr_3rem]"
-                        : "grid-cols-[2.5rem_1fr_1fr_3rem]",
+                      setGridCols,
                       set.completed && "bg-purple-50",
                       isPR && "ring-1 ring-amber-300 bg-amber-50"
                     )}
