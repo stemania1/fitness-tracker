@@ -1,9 +1,7 @@
 "use client"
 
-import Link from "next/link"
 import { useQuery } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
-import { ChevronLeft } from "lucide-react"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 import { WeeklyScheduleCard } from "@/components/activity/WeeklyScheduleCard"
 import { WeightTrendCard } from "@/components/activity/WeightTrendCard"
@@ -19,31 +17,9 @@ import { RecentPRsCard } from "@/components/activity/RecentPRsCard"
 import { RecentWorkoutsCard } from "@/components/activity/RecentWorkoutsCard"
 import { VolumeTrendCard } from "@/components/activity/VolumeTrendCard"
 import { useProfile } from "@/hooks/useProfile"
+import { Section } from "@/components/layout/section"
 
 const supabase = createClient()
-
-/** A labelled group of cards, so the page reads as sections not a wall. */
-function Section({
-  title,
-  subtitle,
-  children,
-}: {
-  title: string
-  subtitle: string
-  children: React.ReactNode
-}) {
-  return (
-    <section className="space-y-3">
-      <div>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-          {title}
-        </h2>
-        <p className="text-xs text-gray-400">{subtitle}</p>
-      </div>
-      {children}
-    </section>
-  )
-}
 
 /**
  * The analytical half of the app. The dashboard is for what's actionable
@@ -58,13 +34,6 @@ export default function InsightsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <Link
-          href="/dashboard"
-          className="mb-2 inline-flex items-center gap-1 text-sm font-medium text-purple-600 hover:text-purple-700"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          Dashboard
-        </Link>
         <h1 className="text-2xl font-bold text-gray-900">Insights</h1>
         <p className="mt-1 text-sm text-gray-500">
           The longer view — trends and patterns across weeks, rather than

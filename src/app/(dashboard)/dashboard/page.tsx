@@ -15,7 +15,6 @@ import {
   Dumbbell,
   Flame,
   Plus,
-  ChevronRight,
   Moon,
   Heart,
   Zap,
@@ -35,6 +34,8 @@ import { QuickLogWeight } from "@/components/activity/QuickLogWeight"
 import { TrainingPlanTodayCard } from "@/components/activity/TrainingPlanTodayCard"
 import { todaysWorkout } from "@/lib/todays-workout"
 import { localToday, localDateOf } from "@/lib/dates"
+import { Section } from "@/components/layout/section"
+import { useProfile } from "@/hooks/useProfile"
 import { EnergyCheckInCard } from "@/components/activity/EnergyCheckInCard"
 import { BedtimeCard } from "@/components/activity/BedtimeCard"
 import { WeeklyDigestCard } from "@/components/activity/WeeklyDigestCard"
@@ -91,18 +92,7 @@ function OuraInsightRow({ insight }: { insight: OuraInsight }) {
 }
 
 export default function DashboardPage() {
-  const { data: profile, isLoading: profileLoading } = useUserQuery(
-    ["profile"],
-    async (userId: string) => {
-      const { data, error } = await supabase
-        .from("user_profiles")
-        .select("*")
-        .eq("id", userId)
-        .single()
-      if (error) throw error
-      return data
-    }
-  )
+  const { data: profile, isLoading: profileLoading } = useProfile()
 
   // Start Workout opens the day's session in the logger (weights + previous
   // performance) on training days; rest days go to the lightweight rest screen.
@@ -420,7 +410,7 @@ export default function DashboardPage() {
     : "Welcome back!"
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Greeting */}
       <div>
         {profileLoading ? (
@@ -430,132 +420,127 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Smart nudges for anything not yet logged today */}
-      <ErrorBoundary>
-        <RemindersCard reminders={reminders} startWorkoutHref={startWorkoutHref} />
-      </ErrorBoundary>
-
-      {/* Weekly coach digest: all three goals + this week's focus */}
-      <ErrorBoundary>
-        <WeeklyDigestCard />
-      </ErrorBoundary>
-
-      {/* Time-boxed "I have N minutes" workout generator */}
-      <ErrorBoundary>
-        <ExpressWorkoutCard />
-      </ErrorBoundary>
-
-      {/* Quick Actions */}
-      <div className="space-y-2">
-        <Link
-          href={startWorkoutHref}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-purple-700"
-        >
-          <Plus className="h-4 w-4" />
-          Start Workout
-        </Link>
-        <div className="flex gap-2">
-          <QuickLogStrength />
-          <QuickLogExercise />
-          <QuickLogWeight />
-        </div>
-        <div className="flex gap-2">
-          <QuickLogFood />
-          <QuickLogCaffeine />
-        </div>
-      </div>
-
-      {/* Today's prescribed session from the 12-week training plan,
-          readiness-gated when Oura data is available */}
-      <ErrorBoundary>
-        <TrainingPlanTodayCard
-          readinessScore={ouraSummary?.readiness?.score}
-          suggestion={planCatchup}
-        />
-      </ErrorBoundary>
-
-      {/* Subjective energy check-in reconciled against the day's signals */}
-      <ErrorBoundary>
-        <EnergyCheckInCard
-          sleepScore={ouraSummary?.sleep?.score}
-          sleepMinutes={sleepMinutesLastNight}
-          readinessScore={ouraSummary?.readiness?.score}
-          trainedHardToday={trainedToday}
-          fuel={fuelState}
-          caffeine={caffeineLevel}
-          caffeineWarning={caffeineWarning}
-        />
-      </ErrorBoundary>
-
-      {/* Sleep-anchored bedtime target: wind-down + caffeine cutoff from wake time */}
-      <ErrorBoundary>
-        <BedtimeCard />
-      </ErrorBoundary>
-
-      {/* Photo-logged meals: calories in, macros, net vs Oura calories out */}
-      <ErrorBoundary>
-        <NutritionCard
-          caloriesBurnedToday={ouraSummary?.activity?.total_calories}
-          targets={nutritionTargets}
-        />
-      </ErrorBoundary>
-
-      {/* Today's caffeine: total vs guideline, still-active, drinks */}
-      <ErrorBoundary>
-        <CaffeineCard />
-      </ErrorBoundary>
-
-      {/* Daily creatine: one-tap log + streak */}
-      <ErrorBoundary>
-        <CreatineCard />
-      </ErrorBoundary>
-
-      {/* This Week: workout progress, calories burned, streak */}
-      <ErrorBoundary>
-        <ThisWeekCard />
-      </ErrorBoundary>
-
-      {/* Oura Ring Summary */}
-      {/* Today's Oura snapshot (self-fetches the shared oura-summary query) */}
-      <ErrorBoundary>
-        <OuraSummaryCard />
-      </ErrorBoundary>
-
-      {/* Oura Insights */}
-      {ouraInsights.length > 0 && (
+      {/* ── Today ──────────────────────────────────────────────────────
+          The primary action first. Start Workout used to sit fourth, below
+          three advisory cards, which put the one thing this app exists for
+          below the fold. Nudges stay above it because they are how you find
+          out there is something to act on at all. */}
+      <section className="space-y-3">
         <ErrorBoundary>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Zap className="h-5 w-5 text-amber-500" />
-                Insights
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {ouraInsights.map((insight, i) => (
-                  <OuraInsightRow key={i} insight={insight} />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <RemindersCard reminders={reminders} startWorkoutHref={startWorkoutHref} />
         </ErrorBoundary>
-      )}
 
-      {/* The multi-week analytical reads live on their own page, so the
-          dashboard stays about what's actionable today. */}
-      <Link
-        href="/insights"
-        className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-50"
-      >
-        <span>
-          More insights
-          <span className="ml-1 font-normal text-gray-500">
-            — trends, balance, and energy patterns
-          </span>
-        </span>
-        <ChevronRight className="h-4 w-4 shrink-0 text-gray-400" />
-      </Link>
+        <div className="space-y-2">
+          <Link
+            href={startWorkoutHref}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-purple-700"
+          >
+            <Plus className="h-4 w-4" />
+            Start Workout
+          </Link>
+          <div className="flex gap-2">
+            <QuickLogStrength />
+            <QuickLogExercise />
+            <QuickLogWeight />
+          </div>
+          <div className="flex gap-2">
+            <QuickLogFood />
+            <QuickLogCaffeine />
+          </div>
+        </div>
+
+        {/* Today's prescribed session from the 12-week training plan,
+            readiness-gated when Oura data is available */}
+        <ErrorBoundary>
+          <TrainingPlanTodayCard
+            readinessScore={ouraSummary?.readiness?.score}
+            suggestion={planCatchup}
+          />
+        </ErrorBoundary>
+
+        {/* Time-boxed "I have N minutes" generator — the fallback when the
+            prescribed session won't fit the day, so it belongs beside it. */}
+        <ErrorBoundary>
+          <ExpressWorkoutCard />
+        </ErrorBoundary>
+      </section>
+
+      <Section title="Recovery">
+        {/* Subjective energy check-in reconciled against the day's signals */}
+        <ErrorBoundary>
+          <EnergyCheckInCard
+            sleepScore={ouraSummary?.sleep?.score}
+            sleepMinutes={sleepMinutesLastNight}
+            readinessScore={ouraSummary?.readiness?.score}
+            trainedHardToday={trainedToday}
+            fuel={fuelState}
+            caffeine={caffeineLevel}
+            caffeineWarning={caffeineWarning}
+          />
+        </ErrorBoundary>
+
+        {/* Today's Oura snapshot (self-fetches the shared oura-summary query) */}
+        <ErrorBoundary>
+          <OuraSummaryCard />
+        </ErrorBoundary>
+
+        {/* Sleep-anchored bedtime target: wind-down + caffeine cutoff */}
+        <ErrorBoundary>
+          <BedtimeCard />
+        </ErrorBoundary>
+
+        {ouraInsights.length > 0 && (
+          <ErrorBoundary>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Zap className="h-5 w-5 text-amber-500" />
+                  Insights
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {ouraInsights.map((insight, i) => (
+                    <OuraInsightRow key={i} insight={insight} />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </ErrorBoundary>
+        )}
+      </Section>
+
+      <Section title="Fuel">
+        {/* Photo-logged meals: calories in, macros, net vs Oura calories out */}
+        <ErrorBoundary>
+          <NutritionCard
+            caloriesBurnedToday={ouraSummary?.activity?.total_calories}
+            targets={nutritionTargets}
+          />
+        </ErrorBoundary>
+
+        {/* Today's caffeine: total vs guideline, still-active, drinks */}
+        <ErrorBoundary>
+          <CaffeineCard />
+        </ErrorBoundary>
+
+        {/* Daily creatine: one-tap log + streak */}
+        <ErrorBoundary>
+          <CreatineCard />
+        </ErrorBoundary>
+      </Section>
+
+      <Section title="Progress">
+        {/* This Week: workout progress, calories burned, streak */}
+        <ErrorBoundary>
+          <ThisWeekCard />
+        </ErrorBoundary>
+
+        {/* Weekly coach digest: all three goals + this week's focus */}
+        <ErrorBoundary>
+          <WeeklyDigestCard />
+        </ErrorBoundary>
+      </Section>
     </div>
   )
 }
