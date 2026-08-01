@@ -14,6 +14,7 @@ import {
 import type { WeightPoint } from "@/lib/weight-projection"
 import { buildOuraTrend, type OuraDailyPoint } from "@/lib/oura-trends"
 import { epochDay, localDateString } from "@/lib/dates"
+import { countWorkoutsByWeek } from "@/lib/weekly-progress"
 import {
   buildWeeklyDigest,
   type DigestInput,
@@ -85,16 +86,10 @@ export function WeeklyDigestCard() {
             .gte("day", localDateString(new Date(now - 21 * DAY))),
         ])
 
-      // Workouts — this week (last 7d) vs the 7 before.
-      const wThisStart = now - 7 * DAY
-      const wLastStart = now - 14 * DAY
-      let workoutsThisWeek = 0
-      let workoutsLastWeek = 0
-      for (const w of workoutRes.data ?? []) {
-        const t = new Date(w.started_at).getTime()
-        if (t >= wThisStart) workoutsThisWeek++
-        else if (t >= wLastStart) workoutsLastWeek++
-      }
+      // Calendar weeks, shared with This Week so the two cards on the same
+      // screen cannot disagree about what "this week" means.
+      const { thisWeek: workoutsThisWeek, lastWeek: workoutsLastWeek } =
+        countWorkoutsByWeek(workoutRes.data ?? [])
 
       // Adaptive TDEE.
       const weighIns: WeightPoint[] = (weightRes.data ?? []).map((w) => ({

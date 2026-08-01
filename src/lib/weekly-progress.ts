@@ -59,3 +59,31 @@ export function startOfWeekISO(now: Date = new Date()): string {
   d.setHours(0, 0, 0, 0)
   return d.toISOString()
 }
+
+/**
+ * Workout counts for the current calendar week and the one before it.
+ *
+ * The digest previously bucketed on a rolling 7/14 days while This Week used
+ * the calendar week, so the two cards showed different totals on the same
+ * screen and both called it "this week". On a Saturday the rolling window
+ * reached back across the previous weekend and counted those sessions twice
+ * over — once as "last week" when they happened, then again as "this week".
+ *
+ * Calendar weeks are what the user means and what the weekly target is set
+ * against, so that is the definition both cards now use.
+ */
+export function countWorkoutsByWeek(
+  workouts: { started_at: string }[],
+  now: Date = new Date()
+): { thisWeek: number; lastWeek: number } {
+  const thisStart = new Date(startOfWeekISO(now)).getTime()
+  const lastStart = thisStart - 7 * 86_400_000
+  let thisWeek = 0
+  let lastWeek = 0
+  for (const w of workouts) {
+    const t = new Date(w.started_at).getTime()
+    if (t >= thisStart) thisWeek++
+    else if (t >= lastStart) lastWeek++
+  }
+  return { thisWeek, lastWeek }
+}
