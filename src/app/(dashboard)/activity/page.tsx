@@ -1,8 +1,10 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useMemo } from "react"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
+import { useUserQuery } from "@/lib/supabase/user-query"
+import { queryKeys } from "@/lib/queries/keys"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
@@ -32,60 +34,53 @@ const MONTH_NAMES = [
   "July", "August", "September", "October", "November", "December",
 ]
 
+const supabase = createClient()
+
 export default function ActivityPage() {
   const [tab, setTab] = useState<"history" | "calendar">("history")
-  const [logs, setLogs] = useState<WorkoutLogEntry[]>([])
-  const [loading, setLoading] = useState(true)
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date()
     return { year: now.getFullYear(), month: now.getMonth() }
   })
 
-  useEffect(() => {
-    async function fetchLogs() {
-      const supabase = createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data: workoutLogs } = await supabase
+  const { data: logs = [], isLoading: loading } = useUserQuery<WorkoutLogEntry[]>(
+    queryKeys.workoutHistory,
+    async (userId) => {
+      const { data: workoutLogs, error } = await supabase
         .from("workout_logs")
         .select("id, name, started_at, duration_mins")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .not("finished_at", "is", null)
         .order("started_at", { ascending: false })
+      if (error) throw error
+      if (!workoutLogs || workoutLogs.length === 0) return []
 
-      if (!workoutLogs) {
-        setLoading(false)
-        return
-      }
-
-      // Get exercise counts per workout
-      const logIds = workoutLogs.map((l) => l.id)
+      // Exercise counts per workout, in one round-trip rather than N.
       const { data: exerciseLogs } = await supabase
         .from("exercise_logs")
         .select("id, workout_log_id")
-        .in("workout_log_id", logIds.length > 0 ? logIds : ["__none__"])
+        .in(
+          "workout_log_id",
+          workoutLogs.map((l) => l.id)
+        )
 
       const countMap = new Map<string, number>()
       exerciseLogs?.forEach((el) => {
-        countMap.set(el.workout_log_id, (countMap.get(el.workout_log_id) ?? 0) + 1)
+        countMap.set(
+          el.workout_log_id,
+          (countMap.get(el.workout_log_id) ?? 0) + 1
+        )
       })
 
-      setLogs(
-        workoutLogs.map((l) => ({
-          id: l.id,
-          name: l.name,
-          started_at: l.started_at,
-          duration_mins: l.duration_mins,
-          exercise_count: countMap.get(l.id) ?? 0,
-        }))
-      )
-      setLoading(false)
+      return workoutLogs.map((l) => ({
+        id: l.id,
+        name: l.name,
+        started_at: l.started_at,
+        duration_mins: l.duration_mins,
+        exercise_count: countMap.get(l.id) ?? 0,
+      }))
     }
-    fetchLogs()
-  }, [])
+  )
 
   // Calendar data
   const workoutDays = useMemo(() => {

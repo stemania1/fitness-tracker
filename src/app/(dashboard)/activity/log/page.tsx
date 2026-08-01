@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -50,7 +50,10 @@ import {
   type TemplateExerciseRow,
 } from "@/lib/workout-init"
 import { formatMuscleGroup } from "@/lib/muscle-groups"
+import { useQueryClient } from "@tanstack/react-query"
 import { saveWorkout } from "@/lib/save-workout"
+import { invalidateWorkoutData } from "@/lib/queries/invalidate"
+import { useProfile } from "@/hooks/useProfile"
 import {
   buildWorkoutPayload,
   uncheckedExercises,
@@ -76,6 +79,7 @@ import * as edits from "@/lib/workout-edits"
 
 // ── Component ─────────────────────────────────────────────────
 export default function LogWorkoutPage() {
+  const queryClient = useQueryClient()
   const router = useRouter()
   const searchParams = useSearchParams()
   const templateId = searchParams.get("template")
@@ -107,8 +111,6 @@ export default function LogWorkoutPage() {
   // Set when Finish is tapped while some exercises have no checked sets — those
   // won't be saved, so confirm before dropping them silently.
   const [pendingFinish, setPendingFinish] = useState(false)
-  const [userWeightLbs, setUserWeightLbs] = useState<number>(170)
-  const [calorieProfile, setCalorieProfile] = useState<CalorieProfile>({})
   /** When appending to a saved workout: its id and how many exercises it
    *  already has (so new order_index values continue after them). */
   const appendInfo = useRef<{ logId: string; orderOffset: number } | null>(null)
@@ -231,28 +233,18 @@ export default function LogWorkoutPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [templateId, planParam, appendId])
 
-  // Fetch user weight for calorie calculations
-  useEffect(() => {
-    async function fetchWeight() {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: profile } = await supabase
-        .from("user_profiles")
-        .select("current_weight, age, sex, height_inches")
-        .eq("id", user.id)
-        .single()
-      if (profile?.current_weight) setUserWeightLbs(profile.current_weight)
-      if (profile) {
-        setCalorieProfile({
-          age: profile.age,
-          sex: profile.sex,
-          heightInches: profile.height_inches,
-        })
-      }
-    }
-    fetchWeight()
-  }, [])
+  // Body weight and RMR inputs for the calorie estimate, from the shared
+  // profile query rather than this page's own fetch.
+  const { data: profile } = useProfile()
+  const userWeightLbs = profile?.current_weight ?? 170
+  const calorieProfile: CalorieProfile = useMemo(
+    () => ({
+      age: profile?.age,
+      sex: profile?.sex,
+      heightInches: profile?.height_inches,
+    }),
+    [profile?.age, profile?.sex, profile?.height_inches]
+  )
 
   // ── Exercise mutations ──────────────────────────────────────
   // The transforms themselves live in lib/workout-edits.ts (pure + tested);
@@ -360,6 +352,10 @@ export default function LogWorkoutPage() {
 
     try {
       const logId = await saveWorkout(supabase, payload)
+      // Everything derived from workouts — This Week's count and streak,
+      // calories burned, recent workouts, PRs — was served from cache until
+      // it happened to expire. Refresh before navigating away.
+      invalidateWorkoutData(queryClient)
       router.push(`/activity/${logId}`)
     } catch (err) {
       if (isOfflineError(err)) {
