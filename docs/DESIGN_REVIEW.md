@@ -11,8 +11,9 @@ concern per file), and the recent extractions (`workout-edits`,
 > tests across 136 files passing. The claim was right by luck, not by
 > evidence.
 
-**Status:** items 1–5, 10 and 11 are implemented (see the table at the end).
-Items 6–9 stand as written.
+**Status:** every item in the plan at the end of this document is now
+implemented. The findings are kept as written, for the record of what was
+wrong and why it was changed.
 
 The problems are not in `lib/`. They are in the **seam between components and
 Supabase**, and in the **UI layer**, where the same five shapes have been
@@ -374,16 +375,14 @@ Worth fixing in the primitive — roughly 40 lines.
 | ~~3~~ | ~~`useProfile()` — collapse 8 keys to 1 (1.2)~~ — **done** | −7 queries per dashboard mount, fixes stale-weight | low |
 | ~~4~~ | ~~`useUserQuery` helper (1.1)~~ — **done** | −63 copies of the auth preamble, −24 auth round-trips | low |
 | ~~5~~ | ~~Dialog focus trap + `useId` (4.3)~~ — **done** | Real a11y fix, 6 flows | low |
-| 6 | `<InsightCard>` shell (2.1) | −26 × 15 lines, consistent states | medium |
-| 7 | `<QuickLogDialog>` shell (2.2) | −250 lines | medium |
-| 8 | Centralize query keys in `lib/queries/` (1.3, 1.4, 1.5) | Kills the collision class | medium |
-| 9 | Thin `dashboard/page.tsx` to composition (2.6) | 577 → ~200 lines | medium |
+| ~~6~~ | ~~`<InsightCard>` shell (2.1)~~ — **done** | −26 × 15 lines, consistent states | medium |
+| ~~7~~ | ~~`<QuickLogDialog>` shell (2.2)~~ — **done** | −250 lines | medium |
+| ~~8~~ | ~~Centralize query keys in `lib/queries/` (1.3, 1.4, 1.5)~~ — **done** | Kills the collision class | medium |
+| ~~9~~ | ~~Thin `dashboard/page.tsx` to composition (2.6)~~ — **done** | 577 → ~200 lines | medium |
 | ~~10~~ | ~~Dashboard grouping + Insights in nav (4.1, 4.2)~~ — **done** | Surfaces built-and-buried features | needs your call |
 | ~~11~~ | ~~Accent-token palette + regenerate style guide (§3)~~ — **done** | Coherent product | medium |
 
-1–5, 10 and 11 are done. Items 6–9 remain: the `<InsightCard>` and
-`<QuickLogDialog>` shells, centralizing query keys, and thinning
-`dashboard/page.tsx` to composition.
+All eleven are done.
 
 On item 10 the call made was Plan out, Insights in — Plan stays reachable at
 `/plan` from the Today's Plan card. On item 11, `MACRO_TONES` is a deliberate
@@ -404,7 +403,13 @@ flattening them would make the stacked bar unreadable.
 | Distinct accent hues in activity cards | 15 | 4 + neutral (+ 4 categorical macro) |
 | Card header icon hues | 17 | 4 tokens |
 | Nav tabs reaching Insights | 0 | 1 |
-| Tests | 1291 | 1322 |
+| Card shell copies | 26 | 1 (`InsightCard`) |
+| Quick-log dialog shells | 6 | 1 (+1 deliberate exception) |
+| Hand-written `<ErrorBoundary>` wrappers | 25 | 0 (`CardStack`) |
+| `dashboard/page.tsx` | 577 lines, 11 queries | 301 lines, 5 queries |
+| Duplicate day-scoped query pairs | 4 | 0 |
+| `slate-*` utilities (guide said slate, code said gray) | 5 | 0 |
+| Tests | 1291 | 1347 |
 
 Note the auth-user id is now cached for the session. It is cleared on
 sign-in/sign-out via `QueryProvider`, but any test that simulates a signed-out
@@ -417,3 +422,31 @@ split is working, coverage is real, and the pure/IO boundary is respected. The
 recent `workout-edits` / `finish-workout` / `session-pr` extractions are the
 pattern the component layer should follow. Every finding above is in
 `components/`, `app/`, or the seam to Supabase.
+
+
+---
+
+## Deviations from this plan
+
+Three places where following the review as written would have been wrong, so
+it wasn't:
+
+- **The ErrorBoundary in §2.1.** The review said to move it inside
+  `<InsightCard>` so it couldn't be forgotten. A boundary there only sees the
+  subtree the shell renders, so a throw from the card component's own hooks
+  would escape it — strictly less coverage than the hand-written wrappers had.
+  It went into `CardStack` instead, which sits outside the whole component and
+  is still impossible to forget.
+
+- **QuickLogFood in §2.2.** It is not the same shape as the other five: a
+  multi-step photo → estimate → save flow, a "Retake" action where the others
+  have Cancel, its own conditional form and a separate mutation. Putting it
+  through the shell would have meant parameterising away everything the shell
+  exists to standardise.
+
+- **`text-[10px]` in §3.** Listed as type-scale drift. It isn't — it is used
+  consistently for badge chips, figure captions and dense metric rows where a
+  12px label wraps or crowds the number beside it. Bulk-raising twenty
+  call-sites would have churned dense layouts for no accessibility gain (WCAG
+  sets no minimum font size). The guide now documents it as a real tier. The
+  tap-target miss in the same section *was* real and is fixed.

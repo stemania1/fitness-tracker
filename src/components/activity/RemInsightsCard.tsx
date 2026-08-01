@@ -32,7 +32,7 @@ const strengthBadge: Record<
 > = {
   strong: { label: "Strong", className: "bg-purple-100 text-purple-700" },
   moderate: { label: "Moderate", className: CHIP_TONES.neutral },
-  weak: { label: "Weak", className: "bg-slate-100 text-slate-600" },
+  weak: { label: "Weak", className: CHIP_TONES.neutral },
   none: { label: "No link", className: "bg-gray-100 text-gray-500" },
 }
 

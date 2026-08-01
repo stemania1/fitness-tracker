@@ -14,13 +14,9 @@ import {
 } from "@/lib/creatine-streak"
 import { useUserQuery, getAuthUserId } from "@/lib/supabase/user-query"
 import { InsightCard } from "@/components/ui/insight-card"
+import { useCreatineLogs, type CreatineRow } from "@/hooks/useDailyLogs"
 
 const supabase = createClient()
-
-interface CreatineRow {
-  taken_on: string
-  dose_g: number
-}
 
 /**
  * Daily creatine tracker. Doses accumulate across the day (a 10 g target is
@@ -32,31 +28,7 @@ export function CreatineCard() {
   const queryClient = useQueryClient()
   const [busy, setBusy] = useState(false)
 
-  const { data, isLoading } = useUserQuery(
-    ["creatine-logs", today],
-    async (userId: string) => {
-      // A window wide enough to cover any realistic streak.
-      const sinceStr = daysAgoDateString(400)
-      const [logsRes, profileRes] = await Promise.all([
-        supabase
-          .from("creatine_logs")
-          .select("taken_on, dose_g")
-          .eq("user_id", userId)
-          .gte("taken_on", sinceStr)
-          .order("taken_on", { ascending: false }),
-        supabase
-          .from("user_profiles")
-          .select("creatine_target_g")
-          .eq("id", userId)
-          .single(),
-      ])
-      if (logsRes.error) throw logsRes.error
-      return {
-        logs: (logsRes.data ?? []) as CreatineRow[],
-        targetG: profileRes.data?.creatine_target_g ?? DEFAULT_CREATINE_TARGET_G,
-      }
-    }
-  )
+  const { data, isLoading } = useCreatineLogs(today)
 
   const logs = useMemo(() => data?.logs ?? [], [data])
   const todayTotal = useMemo(
@@ -74,7 +46,6 @@ export function CreatineCard() {
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ["creatine-logs"] })
-    queryClient.invalidateQueries({ queryKey: ["creatine-today"] })
   }
 
   /** Add a dose to today's running total (upsert on the day's row). */

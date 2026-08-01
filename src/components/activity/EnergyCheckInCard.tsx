@@ -19,6 +19,7 @@ import { localToday } from "@/lib/dates"
 import { useUserQuery, getAuthUserId } from "@/lib/supabase/user-query"
 import { CARD_ACCENTS, CHIP_TONES, PANEL_TONES } from "@/lib/constants"
 import { InsightCard } from "@/components/ui/insight-card"
+import { useEnergyCheckin } from "@/hooks/useDailyLogs"
 
 const supabase = createClient()
 
@@ -80,20 +81,7 @@ export function EnergyCheckInCard({
   const [reselecting, setReselecting] = useState(false)
 
   const today = localToday()
-  const { data: todaysLevel, isLoading } = useUserQuery(
-    ["energy-checkins", today],
-    async (userId: string) => {
-      const { data, error } = await supabase
-        .from("energy_checkins")
-        .select("level")
-        .eq("user_id", userId)
-        .eq("logged_on", today)
-        .order("created_at", { ascending: false })
-        .limit(1)
-      if (error) throw error
-      return (data?.[0]?.level ?? null) as EnergyLevel | null
-    }
-  )
+  const { data: todaysLevel, isLoading } = useEnergyCheckin(today)
 
   const mutation = useMutation({
     mutationFn: async (level: EnergyLevel) => {

@@ -104,3 +104,18 @@ export function formatLongDate(value: string | Date): string {
     day: "numeric",
   })
 }
+
+/**
+ * The local UTC offset as `+HH:MM` / `-HH:MM`, the shape the Oura API wants.
+ *
+ * `getTimezoneOffset()` returns *minutes behind UTC*, so the sign is inverted
+ * relative to the ISO notation — EDT reports 240 and must render as `-04:00`.
+ * That inversion is the whole reason this is a named, tested function rather
+ * than four lines copied into each caller, which is how it started.
+ */
+export function localUtcOffset(d: Date = new Date()): string {
+  const offsetMin = d.getTimezoneOffset()
+  const sign = offsetMin <= 0 ? "+" : "-"
+  const abs = Math.abs(offsetMin)
+  return `${sign}${pad2(Math.floor(abs / 60))}:${pad2(abs % 60)}`
+}

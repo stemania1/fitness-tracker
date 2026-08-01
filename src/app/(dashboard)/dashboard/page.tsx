@@ -25,7 +25,6 @@ import {
 } from "lucide-react"
 import type { OuraSummary } from "@/lib/oura"
 import { generateInsights } from "@/lib/oura-insights"
-import { macroTargets } from "@/lib/macro-targets"
 import { planSuggestion } from "@/lib/plan-adaptation"
 import type { OuraInsight } from "@/lib/oura-insights"
 import { QuickLogExercise } from "@/components/activity/QuickLogExercise"
@@ -33,19 +32,17 @@ import { QuickLogStrength } from "@/components/activity/QuickLogStrength"
 import { QuickLogWeight } from "@/components/activity/QuickLogWeight"
 import { TrainingPlanTodayCard } from "@/components/activity/TrainingPlanTodayCard"
 import { todaysWorkout } from "@/lib/todays-workout"
-import { localToday, localDateOf } from "@/lib/dates"
+import { localToday } from "@/lib/dates"
 import { Section } from "@/components/layout/section"
+import { ouraSummaryQuery } from "@/lib/queries/oura"
+import { queryKeys } from "@/lib/queries/keys"
+import { useTodaysSignals } from "@/hooks/useTodaysSignals"
 import { useProfile } from "@/hooks/useProfile"
 import { EnergyCheckInCard } from "@/components/activity/EnergyCheckInCard"
 import { BedtimeCard } from "@/components/activity/BedtimeCard"
 import { WeeklyDigestCard } from "@/components/activity/WeeklyDigestCard"
 import { ExpressWorkoutCard } from "@/components/activity/ExpressWorkoutCard"
 import { ThisWeekCard } from "@/components/activity/ThisWeekCard"
-import { deriveFuelState } from "@/lib/energy"
-import { caffeineStatus, lateCaffeineFlag } from "@/lib/caffeine"
-import { useBedtimePlan } from "@/hooks/useBedtimePlan"
-import { computeReminders } from "@/lib/reminders"
-import { normalizeReminderSettings } from "@/lib/reminder-settings"
 import { RemindersCard } from "@/components/activity/RemindersCard"
 import { QuickLogFood } from "@/components/activity/QuickLogFood"
 import { QuickLogCaffeine } from "@/components/activity/QuickLogCaffeine"
@@ -53,7 +50,8 @@ import { NutritionCard } from "@/components/activity/NutritionCard"
 import { CaffeineCard } from "@/components/activity/CaffeineCard"
 import { CreatineCard } from "@/components/activity/CreatineCard"
 import { OuraSummaryCard } from "@/components/activity/OuraSummaryCard"
-import { ErrorBoundary } from "@/components/ui/error-boundary"
+import { CardStack } from "@/components/ui/card-stack"
+import { InsightCard } from "@/components/ui/insight-card"
 import { useUserQuery } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
@@ -148,32 +146,9 @@ export default function DashboardPage() {
   )
 
   // Oura Ring daily summary
-  const { data: ouraResult } = useQuery<{
-    connected: boolean
-    summary: OuraSummary | null
-    error?: string
-  }>({
-    queryKey: ["oura-summary"],
-    queryFn: async () => {
-      const localDate = localToday()
-      const offsetMin = new Date().getTimezoneOffset() // e.g. 240 for EDT (UTC-4)
-      const sign = offsetMin <= 0 ? "+" : "-"
-      const absMin = Math.abs(offsetMin)
-      const tzOffset = `${sign}${String(Math.floor(absMin / 60)).padStart(2, "0")}:${String(absMin % 60).padStart(2, "0")}`
-      const res = await fetch(`/api/oura?date=${localDate}&tz_offset=${encodeURIComponent(tzOffset)}`)
-      if (res.status === 404) return { connected: false, summary: null }
-      if (res.status === 401) return { connected: true, summary: null, error: "token_expired" }
-      if (!res.ok) return { connected: true, summary: null, error: "fetch_failed" }
-      const summary = (await res.json()) as OuraSummary
-      return { connected: true, summary }
-    },
-    retry: false,
-  })
+  const { data: ouraResult } = useQuery(ouraSummaryQuery())
 
   const ouraSummary = ouraResult?.summary ?? null
-
-  // Recommended daily calorie/macro targets for the nutrition card.
-  const nutritionTargets = useMemo(() => macroTargets(profile), [profile])
 
   // Missed-session catch-up suggestion for the Today's Plan card.
   const planCatchup = useMemo(
@@ -197,109 +172,26 @@ export default function DashboardPage() {
     [ouraSummary, profile?.age, profile?.sex]
   )
 
-  // Signals for the energy check-in read. Everything is optional — the card
-  // works on the subjective input alone when Oura data isn't available.
-  const trainedToday = useMemo(() => {
-    if (!allWorkoutLogs) return false
-    const today = localToday()
-    return allWorkoutLogs.some(
-      (w) => localDateOf(w.started_at) === today
-    )
-  }, [allWorkoutLogs])
-
-  const sleepMinutesLastNight =
-    ouraSummary?.sleepPeriod?.total_sleep_duration != null
-      ? Math.round(ouraSummary.sleepPeriod.total_sleep_duration / 60)
-      : null
-
-  // Today's fuel, for the energy read: total calories in + recency of the last
-  // meal. Its own lightweight query (distinct key from the Nutrition card so
-  // neither clobbers the other's cached shape).
-  const { data: todaysFuelLogs } = useUserQuery(
-    ["energy-fuel-today"],
-    async (userId: string) => {
-      const dayStart = new Date()
-      dayStart.setHours(0, 0, 0, 0)
-      const { data, error } = await supabase
-        .from("food_logs")
-        .select("calories, logged_at")
-        .eq("user_id", userId)
-        .gte("logged_at", dayStart.toISOString())
-        .order("logged_at", { ascending: true })
-      if (error) throw error
-      return data ?? []
-    }
-  )
-
-  const fuelState = useMemo(() => {
-    if (!todaysFuelLogs) return null
-    const caloriesConsumed = todaysFuelLogs.reduce((sum, m) => sum + m.calories, 0)
-    const lastMeal = todaysFuelLogs[todaysFuelLogs.length - 1]
-    const minutesSinceLastMeal = lastMeal
-      ? Math.round((Date.now() - new Date(lastMeal.logged_at).getTime()) / 60000)
-      : null
-    return deriveFuelState({
-      hour: new Date().getHours(),
-      caloriesConsumed,
-      calorieTarget: nutritionTargets?.calories ?? null,
-      minutesSinceLastMeal,
-    })
-  }, [todaysFuelLogs, nutritionTargets])
-
-  // Today's caffeine, for the energy read (alertness/crash) and the
-  // late-caffeine sleep warning.
-  const { data: todaysCaffeine } = useUserQuery(
-    ["caffeine-today"],
-    async (userId: string) => {
-      const dayStart = new Date()
-      dayStart.setHours(0, 0, 0, 0)
-      const { data, error } = await supabase
-        .from("caffeine_logs")
-        .select("mg, logged_at")
-        .eq("user_id", userId)
-        .gte("logged_at", dayStart.toISOString())
-        .order("logged_at", { ascending: true })
-      if (error) throw error
-      return data ?? []
-    }
-  )
-
-  // The late-caffeine warning judges against the user's own cutoff, derived
-  // from their wake time and sleep goal.
-  const { plan: bedtimePlan } = useBedtimePlan()
-  const caffeineCutoff = bedtimePlan?.caffeineCutoff
-
-  const { caffeineLevel, caffeineWarning } = useMemo(() => {
-    if (!todaysCaffeine || todaysCaffeine.length === 0) {
-      return { caffeineLevel: null, caffeineWarning: null }
-    }
-    const now = Date.now()
-    const doses = todaysCaffeine.map((c) => {
-      const t = new Date(c.logged_at)
-      return {
-        mg: c.mg,
-        minutesAgo: Math.round((now - t.getTime()) / 60000),
-        hour: t.getHours(),
-        minute: t.getMinutes(),
-      }
-    })
-    const status = caffeineStatus(doses)
-    const flag = lateCaffeineFlag(doses, caffeineCutoff)
-    return {
-      caffeineLevel: status.level === "none" ? null : status.level,
-      caffeineWarning: flag.late ? flag.message : null,
-    }
-  }, [todaysCaffeine, caffeineCutoff])
-
-  // --- Reminders: small extra signals the other cards don't already fetch ---
-  const todayStr = localToday()
-  const queryClient = useQueryClient()
+  // Everything derived about today — fuel, caffeine, reminders, whether a
+  // workout has happened yet — lives in one hook rather than eleven queries
+  // and six memos inline. See hooks/useTodaysSignals.
+  const {
+    fuel,
+    caffeineLevel,
+    caffeineWarning,
+    trainedToday,
+    sleepMinutesLastNight,
+    reminders,
+    nutritionTargets,
+  } = useTodaysSignals(ouraSummary, allWorkoutLogs ?? undefined)
 
   // Backfill stored Oura daily history once a day (idempotent upsert on the
   // server; no-op when Oura isn't connected). Powers the energy correlations
   // and long-term sleep/readiness trends.
+  const todayStr = localToday()
+  const queryClient = useQueryClient()
   const { data: ouraSync } = useQuery({
-    queryKey: ["oura-sync", todayStr],
+    queryKey: queryKeys.ouraSync(todayStr),
     queryFn: async () => {
       const res = await fetch("/api/oura/sync", { method: "POST" })
       return res.ok ? await res.json() : { synced: 0 }
@@ -312,98 +204,6 @@ export default function DashboardPage() {
       queryClient.invalidateQueries({ queryKey: ["energy-drivers"] })
     }
   }, [ouraSync, queryClient])
-
-  const { data: energyCheckedInToday } = useUserQuery(
-    ["energy-checkin-exists", todayStr],
-    async (userId: string) => {
-      const { data, error } = await supabase
-        .from("energy_checkins")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("logged_on", todayStr)
-        .limit(1)
-      if (error) throw error
-      return (data?.length ?? 0) > 0
-    }
-  )
-
-  const { data: creatineTakenToday } = useUserQuery(
-    ["creatine-today", todayStr],
-    async (userId: string) => {
-      const { data, error } = await supabase
-        .from("creatine_logs")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("taken_on", todayStr)
-        .limit(1)
-      if (error) throw error
-      return (data?.length ?? 0) > 0
-    }
-  )
-
-  const { data: lastWeighInAt } = useUserQuery(
-    ["last-weigh-in"],
-    async (userId: string) => {
-      const { data, error } = await supabase
-        .from("weight_logs")
-        .select("logged_at")
-        .eq("user_id", userId)
-        .order("logged_at", { ascending: false })
-        .limit(1)
-      if (error) throw error
-      return (data?.[0]?.logged_at ?? null) as string | null
-    }
-  )
-
-  const reminders = useMemo(() => {
-    const now = new Date()
-    const startOfDayMs = (d: Date) => {
-      const x = new Date(d)
-      x.setHours(0, 0, 0, 0)
-      return x.getTime()
-    }
-    const today0 = startOfDayMs(now)
-    const dayDiff = (iso: string) =>
-      Math.round((today0 - startOfDayMs(new Date(iso))) / 86_400_000)
-
-    // While a query is still loading, feed a value that suppresses its nudge
-    // so nothing flashes before the data lands.
-    const daysSinceLastWorkout =
-      allWorkoutLogs === undefined
-        ? 0
-        : allWorkoutLogs.length === 0
-          ? null
-          : dayDiff(allWorkoutLogs[allWorkoutLogs.length - 1].started_at)
-
-    const daysSinceLastWeighIn =
-      lastWeighInAt === undefined
-        ? 0
-        : lastWeighInAt === null
-          ? null
-          : dayDiff(lastWeighInAt)
-
-    return computeReminders(
-      {
-        hour: now.getHours(),
-        mealsLoggedToday: todaysFuelLogs === undefined ? 99 : todaysFuelLogs.length,
-        workedOutToday: trainedToday,
-        daysSinceLastWorkout,
-        energyCheckedInToday: energyCheckedInToday ?? true,
-        daysSinceLastWeighIn,
-        // Suppress the creatine nudge until the query resolves.
-        creatineTakenToday: creatineTakenToday ?? true,
-      },
-      normalizeReminderSettings(profile?.reminder_settings)
-    )
-  }, [
-    allWorkoutLogs,
-    lastWeighInAt,
-    todaysFuelLogs,
-    trainedToday,
-    energyCheckedInToday,
-    creatineTakenToday,
-    profile?.reminder_settings,
-  ])
 
   const greeting = profile?.display_name
     ? `Welcome, ${profile.display_name}!`
@@ -425,10 +225,11 @@ export default function DashboardPage() {
           three advisory cards, which put the one thing this app exists for
           below the fold. Nudges stay above it because they are how you find
           out there is something to act on at all. */}
-      <section className="space-y-3">
-        <ErrorBoundary>
-          <RemindersCard reminders={reminders} startWorkoutHref={startWorkoutHref} />
-        </ErrorBoundary>
+      <CardStack className="space-y-3">
+        <RemindersCard
+          reminders={reminders}
+          startWorkoutHref={startWorkoutHref}
+        />
 
         <div className="space-y-2">
           <Link
@@ -449,97 +250,51 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Today's prescribed session from the 12-week training plan,
-            readiness-gated when Oura data is available */}
-        <ErrorBoundary>
-          <TrainingPlanTodayCard
-            readinessScore={ouraSummary?.readiness?.score}
-            suggestion={planCatchup}
-          />
-        </ErrorBoundary>
+        {/* Today's prescribed session, readiness-gated when Oura is connected */}
+        <TrainingPlanTodayCard
+          readinessScore={ouraSummary?.readiness?.score}
+          suggestion={planCatchup}
+        />
 
-        {/* Time-boxed "I have N minutes" generator — the fallback when the
-            prescribed session won't fit the day, so it belongs beside it. */}
-        <ErrorBoundary>
-          <ExpressWorkoutCard />
-        </ErrorBoundary>
-      </section>
+        {/* The time-boxed fallback, for when the prescribed session won't fit */}
+        <ExpressWorkoutCard />
+      </CardStack>
 
       <Section title="Recovery">
-        {/* Subjective energy check-in reconciled against the day's signals */}
-        <ErrorBoundary>
-          <EnergyCheckInCard
-            sleepScore={ouraSummary?.sleep?.score}
-            sleepMinutes={sleepMinutesLastNight}
-            readinessScore={ouraSummary?.readiness?.score}
-            trainedHardToday={trainedToday}
-            fuel={fuelState}
-            caffeine={caffeineLevel}
-            caffeineWarning={caffeineWarning}
-          />
-        </ErrorBoundary>
-
-        {/* Today's Oura snapshot (self-fetches the shared oura-summary query) */}
-        <ErrorBoundary>
-          <OuraSummaryCard />
-        </ErrorBoundary>
-
-        {/* Sleep-anchored bedtime target: wind-down + caffeine cutoff */}
-        <ErrorBoundary>
-          <BedtimeCard />
-        </ErrorBoundary>
-
+        <EnergyCheckInCard
+          sleepScore={ouraSummary?.sleep?.score}
+          sleepMinutes={sleepMinutesLastNight}
+          readinessScore={ouraSummary?.readiness?.score}
+          trainedHardToday={trainedToday}
+          fuel={fuel}
+          caffeine={caffeineLevel}
+          caffeineWarning={caffeineWarning}
+        />
+        <OuraSummaryCard />
+        <BedtimeCard />
         {ouraInsights.length > 0 && (
-          <ErrorBoundary>
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Zap className="h-5 w-5 text-amber-500" />
-                  Insights
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {ouraInsights.map((insight, i) => (
-                    <OuraInsightRow key={i} insight={insight} />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </ErrorBoundary>
+          <InsightCard icon={Zap} accent="attention" title="Insights">
+            <div className="space-y-3">
+              {ouraInsights.map((insight, i) => (
+                <OuraInsightRow key={i} insight={insight} />
+              ))}
+            </div>
+          </InsightCard>
         )}
       </Section>
 
       <Section title="Fuel">
-        {/* Photo-logged meals: calories in, macros, net vs Oura calories out */}
-        <ErrorBoundary>
-          <NutritionCard
-            caloriesBurnedToday={ouraSummary?.activity?.total_calories}
-            targets={nutritionTargets}
-          />
-        </ErrorBoundary>
-
-        {/* Today's caffeine: total vs guideline, still-active, drinks */}
-        <ErrorBoundary>
-          <CaffeineCard />
-        </ErrorBoundary>
-
-        {/* Daily creatine: one-tap log + streak */}
-        <ErrorBoundary>
-          <CreatineCard />
-        </ErrorBoundary>
+        <NutritionCard
+          caloriesBurnedToday={ouraSummary?.activity?.total_calories}
+          targets={nutritionTargets}
+        />
+        <CaffeineCard />
+        <CreatineCard />
       </Section>
 
       <Section title="Progress">
-        {/* This Week: workout progress, calories burned, streak */}
-        <ErrorBoundary>
-          <ThisWeekCard />
-        </ErrorBoundary>
-
-        {/* Weekly coach digest: all three goals + this week's focus */}
-        <ErrorBoundary>
-          <WeeklyDigestCard />
-        </ErrorBoundary>
+        <ThisWeekCard />
+        <WeeklyDigestCard />
       </Section>
     </div>
   )

@@ -86,7 +86,13 @@ font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe U
 | Section heading | `text-lg font-semibold` | 18px | 600 |
 | Card title | `text-base font-semibold` | 16px | 600 |
 | Body text | `text-sm` | 14px | 400 |
-| Caption / label | `text-xs text-slate-600` | 12px | 400 |
+| Caption / label | `text-xs text-gray-600` | 12px | 400 |
+| Micro-label | `text-[10px]` | 10px | 400/500 |
+
+`text-[10px]` is a deliberate tier, not drift: it is for badge chips, figure
+captions and dense metric rows where a 12px label would wrap or crowd the
+number it belongs to. It is never used for body copy or anything a user has
+to read at length.
 | Numbers (weight, reps) | `text-lg font-mono font-bold` | 18px | 700 |
 
 ## Spacing & Layout
@@ -188,11 +194,14 @@ than stacking them in one flat list. The dashboard leads with a Today block
 Honest list of where the code still disagrees with this document, so the guide
 stays trustworthy:
 
-- **Tap targets.** The stated 44px minimum is not met by the bottom nav
-  (`py-1` + `text-xs`) or by the small metric chips (`px-2.5 py-1`).
-- **Type scale.** 20 uses of `text-[10px]`, below the 12px caption floor.
-- **Responsive.** ~10 responsive utilities app-wide; the `md`/`lg` layouts in
-  the breakpoint table below are aspirational, not implemented.
+- **Tap targets.** The bottom nav now meets the 44px minimum (`min-h-11`).
+  Small inline chips (`px-2.5 py-1` metric toggles, backdate chips) still do
+  not. They sit inside cards rather than in the primary navigation, so they
+  are a lower priority, but they are a real miss.
+- **Responsive.** ~10 responsive utilities app-wide. The `md`/`lg` rows in the
+  breakpoint table below describe an intent, not an implementation — the app
+  is a capped mobile column at every width. Building real desktop layouts is a
+  feature, not a cleanup, so it is not being quietly slipped in.
 
 ## Dark Mode
 Not in v1. Design with light mode only. When added later, use Tailwind `dark:` variants over the `gray` ramp above.

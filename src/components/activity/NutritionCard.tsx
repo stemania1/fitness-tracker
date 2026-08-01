@@ -25,23 +25,9 @@ import { useSwipe } from "@/hooks/useSwipe"
 import { getAuthUserId } from "@/lib/supabase/user-query"
 import { CARD_ACCENTS, CHIP_TONES } from "@/lib/constants"
 import { InsightCard } from "@/components/ui/insight-card"
+import { useFoodLogs, type FoodLogRow } from "@/hooks/useDailyLogs"
 
 const supabase = createClient()
-
-interface FoodLogRow {
-  id: string
-  description: string
-  meal_type: string
-  calories: number
-  protein_g: number
-  carbs_g: number
-  fat_g: number
-  sugar_g: number
-  glycemic_load: number
-  confidence: "low" | "medium" | "high" | null
-  image_path: string | null
-  logged_at: string
-}
 
 const confidenceBadge: Record<string, string> = {
   low: "bg-amber-100 text-amber-700",
@@ -95,25 +81,7 @@ export function NutritionCard({
     })
   }
 
-  const { data: logs, isLoading } = useQuery({
-    // Prefix stays "food-logs-today" so existing invalidations (after logging
-    // or editing a meal) still refresh this card whatever day it's showing.
-    queryKey: ["food-logs-today", startIso],
-    queryFn: async (): Promise<FoodLogRow[]> => {
-      const userId = await getAuthUserId()
-      const { data, error } = await supabase
-        .from("food_logs")
-        .select(
-          "id, description, meal_type, calories, protein_g, carbs_g, fat_g, sugar_g, glycemic_load, confidence, image_path, logged_at"
-        )
-        .eq("user_id", userId)
-        .gte("logged_at", startIso)
-        .lt("logged_at", endIso)
-        .order("logged_at", { ascending: true })
-      if (error) throw error
-      return data ?? []
-    },
-  })
+  const { data: logs, isLoading } = useFoodLogs(startIso, endIso)
 
   // One-tap second serving: re-insert an identical food log with a fresh
   // timestamp, so you don't have to photograph the same food again.

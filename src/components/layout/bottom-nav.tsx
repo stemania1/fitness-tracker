@@ -49,8 +49,11 @@ export function BottomNav() {
               href={tab.href}
               aria-current={isActive ? "page" : undefined}
               className={cn(
-                "flex flex-col items-center gap-0.5 px-3 py-1 text-xs font-medium transition-colors",
-                isActive ? "text-purple-600" : "text-slate-400 hover:text-slate-600"
+                // min-h-11 is the 44px tap target the style guide asks for; py-1 alone
+                // left these at ~36px, which is the single worst offender in an app
+                // meant to be used one-handed at the gym.
+                "flex min-h-11 flex-col items-center justify-center gap-0.5 px-3 py-1.5 text-xs font-medium transition-colors",
+                isActive ? "text-purple-600" : "text-gray-400 hover:text-gray-600"
               )}
             >
               <Icon className="h-5 w-5" aria-hidden="true" />

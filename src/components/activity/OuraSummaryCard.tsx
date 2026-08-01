@@ -30,6 +30,7 @@ import { zoneRange, classifyHeartRate } from "@/lib/heart-rate"
 import { RingBatteryIndicator } from "@/components/activity/RingBatteryIndicator"
 import { localToday } from "@/lib/dates"
 import { useProfile } from "@/hooks/useProfile"
+import { ouraSummaryQuery } from "@/lib/queries/oura"
 import { InsightCard } from "@/components/ui/insight-card"
 
 const supabase = createClient()
@@ -43,30 +44,9 @@ const supabase = createClient()
  * nothing until the ring is connected and the summary has loaded.
  */
 export function OuraSummaryCard() {
-  const { data: ouraResult, isLoading: ouraLoading } = useQuery<{
-    connected: boolean
-    summary: OuraSummary | null
-    error?: string
-  }>({
-    queryKey: ["oura-summary"],
-    queryFn: async () => {
-      const localDate = localToday()
-      const offsetMin = new Date().getTimezoneOffset() // e.g. 240 for EDT (UTC-4)
-      const sign = offsetMin <= 0 ? "+" : "-"
-      const absMin = Math.abs(offsetMin)
-      const tzOffset = `${sign}${String(Math.floor(absMin / 60)).padStart(2, "0")}:${String(absMin % 60).padStart(2, "0")}`
-      const res = await fetch(
-        `/api/oura?date=${localDate}&tz_offset=${encodeURIComponent(tzOffset)}`
-      )
-      if (res.status === 404) return { connected: false, summary: null }
-      if (res.status === 401)
-        return { connected: true, summary: null, error: "token_expired" }
-      if (!res.ok) return { connected: true, summary: null, error: "fetch_failed" }
-      const summary = (await res.json()) as OuraSummary
-      return { connected: true, summary }
-    },
-    retry: false,
-  })
+  const { data: ouraResult, isLoading: ouraLoading } = useQuery(
+    ouraSummaryQuery()
+  )
 
   const { data: profile } = useProfile()
   const age = profile?.age ?? null

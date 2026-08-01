@@ -2,7 +2,6 @@
 
 import { useQuery } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
-import { ErrorBoundary } from "@/components/ui/error-boundary"
 import { WeeklyScheduleCard } from "@/components/activity/WeeklyScheduleCard"
 import { WeightTrendCard } from "@/components/activity/WeightTrendCard"
 import { MuscleBalanceCard } from "@/components/activity/MuscleBalanceCard"
@@ -45,63 +44,37 @@ export default function InsightsPage() {
         title="Weight"
         subtitle="What your intake and weight trend say about each other"
       >
-        <ErrorBoundary>
-          <WeightTrendCard />
-        </ErrorBoundary>
-        <ErrorBoundary>
-          <EnergyBalanceCard />
-        </ErrorBoundary>
+        <WeightTrendCard />
+        <EnergyBalanceCard />
       </Section>
 
       <Section
         title="Energy & sleep"
         subtitle="What actually moves your energy, and how you've been sleeping"
       >
-        <ErrorBoundary>
-          <EnergyDriversCard />
-        </ErrorBoundary>
-        <ErrorBoundary>
-          <SleepTrendCard />
-        </ErrorBoundary>
-        <ErrorBoundary>
-          <RemInsightsCard />
-        </ErrorBoundary>
-        <ErrorBoundary>
-          <RecoveryWatchCard />
-        </ErrorBoundary>
+        <EnergyDriversCard />
+        <SleepTrendCard />
+        <RemInsightsCard />
+        <RecoveryWatchCard />
       </Section>
 
       <Section
         title="Training"
         subtitle="Balance, weekly load, and conditioning over time"
       >
-        <ErrorBoundary>
-          <RecentWorkoutsCard />
-        </ErrorBoundary>
-        <ErrorBoundary>
-          <MuscleBalanceCard />
-        </ErrorBoundary>
-        <ErrorBoundary>
-          <RecentPRsCard />
-        </ErrorBoundary>
-        <ErrorBoundary>
-          <VolumeTrendCard />
-        </ErrorBoundary>
-        <ErrorBoundary>
-          <WeeklyTrainingCard />
-        </ErrorBoundary>
-        <ErrorBoundary>
-          <Vo2MaxTrendCard age={profile?.age} sex={profile?.sex} />
-        </ErrorBoundary>
+        <RecentWorkoutsCard />
+        <MuscleBalanceCard />
+        <RecentPRsCard />
+        <VolumeTrendCard />
+        <WeeklyTrainingCard />
+        <Vo2MaxTrendCard age={profile?.age} sex={profile?.sex} />
       </Section>
 
       <Section
         title="Planning"
         subtitle="A realistic week built from the time you actually have"
       >
-        <ErrorBoundary>
-          <WeeklyScheduleCard />
-        </ErrorBoundary>
+        <WeeklyScheduleCard />
       </Section>
     </div>
   )

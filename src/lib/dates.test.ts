@@ -11,6 +11,7 @@ import {
   formatWeekdayShort,
   formatMediumDate,
   formatLongDate,
+  localUtcOffset,
   shiftDateString,
 } from "./dates"
 
@@ -136,5 +137,32 @@ describe("display formatters", () => {
 
   it("formats a bare YYYY-MM-DD day without drifting a day", () => {
     expect(formatShortDate(parseLocalDay("2026-08-01"))).toBe("Aug 1")
+  })
+})
+
+describe("localUtcOffset", () => {
+  function at(offsetMinutes: number): Date {
+    // getTimezoneOffset reports minutes *behind* UTC, so EDT (UTC-4) is 240.
+    return {
+      getTimezoneOffset: () => offsetMinutes,
+    } as unknown as Date
+  }
+
+  it("renders a behind-UTC zone as a negative offset", () => {
+    expect(localUtcOffset(at(240))).toBe("-04:00")
+  })
+
+  it("renders an ahead-of-UTC zone as a positive offset", () => {
+    expect(localUtcOffset(at(-60))).toBe("+01:00")
+  })
+
+  it("renders UTC itself as +00:00", () => {
+    expect(localUtcOffset(at(0))).toBe("+00:00")
+  })
+
+  it("handles half-hour and three-quarter-hour zones", () => {
+    expect(localUtcOffset(at(-330))).toBe("+05:30")
+    expect(localUtcOffset(at(-345))).toBe("+05:45")
+    expect(localUtcOffset(at(210))).toBe("-03:30")
   })
 })

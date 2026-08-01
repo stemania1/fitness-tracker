@@ -1,5 +1,10 @@
+import { CardStack } from "@/components/ui/card-stack"
+
 /**
  * A labelled group of cards, so a page reads as sections rather than a wall.
+ *
+ * Children render through CardStack, so every card in a section is isolated
+ * behind its own ErrorBoundary without each page having to remember.
  *
  * Lived privately in the Insights page while the dashboard — the page that
  * needed it most, at twelve ungrouped cards — went without.
@@ -24,7 +29,7 @@ export function Section({
         </h2>
         {subtitle && <p className="text-xs text-gray-400">{subtitle}</p>}
       </div>
-      {children}
+      <CardStack>{children}</CardStack>
     </section>
   )
 }

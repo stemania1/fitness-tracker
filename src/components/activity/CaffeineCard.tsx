@@ -16,15 +16,9 @@ import { localTimeValue, withLocalTime } from "@/lib/meal-time"
 import { useBedtimePlan } from "@/hooks/useBedtimePlan"
 import { useUserQuery, getAuthUserId } from "@/lib/supabase/user-query"
 import { InsightCard } from "@/components/ui/insight-card"
+import { useCaffeineLogs, type CaffeineRow } from "@/hooks/useDailyLogs"
 
 const supabase = createClient()
-
-interface CaffeineRow {
-  id: string
-  mg: number
-  source: string | null
-  logged_at: string
-}
 
 /** Local midnight ISO for the "today" query window. */
 function startOfTodayIso(): string {
@@ -54,19 +48,7 @@ export function CaffeineCard() {
   const [editingTimeId, setEditingTimeId] = useState<string | null>(null)
   const [timeDraft, setTimeDraft] = useState("")
 
-  const { data: logs, isLoading } = useUserQuery(
-    ["caffeine-today-list", dayStart],
-    async (userId: string): Promise<CaffeineRow[]> => {
-      const { data, error } = await supabase
-        .from("caffeine_logs")
-        .select("id, mg, source, logged_at")
-        .eq("user_id", userId)
-        .gte("logged_at", dayStart)
-        .order("logged_at", { ascending: true })
-      if (error) throw error
-      return data ?? []
-    }
-  )
+  const { data: logs, isLoading } = useCaffeineLogs(dayStart)
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -84,7 +66,7 @@ export function CaffeineCard() {
     },
     onSuccess: () => {
       // Refresh both this card and the energy read's caffeine signal.
-      queryClient.invalidateQueries({ queryKey: ["caffeine-today-list"] })
+      queryClient.invalidateQueries({ queryKey: ["caffeine-today"] })
       queryClient.invalidateQueries({ queryKey: ["caffeine-today"] })
     },
   })
@@ -103,7 +85,7 @@ export function CaffeineCard() {
     onMutate: ({ id }) => setPendingId(id),
     onSettled: () => setPendingId(null),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["caffeine-today-list"] })
+      queryClient.invalidateQueries({ queryKey: ["caffeine-today"] })
       queryClient.invalidateQueries({ queryKey: ["caffeine-today"] })
       setEditingTimeId(null)
     },
