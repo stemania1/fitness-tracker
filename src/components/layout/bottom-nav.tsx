@@ -10,6 +10,7 @@ import {
   CalendarCheck,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { CONTENT_COLUMN } from "@/components/layout/shell"
 
 const tabs = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -27,7 +28,7 @@ export function BottomNav() {
        `position: fixed`, which iOS strands mid-screen after the keyboard
        opens and closes. See the note in globals.css. */
     <nav aria-label="Main navigation" className="z-10 shrink-0 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)]">
-      <div className="flex items-center justify-around py-2">
+      <div className={cn(CONTENT_COLUMN, "flex items-center justify-around py-2")}>
         {tabs.map((tab) => {
           const isActive = pathname.startsWith(tab.href)
           const Icon = tab.icon

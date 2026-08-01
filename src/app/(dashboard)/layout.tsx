@@ -7,6 +7,7 @@ import { BottomNav } from "@/components/layout/bottom-nav"
 import { OfflineSyncManager } from "@/components/activity/OfflineSyncManager"
 import { ServiceWorkerManager } from "@/components/pwa/ServiceWorkerManager"
 import { ViewportDebug } from "@/components/pwa/ViewportDebug"
+import { CONTENT_COLUMN } from "@/components/layout/shell"
 
 export default async function DashboardLayout({
   children,
@@ -51,7 +52,9 @@ export default async function DashboardLayout({
         data-app-scroll
         className="min-h-0 flex-1 overflow-y-auto overflow-x-clip px-4 py-6"
       >
-        {children}
+        {/* The scroller stays full-width so the scrollbar sits at the viewport
+            edge; the content column is capped inside it. */}
+        <div className={CONTENT_COLUMN}>{children}</div>
       </main>
       <OfflineSyncManager />
       <ServiceWorkerManager />
