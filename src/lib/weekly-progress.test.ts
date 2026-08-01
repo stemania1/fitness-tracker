@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest"
-import { getWeekLabel, calcWeeklyStreak, startOfWeekISO } from "./weekly-progress"
+import {
+  getWeekLabel,
+  calcWeeklyStreak,
+  startOfWeekISO,
+  countWorkoutsByWeek,
+} from "./weekly-progress"
 
 describe("getWeekLabel", () => {
   it("labels early-January dates as an early week", () => {
@@ -62,5 +67,48 @@ describe("startOfWeekISO", () => {
     const d = new Date(iso)
     expect(d.getDay()).toBe(1)
     expect(d.getDate()).toBe(5)
+  })
+})
+
+describe("countWorkoutsByWeek", () => {
+  // Saturday 1 Aug 2026. The calendar week began Monday 27 July.
+  const sat = new Date(2026, 7, 1, 15, 5)
+  const at = (m: number, d: number, h = 9) => ({
+    started_at: new Date(2026, m - 1, d, h).toISOString(),
+  })
+
+  it("counts from Monday, not a rolling seven days", () => {
+    // Sun 26 July is the previous week even though it is within 7 days.
+    const { thisWeek, lastWeek } = countWorkoutsByWeek(
+      [at(7, 26), at(7, 28), at(8, 1)],
+      sat
+    )
+    expect(thisWeek).toBe(2) // Tue 28 Jul + Sat 1 Aug
+    expect(lastWeek).toBe(1) // Sun 26 Jul
+  })
+
+  it("agrees with the This Week card's own window", () => {
+    const weekStart = new Date(startOfWeekISO(sat)).getTime()
+    const logs = [at(7, 26), at(7, 28), at(8, 1)]
+    const inWindow = logs.filter(
+      (l) => new Date(l.started_at).getTime() >= weekStart
+    ).length
+    expect(countWorkoutsByWeek(logs, sat).thisWeek).toBe(inWindow)
+  })
+
+  it("puts a Monday-morning session in the current week", () => {
+    expect(countWorkoutsByWeek([at(7, 27, 6)], sat).thisWeek).toBe(1)
+  })
+
+  it("ignores anything older than the two weeks", () => {
+    const { thisWeek, lastWeek } = countWorkoutsByWeek([at(7, 1)], sat)
+    expect(thisWeek).toBe(0)
+    expect(lastWeek).toBe(0)
+  })
+
+  it("handles a Sunday, which is the last day of the week not the first", () => {
+    const sun = new Date(2026, 7, 2, 10)
+    // Week still began Mon 27 July.
+    expect(countWorkoutsByWeek([at(7, 27), at(8, 2)], sun).thisWeek).toBe(2)
   })
 })
