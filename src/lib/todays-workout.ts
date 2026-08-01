@@ -119,9 +119,18 @@ export function plannedSession(date: Date): PlannedSession {
   }
 
   if (session.type === "cardio") {
-    // One machine entry captures total time/distance; the interval structure
-    // stays on the plan card. 4×4 = running intervals; 30/30 = bike.
+    // One machine entry captures total time/distance. The interval structure
+    // used to be left on the plan card — a reasonable call for a page you read
+    // at home, a bad one for the screen you are holding mid-session. The
+    // protocol now comes with you: phase-adjusted round count first (the "4×4"
+    // in the title is a name, not this week's prescription), then the session
+    // bullets, then what to actually type in.
     const isBike = session.key === "intervals-3030"
+    const lines = [
+      ...(plan.sessionNote ? [plan.sessionNote] : []),
+      ...session.details,
+      "Log total time and distance for the whole session, warm-up included.",
+    ]
     return {
       name: session.title,
       isRest: false,
@@ -131,9 +140,8 @@ export function plannedSession(date: Date): PlannedSession {
           sets: 1,
           reps: `${session.durationMins} min`,
           restSeconds: 0,
-          notes: isBike
-            ? "30/30 intervals + Zone 2 cool-down. Log total time and distance."
-            : "4×4 VO2 intervals incl. warm-up. Log total time and distance.",
+          // Newline-separated; the logger renders this with whitespace-pre-line.
+          notes: lines.join("\n"),
         },
       ],
     }
