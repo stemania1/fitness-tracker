@@ -6,7 +6,17 @@ import { createClient } from "@/lib/supabase/client"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Timer } from "lucide-react"
-import { cooperVo2Max, type FitnessTestType } from "@/lib/fitness-tests"
+import {
+  cooperVo2Max,
+  cooperWorkoutPayload,
+  cooperDistanceToMeters,
+  metersToMiles,
+  type DistanceUnit,
+  type FitnessTestType,
+} from "@/lib/fitness-tests"
+import { saveWorkout } from "@/lib/save-workout"
+import { invalidateWorkoutData } from "@/lib/queries/invalidate"
+import { queryKeys } from "@/lib/queries/keys"
 import { localToday } from "@/lib/dates"
 import { getAuthUserId } from "@/lib/supabase/user-query"
 import { QuickLogDialog } from "@/components/activity/QuickLogDialog"
@@ -18,33 +28,67 @@ export function QuickLogFitnessTest() {
   const [testType, setTestType] = useState<FitnessTestType>("cooper_run")
   const [result, setResult] = useState("")
   const [testedAt, setTestedAt] = useState(localToday)
+  // Miles by default: the rest of the app is imperial and treadmills here
+  // read in miles. Storage stays metric — see cooperDistanceToMeters.
+  const [unit, setUnit] = useState<DistanceUnit>("mi")
   const queryClient = useQueryClient()
 
   const isCooper = testType === "cooper_run"
   const resultNum = parseFloat(result)
-  const previewVo2 =
-    isCooper && Number.isFinite(resultNum) ? cooperVo2Max(resultNum) : null
+  const isMiles = unit === "mi"
+  /** The Cooper distance in meters, whichever unit was typed. */
+  const distanceMeters = isCooper
+    ? cooperDistanceToMeters(resultNum, unit)
+    : null
+  const previewVo2 = distanceMeters != null ? cooperVo2Max(distanceMeters) : null
 
   const mutation = useMutation({
     mutationFn: async () => {
-      if (!Number.isFinite(resultNum) || resultNum <= 0) {
-        throw new Error(
-          isCooper ? "Enter a valid distance" : "Enter a valid rep count"
-        )
+      if (isCooper && distanceMeters == null) {
+        throw new Error("Enter a valid distance")
       }
+      if (!isCooper && (!Number.isFinite(resultNum) || resultNum <= 0)) {
+        throw new Error("Enter a valid rep count")
+      }
+      // Always stored in meters, whatever the input unit was.
+      const storedResult = isCooper ? distanceMeters! : resultNum
 
       const userId = await getAuthUserId()
 
       const { error } = await supabase.from("fitness_tests").insert({
         user_id: userId,
         test_type: testType,
-        result: resultNum,
+        result: storedResult,
         tested_at: testedAt,
       })
       if (error) throw error
+
+      // A Cooper test replaces that day's session, so it has to count as one:
+      // toward the week's total, the streak, calories, and — outside the three
+      // designated test weeks — so the missed-session detector doesn't flag the
+      // slot you just went maximal on. The pull-up max is deliberately not
+      // converted; it rides inside a Pull A session that gets logged already.
+      if (isCooper) {
+        try {
+          await saveWorkout(
+            supabase,
+            cooperWorkoutPayload({
+              userId,
+              distanceMeters: storedResult,
+              testedAt,
+            })
+          )
+        } catch {
+          // The test itself is saved and is the thing that must not be lost.
+          // A failed companion workout is a counting problem, not a data-loss
+          // one, so don't fail the mutation and make the user re-enter it.
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fitness-tests"] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.ouraVo2History })
+      invalidateWorkoutData(queryClient)
       setOpen(false)
       setResult("")
       setTestedAt(localToday())
@@ -96,21 +140,49 @@ export function QuickLogFitnessTest() {
 
         <div className="space-y-2">
           <Label htmlFor="qlft-result">
-            {isCooper ? "Distance covered (meters)" : "Strict reps"}
+            {isCooper
+              ? `Distance covered (${isMiles ? "miles" : "meters"})`
+              : "Strict reps"}
           </Label>
-          <Input
-            id="qlft-result"
-            type="number"
-            min={1}
-            max={isCooper ? 9999 : 200}
-            step={isCooper ? "any" : "1"}
-            placeholder={isCooper ? "e.g. 2400" : "e.g. 5"}
-            value={result}
-            onChange={(e) => setResult(e.target.value)}
-            autoFocus
-          />
-          {previewVo2 != null && (
+          <div className="flex items-center gap-2">
+            <Input
+              id="qlft-result"
+              type="number"
+              min={isCooper ? 0 : 1}
+              max={isCooper ? (isMiles ? 20 : 30000) : 200}
+              step={isCooper ? "any" : "1"}
+              placeholder={isCooper ? (isMiles ? "e.g. 1.22" : "e.g. 2400") : "e.g. 5"}
+              value={result}
+              onChange={(e) => setResult(e.target.value)}
+              autoFocus
+            />
+            {isCooper && (
+              <div
+                className="flex shrink-0 rounded-lg bg-gray-100 p-1"
+                role="group"
+                aria-label="Distance unit"
+              >
+                {(["mi", "m"] as const).map((u) => (
+                  <button
+                    key={u}
+                    type="button"
+                    aria-pressed={unit === u}
+                    className={typeButtonClass(unit === u)}
+                    onClick={() => setUnit(u)}
+                  >
+                    {u}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {previewVo2 != null && distanceMeters != null && (
             <p className="text-xs text-gray-500">
+              {/* The converted value is shown so a mis-set unit is obvious
+                  before saving rather than after. */}
+              {isMiles
+                ? `${distanceMeters} m · `
+                : `${metersToMiles(distanceMeters)} mi · `}
               Estimated VO2 Max:{" "}
               <span className="font-semibold text-gray-900">
                 {previewVo2}
