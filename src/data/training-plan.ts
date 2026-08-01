@@ -42,6 +42,12 @@ export interface PlanSession {
 /**
  * The weekly template, indexed by JS `Date.getDay()` (0 = Sunday).
  * AM lane: Tue/Thu 5:45-6:30, weekends 8:00-9:15.
+ *
+ * Both VO2 sessions sit on the weekend. Weekday early mornings are a poor
+ * fit for max-effort interval work in practice, so the two pull sessions
+ * take the 5:45 slots and the cardio takes Sat/Sun. The cost is two hard
+ * cardio days back to back — if that starts accumulating, alternate 4×4 and
+ * 30/30 across weekends rather than doing both every week.
  */
 export const WEEKLY_SCHEDULE: Record<number, PlanSession> = {
   1: {
@@ -55,26 +61,6 @@ export const WEEKLY_SCHEDULE: Record<number, PlanSession> = {
     ],
   },
   2: {
-    key: "intervals-4x4",
-    title: "VO2 Max intervals — 4×4",
-    type: "cardio",
-    time: "5:45 AM",
-    durationMins: 40,
-    details: [
-      "10-min warm-up, then 4 min @ ~90-95% max HR / 3 min easy recovery",
-      "Treadmill or StairMaster",
-      "If Oura readiness is red, swap for easy Zone 2 and slide intervals to tomorrow",
-    ],
-  },
-  3: {
-    key: "rest-walk",
-    title: "Rest",
-    type: "rest",
-    time: "",
-    durationMins: 0,
-    details: ["Optional: 20-30 min easy walk after dinner"],
-  },
-  4: {
     key: "pull-b",
     title: "Pull B — strength",
     type: "strength",
@@ -86,6 +72,26 @@ export const WEEKLY_SCHEDULE: Record<number, PlanSession> = {
       "Cable face pull 3×12-15 · farmer hold 3×30s",
     ],
   },
+  3: {
+    key: "rest-walk",
+    title: "Rest",
+    type: "rest",
+    time: "",
+    durationMins: 0,
+    details: ["Optional: 20-30 min easy walk after dinner"],
+  },
+  4: {
+    key: "pull-a",
+    title: "Pull A — strength",
+    type: "strength",
+    time: "5:45 AM",
+    durationMins: 55,
+    details: [
+      "Assisted pull-ups 4×6-8 · slow negatives 3×3-5 (5-sec lowering)",
+      "Lat pulldown 3×8-12 · seated row 3×10-12 · hollow hold 3×20-30s",
+      "No Zone 2 finisher — it does not fit the weekday slot. Sunday's 30 min covers it",
+    ],
+  },
   5: {
     key: "rest",
     title: "Rest",
@@ -95,15 +101,16 @@ export const WEEKLY_SCHEDULE: Record<number, PlanSession> = {
     details: ["Full rest before the weekend sessions"],
   },
   6: {
-    key: "pull-a",
-    title: "Pull A + Zone 2 finisher",
-    type: "strength",
+    key: "intervals-4x4",
+    title: "VO2 Max intervals — 4×4",
+    type: "cardio",
     time: "8:00 AM",
-    durationMins: 75,
+    durationMins: 40,
     details: [
-      "Assisted pull-ups 4×6-8 · slow negatives 3×3-5 (5-sec lowering)",
-      "Lat pulldown 3×8-12 · seated row 3×10-12 · hollow hold 3×20-30s",
-      "Finish with 15-20 min easy Zone 2 (bike/elliptical)",
+      "10-min warm-up, then 4 min @ ~90-95% max HR / 3 min easy recovery",
+      "Treadmill or StairMaster",
+      "If Oura readiness is red, swap for easy Zone 2 and slide intervals to tomorrow",
+      "Hard day before Sunday's 30/30 — keep Sunday's Zone 2 genuinely easy",
     ],
   },
   0: {
@@ -173,22 +180,40 @@ export interface PlanTest {
   details: string[]
 }
 
+/**
+ * Which day of the week each test occupies, as `Date.getDay()`.
+ *
+ * These used to be hard-coded as day-offsets inside plan-adaptation, with
+ * only a `// Saturday` comment tying them to the schedule above. Moving one
+ * session then silently told you to do a pull-up max on an interval day.
+ * Declared here so the schedule and the tests that measure it cannot drift.
+ *
+ * The pull-up max rides the Pull A session; the Cooper test replaces the
+ * 4×4, which follows Friday's rest day so you arrive fresh.
+ */
+export const TEST_DAYS: Record<"pullup_max" | "cooper_run", number> = {
+  pullup_max: 4, // Thursday — Pull A
+  cooper_run: 6, // Saturday — replaces the 4×4 intervals
+}
+
 export const PLAN_TESTS: PlanTest[] = [
   {
     week: BASELINE_WEEK,
     title: "Baseline tests",
     details: [
-      "Sat: max strict pull-ups (or timed negative) + find assisted 8RM",
-      "Sun: Cooper 12-min treadmill test, 1% incline",
-      "Log both via Log Test on the dashboard",
+      "Thu: max strict pull-ups (or timed negative) + find assisted 8RM",
+      "Sat: Cooper 12-min treadmill test, 1% incline — Friday is a rest day, so you arrive fresh",
+      "Swap Sunday's 30/30 for easy Zone 2 in test weeks",
+      "Log both via Log Test on the Insights tab",
     ],
   },
   {
     week: MIDPOINT_TEST_WEEK,
     title: "Week 6 retests",
     details: [
-      "Pull-up max replaces Saturday's first exercise",
-      "Cooper test replaces Sunday's intervals",
+      "Pull-up max replaces Thursday's first exercise (Pull A)",
+      "Cooper test replaces Saturday's 4×4 intervals",
+      "Swap Sunday's 30/30 for easy Zone 2 — don't stack a max test and intervals",
     ],
   },
   {

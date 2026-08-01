@@ -17,6 +17,7 @@ import { CheckCircle2, Circle, Moon, ArrowLeft } from "lucide-react"
 import { todaysWorkout } from "@/lib/todays-workout"
 import { localToday } from "@/lib/dates"
 import { getAuthUserId } from "@/lib/supabase/user-query"
+import { invalidateWorkoutData } from "@/lib/queries/invalidate"
 
 const supabase = createClient()
 
@@ -100,9 +101,7 @@ export function TodaysWorkoutSession() {
       } catch {
         // ignore
       }
-      queryClient.invalidateQueries({ queryKey: ["weekly-workouts"] })
-      queryClient.invalidateQueries({ queryKey: ["workout-logs-all"] })
-      queryClient.invalidateQueries({ queryKey: ["recent-workouts"] })
+      invalidateWorkoutData(queryClient)
       router.push("/dashboard")
     },
   })

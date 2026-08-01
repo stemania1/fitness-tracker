@@ -150,15 +150,26 @@ the card fetches the rows. The boolean is derivable from the rows.
 **Do:** keep the row query, derive the boolean. Four queries and four
 `getUser()` calls come off the dashboard mount.
 
-### 1.6 Three pages bypass TanStack Query entirely
+### 1.6 Three pages bypass TanStack Query entirely — **done**, but the stated cause was wrong
 
 `activity/page.tsx`, `activity/[id]/page.tsx`, and `activity/log/page.tsx` fetch
 with `useState` + `useEffect` + `createClient()`, against the CLAUDE.md rule
 that "all API calls use TanStack Query for caching and invalidation."
 
-The practical cost: `activity/page.tsx` refetches the full workout history on
-every mount, and nothing invalidates it after a workout is saved — so a
-just-finished workout doesn't appear until a hard reload.
+The practical cost as originally written — "a just-finished workout doesn't
+appear until a hard reload" — was **wrong**. `activity/page.tsx` uses
+`useEffect(…, [])`, which re-runs on every mount, so navigating there always
+refetched. Its real cost was the opposite: no caching at all, so it re-queried
+the full unbounded history on every visit.
+
+The staleness bug was next door and had been missed. `finishWorkout` in
+`activity/log/page.tsx` — the path most workouts go through — invalidated
+**nothing** after saving. With a 60s `staleTime`, finishing a workout and
+landing on the dashboard showed the previous count in This Week, an unchanged
+streak, stale calories burned, and no sign of a PR just set.
+`TodaysWorkoutSession` invalidated three keys correctly; the main logger
+invalidated none, and the two had no shared definition of what a saved workout
+affects. That is now `lib/queries/invalidate.ts`.
 
 ---
 

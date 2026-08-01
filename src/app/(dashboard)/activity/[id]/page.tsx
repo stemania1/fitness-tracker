@@ -1,8 +1,12 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useMemo } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { queryKeys } from "@/lib/queries/keys"
+import { invalidateWorkoutData } from "@/lib/queries/invalidate"
+import { useProfile } from "@/hooks/useProfile"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -75,17 +79,16 @@ function formatTime(dateStr: string): string {
   })
 }
 
+const supabase = createClient()
+
 export default function WorkoutDetailPage() {
   const params = useParams()
   const router = useRouter()
   const id = params.id as string
 
-  const [workout, setWorkout] = useState<WorkoutDetail | null>(null)
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [deleting, setDeleting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [userWeightLbs, setUserWeightLbs] = useState<number>(170)
-  const [calorieProfile, setCalorieProfile] = useState<CalorieProfile>({})
   const [editing, setEditing] = useState<WorkoutDetail | null>(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -183,7 +186,8 @@ export default function WorkoutDetailPage() {
         }
       }
 
-      setWorkout(editing)
+      queryClient.setQueryData(queryKeys.workoutDetail(id), editing)
+      invalidateWorkoutData(queryClient)
       setEditing(null)
     } catch (err) {
       setSaveError((err as Error).message)
@@ -199,91 +203,84 @@ export default function WorkoutDetailPage() {
     []
   )
 
-  useEffect(() => {
-    async function fetch() {
-      const supabase = createClient()
-
-      const { data: log } = await supabase
-        .from("workout_logs")
-        .select("id, name, started_at, finished_at, duration_mins, notes")
-        .eq("id", id)
-        .single()
-
-      if (!log) {
-        setLoading(false)
-        return
-      }
-
-      const { data: exerciseLogs } = await supabase
-        .from("exercise_logs")
-        .select("id, exercise_id, order_index, notes, exercises(name)")
-        .eq("workout_log_id", id)
-        .order("order_index", { ascending: true })
-
-      // The embedded exercises(name) relation isn't in the generated types, so
-      // the row type widens to `never` — cast to the shape we selected.
-      const rawExerciseLogs = (exerciseLogs ?? []) as Array<{
-        id: string
-        exercise_id: string
-        order_index: number
-        notes: string | null
-        exercises: { name: string } | { name: string }[] | null
-      }>
-
-      const exIds = rawExerciseLogs.map((el) => el.id)
-      const { data: setLogs } = await supabase
-        .from("set_logs")
-        .select(
-          "id, exercise_log_id, set_number, reps, weight, duration_mins, distance_miles, incline_percent, rpe"
-        )
-        .in("exercise_log_id", exIds.length > 0 ? exIds : ["__none__"])
-        .order("set_number", { ascending: true })
-
-      const setsByExercise = new Map<string, SetLogRow[]>()
-      setLogs?.forEach((s) => {
-        const list = setsByExercise.get(s.exercise_log_id) ?? []
-        list.push(s)
-        setsByExercise.set(s.exercise_log_id, list)
-      })
-
-      const exercises: ExerciseLogRow[] = rawExerciseLogs.map((el) => {
-        const exRow = Array.isArray(el.exercises)
-          ? el.exercises[0]
-          : el.exercises
-        return {
-          id: el.id,
-          exercise_id: el.exercise_id,
-          name: exRow?.name ?? null,
-          order_index: el.order_index,
-          notes: el.notes,
-          sets: setsByExercise.get(el.id) ?? [],
-        }
-      })
-
-      setWorkout({ ...log, exercises })
-
-      // Fetch user weight for calorie estimates
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: profile } = await supabase
-          .from("user_profiles")
-          .select("current_weight, age, sex, height_inches")
-          .eq("id", user.id)
+  const { data: workout = null, isLoading: loading } =
+    useQuery<WorkoutDetail | null>({
+      queryKey: queryKeys.workoutDetail(id),
+      queryFn: async () => {
+        const { data: log } = await supabase
+          .from("workout_logs")
+          .select("id, name, started_at, finished_at, duration_mins, notes")
+          .eq("id", id)
           .single()
-        if (profile?.current_weight) setUserWeightLbs(profile.current_weight)
-        if (profile) {
-          setCalorieProfile({
-            age: profile.age,
-            sex: profile.sex,
-            heightInches: profile.height_inches,
-          })
-        }
-      }
+        if (!log) return null
 
-      setLoading(false)
-    }
-    fetch()
-  }, [id])
+        const { data: exerciseLogs } = await supabase
+          .from("exercise_logs")
+          .select("id, exercise_id, order_index, notes, exercises(name)")
+          .eq("workout_log_id", id)
+          .order("order_index", { ascending: true })
+
+        // The embedded exercises(name) relation isn't in the generated types,
+        // so the row type widens to `never` — cast to the shape we selected.
+        const rawExerciseLogs = (exerciseLogs ?? []) as Array<{
+          id: string
+          exercise_id: string
+          order_index: number
+          notes: string | null
+          exercises: { name: string } | { name: string }[] | null
+        }>
+
+        const exIds = rawExerciseLogs.map((el) => el.id)
+        const { data: setLogs } = await supabase
+          .from("set_logs")
+          .select(
+            "id, exercise_log_id, set_number, reps, weight, duration_mins, distance_miles, incline_percent, rpe"
+          )
+          .in("exercise_log_id", exIds.length > 0 ? exIds : ["__none__"])
+          .order("set_number", { ascending: true })
+
+        const setsByExercise = new Map<string, SetLogRow[]>()
+        // exercise_log_id is selected for the grouping but isn't part of
+        // SetLogRow, which models a set as the UI consumes it.
+        const rows = (setLogs ?? []) as Array<
+          SetLogRow & { exercise_log_id: string }
+        >
+        rows.forEach((sl) => {
+          const list = setsByExercise.get(sl.exercise_log_id) ?? []
+          list.push(sl)
+          setsByExercise.set(sl.exercise_log_id, list)
+        })
+
+        const exercises: ExerciseLogRow[] = rawExerciseLogs.map((el) => {
+          const exRow = Array.isArray(el.exercises)
+            ? el.exercises[0]
+            : el.exercises
+          return {
+            id: el.id,
+            exercise_id: el.exercise_id,
+            name: exRow?.name ?? null,
+            order_index: el.order_index,
+            notes: el.notes,
+            sets: setsByExercise.get(el.id) ?? [],
+          }
+        })
+
+        return { ...log, exercises }
+      },
+    })
+
+  // Calorie estimates need body weight and RMR inputs; they come from the
+  // shared profile rather than this page's own fetch (it was the ninth).
+  const { data: profile } = useProfile()
+  const userWeightLbs = profile?.current_weight ?? 170
+  const calorieProfile: CalorieProfile = useMemo(
+    () => ({
+      age: profile?.age,
+      sex: profile?.sex,
+      heightInches: profile?.height_inches,
+    }),
+    [profile?.age, profile?.sex, profile?.height_inches]
+  )
 
   const totalVolume = useMemo(() => {
     if (!workout) return 0

@@ -20,7 +20,10 @@ export const queryKeys = {
 
   // Workouts
   workoutLogsAll: ["workout-logs-all"] as const,
+  /** The Activity page's finished-workout history, with exercise counts. */
+  workoutHistory: ["workout-history"] as const,
   recentWorkouts: ["recent-workouts"] as const,
+  workoutDetail: (id: string) => ["workout-detail", id] as const,
   weeklyWorkouts: (weekStart: string) => ["weekly-workouts", weekStart] as const,
   weeklyCalories: (weekStart: string, weightLbs: number) =>
     ["weekly-calories", weekStart, weightLbs] as const,

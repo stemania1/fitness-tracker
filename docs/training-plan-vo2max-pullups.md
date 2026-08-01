@@ -56,12 +56,23 @@ export → Import).
 | Day | Session | Duration |
 |---|---|---|
 | **Mon** | Rest (optional: grease-the-groove sets at home) | — |
-| **Tue** | **VO2Max intervals — 4×4** (treadmill or StairMaster) | 40 min |
+| **Tue** | 5:45–6:30 AM — **Pull B** (strength) | 45 min |
 | **Wed** | Rest / optional 20–30 min walk after dinner | — |
-| **Thu** | **Pull B** (strength) | 45 min |
+| **Thu** | 5:45–6:30 AM — **Pull A** (strength) | 55 min |
 | **Fri** | Rest | — |
-| **Sat** | 8:00–9:15 AM — **Pull A** + 15–20 min Zone 2 finisher (bike/elliptical) | 75 min |
+| **Sat** | 8:00–8:40 AM — **VO2Max intervals — 4×4** (treadmill or StairMaster) | 40 min |
 | **Sun** | 8:00–9:15 AM — **30/30 intervals** + 30 min Zone 2 cool-down | 75 min |
+
+> **Why both VO2 sessions are on the weekend.** Max-effort interval work at
+> 5:45 AM on a weekday did not survive contact with real life. The two pull
+> sessions take the early slots instead, and the cardio moves to Sat/Sun.
+>
+> The cost is two hard cardio days back to back. If that starts to
+> accumulate — readiness trending down, 30/30 quality dropping — alternate
+> 4×4 and 30/30 across weekends rather than doing both every week.
+>
+> Pull A lost its 15–20 min Zone 2 finisher in the move; it does not fit a
+> weekday morning. Sunday's 30 min Zone 2 carries those aerobic minutes.
 
 Weekend sessions go early morning — beats the Florida heat and the
 post-church/brunch PF rush. If a weekday session dies, move it to the next
@@ -69,7 +80,7 @@ rest day; never stack two sessions into one evening.
 
 ## VO2Max sessions
 
-**Tue — Norwegian 4×4.** 10-min warm-up building to moderate. Then 4 min at
+**Sat — Norwegian 4×4.** 10-min warm-up building to moderate. Then 4 min at
 ~90–95% max HR (breathing hard, can't speak sentences), 3 min easy recovery.
 Weeks 1–2: 3 rounds. Weeks 3–6: 4 rounds. Weeks 8–12: 4–5 rounds, nudging pace
 up. Treadmill (speed or incline) or StairMaster both work; rotate to keep it
@@ -80,7 +91,7 @@ fresh.
 Stationary bike is ideal the day after a pull session — no impact, no grip
 demand.
 
-**Zone 2 (weekend finishers + optional Wed walk).** Conversational pace — you
+**Zone 2 (Sunday cool-down + optional Wed walk).** Conversational pace — you
 can talk in full sentences. This is the base that makes the interval days
 productive; don't turn it into a tempo run. It's deliberately attached to the
 weekend sessions so it doesn't cost a separate weekday trip.
@@ -95,7 +106,7 @@ Uses only PF equipment: assisted pull-up/dip machine, lat pulldown, seated
 row, cable crossover, dumbbells. Strict pull-ups are done on the assisted
 machine's handles (kneel/stand past the pad) once assistance hits zero.
 
-**Pull A (Sat)**
+**Pull A (Thu)**
 
 | Exercise | Sets × Reps | Notes |
 |---|---|---|
@@ -105,11 +116,11 @@ machine's handles (kneel/stand past the pad) once assistance hits zero.
 | Seated row | 3 × 10–12 | |
 | Hollow hold | 3 × 20–30 sec | Pull-ups are half core |
 
-**Pull B (Thu)**
+**Pull B (Tue)**
 
 | Exercise | Sets × Reps | Notes |
 |---|---|---|
-| Assisted pull-ups | 5 × 4–6 | 10–15 lb *less* assistance than Saturday (heavier day) |
+| Assisted pull-ups | 5 × 4–6 | 10–15 lb *less* assistance than Pull A (heavier day) |
 | Scapular pulls | 3 × 8 | Dead hang, shrug shoulder blades down — no arm bend |
 | Single-arm dumbbell row | 3 × 8–10/side | |
 | Cable face pull | 3 × 12–15 | Shoulder health insurance for all this pulling |
@@ -150,8 +161,10 @@ and it's the fastest known route from 0–3 pull-ups to 10+.
    and volume-trend math stays honest.
 3. Set two goals in the goals page: target pull-up reps by week 12, and target
    Cooper-test distance by week 12.
-4. Retest weeks: 6 and 12 — pull-up max replaces Saturday's first exercise,
-   Cooper test replaces Sunday's intervals.
+4. Retest weeks: 6 and 12 — pull-up max replaces Thursday's first exercise
+   (Pull A), Cooper test replaces Saturday's 4×4. Friday is a rest day, so
+   you arrive at the Cooper fresh. Swap Sunday's 30/30 for easy Zone 2 in
+   test weeks rather than stacking a max test and intervals.
 5. Log every test via **Log test** on the dashboard's VO2 Max Trend card
    (Cooper distance in meters, or strict pull-up reps). The card converts
    Cooper distances to VO2 Max, plots them against Oura's daily estimates,
