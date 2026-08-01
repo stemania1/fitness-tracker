@@ -10,7 +10,7 @@ import {
   DELOAD_WEEK,
   PLAN_PHASES,
   PLAN_TESTS,
-  WEEKLY_SCHEDULE,
+  scheduleForDay,
   type PlanPhase,
   type PlanSession,
 } from "@/data/training-plan"
@@ -43,9 +43,16 @@ export function planWeekNumber(date: Date): number | null {
   return week > PLAN_WEEKS ? null : week
 }
 
-/** The prescribed session for a date's weekday. */
+/**
+ * The session prescribed for a date, under the schedule in force *that day*.
+ *
+ * Resolving against the current schedule instead would rewrite history: the
+ * plan moved the 4×4 off Tuesday mid-block, and every past Thursday would
+ * then claim a Pull A that was actually prescribed as Pull B — which the
+ * missed-session detector duly reported as a skipped session.
+ */
 export function sessionForDate(date: Date): PlanSession {
-  return WEEKLY_SCHEDULE[date.getDay()]
+  return scheduleForDay(date)[date.getDay()]
 }
 
 /** The phase covering a plan week, or null outside the plan. */
