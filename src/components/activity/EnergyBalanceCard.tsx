@@ -18,6 +18,7 @@ import { epochDay } from "@/lib/dates"
 import { useUserQuery } from "@/lib/supabase/user-query"
 import { CARD_ACCENTS, CHIP_TONES, PANEL_TONES } from "@/lib/constants"
 import { InsightCard } from "@/components/ui/insight-card"
+import { useProfile } from "@/hooks/useProfile"
 
 const supabase = createClient()
 
@@ -36,19 +37,22 @@ const confidenceStyle: Record<Exclude<TdeeConfidence, "insufficient">, string> =
  * many should I eat?" answer, self-correcting as data accrues.
  */
 export function EnergyBalanceCard() {
+  // Weights come from the shared profile. They are in the query key rather
+  // than fetched here so that logging a weigh-in — which invalidates
+  // ["profile"] — also recomputes the balance, instead of leaving it derived
+  // from the weight you used to be.
+  const { data: profile } = useProfile()
+  const currentWeight = profile?.current_weight ?? null
+  const targetWeight = profile?.target_weight ?? null
+
   const { data, isLoading } = useUserQuery(
-    ["energy-balance", WINDOW_DAYS],
+    ["energy-balance", WINDOW_DAYS, currentWeight, targetWeight],
     async (userId: string) => {
       const sinceIso = new Date(
         Date.now() - WINDOW_DAYS * 86_400_000
       ).toISOString()
 
-      const [profileRes, weightRes, foodRes] = await Promise.all([
-        supabase
-          .from("user_profiles")
-          .select("current_weight, target_weight")
-          .eq("id", userId)
-          .single(),
+      const [weightRes, foodRes] = await Promise.all([
         supabase
           .from("weight_logs")
           .select("weight, logged_at")
@@ -77,13 +81,9 @@ export function EnergyBalanceCard() {
         calories,
       }))
 
-      return {
-        currentWeight: profileRes.data?.current_weight ?? null,
-        targetWeight: profileRes.data?.target_weight ?? null,
-        weighIns,
-        intake,
-      }
-    }
+      return { currentWeight, targetWeight, weighIns, intake }
+    },
+    { enabled: profile !== undefined }
   )
 
   const view = useMemo(() => {

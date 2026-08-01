@@ -21,6 +21,7 @@ import {
 } from "@/lib/weekly-digest"
 import { useUserQuery } from "@/lib/supabase/user-query"
 import { InsightCard } from "@/components/ui/insight-card"
+import { useProfile } from "@/hooks/useProfile"
 
 const supabase = createClient()
 
@@ -39,8 +40,14 @@ const iconFor = { fitness: Dumbbell, weight: Scale, energy: Sparkles }
  * from the same signals the individual cards use.
  */
 export function WeeklyDigestCard() {
+  // Weights come from the shared profile, and sit in the query key so a
+  // weigh-in — which invalidates ["profile"] — also recomputes the digest.
+  const { data: profile } = useProfile()
+  const currentWeight = profile?.current_weight ?? null
+  const targetWeight = profile?.target_weight ?? null
+
   const { data, isLoading } = useUserQuery(
-    ["weekly-digest"],
+    ["weekly-digest", currentWeight, targetWeight],
     async (userId: string): Promise<DigestInput> => {
 
       const now = Date.now()
@@ -49,13 +56,8 @@ export function WeeklyDigestCard() {
       const d7 = localDateString(new Date(now - 7 * DAY))
       const d14 = localDateString(new Date(now - 14 * DAY))
 
-      const [profileRes, weightRes, foodRes, workoutRes, energyRes, ouraRes] =
+      const [weightRes, foodRes, workoutRes, energyRes, ouraRes] =
         await Promise.all([
-          supabase
-            .from("user_profiles")
-            .select("current_weight, target_weight")
-            .eq("id", userId)
-            .single(),
           supabase
             .from("weight_logs")
             .select("weight, logged_at")
@@ -109,10 +111,10 @@ export function WeeklyDigestCard() {
         calories,
       }))
       const est = estimateAdaptiveTdee(weighIns, intake)
-      const current = profileRes.data?.current_weight ?? null
+      const current = currentWeight
       const targetRate =
         current != null
-          ? recommendedRate(current, profileRes.data?.target_weight ?? null)
+          ? recommendedRate(current, targetWeight)
           : 0
       const targetIntake =
         est.tdee != null ? targetIntakeForRate(est.tdee, targetRate) : null
@@ -150,7 +152,8 @@ export function WeeklyDigestCard() {
         sleepDeltaHours: sleepTrend.delta,
         topEnergyInsight: null,
       }
-    }
+    },
+    { enabled: profile !== undefined }
   )
 
   const digest = useMemo(() => (data ? buildWeeklyDigest(data) : null), [data])
