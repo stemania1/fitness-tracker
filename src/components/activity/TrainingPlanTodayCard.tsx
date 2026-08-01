@@ -2,12 +2,6 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { CalendarCheck, ChevronRight, Moon, Timer } from "lucide-react"
 import { PLAN_WEEKS } from "@/data/training-plan"
@@ -18,6 +12,7 @@ import { DayNav } from "./DayNav"
 import { dayLabel, offsetDate } from "@/lib/day-nav"
 import { useSwipe } from "@/hooks/useSwipe"
 import { CARD_ACCENTS, CHIP_TONES, PANEL_TONES } from "@/lib/constants"
+import { InsightCard } from "@/components/ui/insight-card"
 
 const typeStyles: Record<string, string> = {
   cardio: CHIP_TONES.brand,
@@ -66,93 +61,92 @@ export function TrainingPlanTodayCard({
   )
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <CalendarCheck className={`h-5 w-5 ${CARD_ACCENTS.brand}`} />
-            <DayNav
-              label={`${dayLabel(offset)}'s Plan`}
-              onPrev={isToday ? undefined : () => setOffset((o) => o - 1)}
-              onNext={nextInPlan ? () => setOffset((o) => o + 1) : undefined}
-            />
-          </CardTitle>
-          {plan.week != null ? (
-            <Badge className="bg-purple-100 text-purple-700">
-              Week {plan.week} of {PLAN_WEEKS}
-              {plan.phase ? ` · ${plan.phase.label}` : ""}
-            </Badge>
-          ) : (
-            <Badge className="bg-gray-100 text-gray-600">Plan complete</Badge>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3" {...swipe}>
+    <InsightCard
+      icon={CalendarCheck}
+      accent="brand"
+      title={
+        <DayNav
+          label={`${dayLabel(offset)}'s Plan`}
+          onPrev={isToday ? undefined : () => setOffset((o) => o - 1)}
+          onNext={nextInPlan ? () => setOffset((o) => o + 1) : undefined}
+        />
+      }
+      action={
+        plan.week != null ? (
+          <Badge className="bg-purple-100 text-purple-700">
+            Week {plan.week} of {PLAN_WEEKS}
+            {plan.phase ? ` · ${plan.phase.label}` : ""}
+          </Badge>
+        ) : (
+          <Badge className="bg-gray-100 text-gray-600">Plan complete</Badge>
+        )
+      }
+    >
         <div className="flex items-start gap-3">
           <div
-            className={`mt-0.5 rounded-lg p-2 ${typeStyles[plan.session.type]}`}
+        className={`mt-0.5 rounded-lg p-2 ${typeStyles[plan.session.type]}`}
           >
-            {plan.session.type === "rest" ? (
-              <Moon className="h-4 w-4" />
-            ) : (
-              <Timer className="h-4 w-4" />
-            )}
+        {plan.session.type === "rest" ? (
+          <Moon className="h-4 w-4" />
+        ) : (
+          <Timer className="h-4 w-4" />
+        )}
           </div>
           <div className="min-w-0">
-            <p className="font-semibold text-gray-900">
-              {plan.session.title}
-              {plan.session.time && (
-                <span className="ml-2 text-sm font-normal text-gray-500">
-                  {plan.session.time} · {plan.session.durationMins} min
-                </span>
-              )}
-            </p>
-            <ul className="mt-1 space-y-0.5 text-sm text-gray-600">
-              {plan.session.details.map((detail) => (
-                <li key={detail}>{detail}</li>
-              ))}
-            </ul>
+        <p className="font-semibold text-gray-900">
+          {plan.session.title}
+          {plan.session.time && (
+            <span className="ml-2 text-sm font-normal text-gray-500">
+              {plan.session.time} · {plan.session.durationMins} min
+            </span>
+          )}
+        </p>
+        <ul className="mt-1 space-y-0.5 text-sm text-gray-600">
+          {plan.session.details.map((detail) => (
+            <li key={detail}>{detail}</li>
+          ))}
+        </ul>
           </div>
         </div>
 
         {/* Missed-work catch-up, suggestion-only: the app proposes, the
-            user decides. Only relevant to today. */}
+        user decides. Only relevant to today. */}
         {isToday && suggestion && (
           <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            <p className="font-semibold">{suggestion.headline}</p>
-            <p className="mt-0.5">{suggestion.detail}</p>
+        <p className="font-semibold">{suggestion.headline}</p>
+        <p className="mt-0.5">{suggestion.detail}</p>
           </div>
         )}
 
         {gate.action !== "none" && (
           <div className={`rounded-lg px-3 py-2 ${gateStyles[gate.action]}`}>
-            <p className="text-xs font-semibold">{gate.headline}</p>
-            <p className="mt-0.5 text-xs">{gate.detail}</p>
+        <p className="text-xs font-semibold">{gate.headline}</p>
+        <p className="mt-0.5 text-xs">{gate.detail}</p>
           </div>
         )}
 
         {plan.sessionNote && (
           <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
-            {plan.sessionNote}
+        {plan.sessionNote}
           </p>
         )}
 
         {plan.isDeload && (
           <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
-            Deload week — recover, don&apos;t chase numbers.
+        Deload week — recover, don&apos;t chase numbers.
           </p>
         )}
 
         {plan.testTitle && (
           <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
-            {plan.testTitle} this weekend — log results via Log Test below.
+        {plan.testTitle} this weekend — log results via Log Test below.
           </p>
         )}
 
         {plan.week == null && (
           <p className="text-xs text-gray-500">
-            The 12 weeks are done — retest, then set the next block&apos;s
-            goals.
+        The 12 weeks are done — retest, then set the next block&apos;s
+        goals.
           </p>
         )}
 
@@ -163,7 +157,6 @@ export function TrainingPlanTodayCard({
           View full plan
           <ChevronRight className="h-4 w-4" />
         </Link>
-      </CardContent>
-    </Card>
+    </InsightCard>
   )
 }

@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Moon } from "lucide-react"
 import {
@@ -22,7 +21,7 @@ import {
   type OuraMetric,
 } from "@/lib/oura-trends"
 import { useUserQuery } from "@/lib/supabase/user-query"
-import { CARD_ACCENTS } from "@/lib/constants"
+import { InsightCard } from "@/components/ui/insight-card"
 
 const supabase = createClient()
 
@@ -83,96 +82,91 @@ export function SleepTrendCard() {
   )
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-2">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Moon className={`h-5 w-5 ${CARD_ACCENTS.neutral}`} />
-            Sleep &amp; Recovery
-          </CardTitle>
-          <div className="flex gap-1">
-            {METRICS.map((m) => (
-              <button
-                key={m.key}
-                type="button"
-                onClick={() => setMetric(m.key)}
-                className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
-                  metric === m.key
-                    ? "bg-purple-600 text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
-              >
-                {m.tab}
-              </button>
-            ))}
-          </div>
+    <InsightCard
+      icon={Moon}
+      title="Sleep &amp; Recovery"
+      action={
+        <div className="flex gap-1">
+          {METRICS.map((m) => (
+            <button
+              key={m.key}
+              type="button"
+              onClick={() => setMetric(m.key)}
+              className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                metric === m.key
+                  ? "bg-purple-600 text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              {m.tab}
+            </button>
+          ))}
         </div>
-      </CardHeader>
-      <CardContent>
+      }
+    >
         {isLoading || !trend ? (
           <Skeleton className="h-40 w-full" />
         ) : trend.points.length < 3 ? (
           <p className="py-4 text-sm text-gray-500">
-            Sleep and readiness trends will appear as your Oura history syncs —
-            check back after a few nights.
+        Sleep and readiness trends will appear as your Oura history syncs —
+        check back after a few nights.
           </p>
         ) : (
           <div className="space-y-3">
-            <div className="flex items-baseline gap-2">
-              <p className="text-2xl font-bold text-gray-900">
-                {trend.avg7 != null ? fmt(metric, trend.avg7) : "—"}
-              </p>
-              <span className="text-xs text-gray-500">
-                {cfg.label} (7-day)
-              </span>
-              {trend.delta != null && trend.delta !== 0 && (
-                <span
-                  className={`ml-auto text-xs font-medium ${
-                    trend.delta > 0 ? "text-emerald-600" : "text-amber-600"
-                  }`}
-                >
-                  {trend.delta > 0 ? "+" : ""}
-                  {fmt(metric, trend.delta)} vs last week
-                </span>
-              )}
-            </div>
+        <div className="flex items-baseline gap-2">
+          <p className="text-2xl font-bold text-gray-900">
+            {trend.avg7 != null ? fmt(metric, trend.avg7) : "—"}
+          </p>
+          <span className="text-xs text-gray-500">
+            {cfg.label} (7-day)
+          </span>
+          {trend.delta != null && trend.delta !== 0 && (
+            <span
+              className={`ml-auto text-xs font-medium ${
+                trend.delta > 0 ? "text-emerald-600" : "text-amber-600"
+              }`}
+            >
+              {trend.delta > 0 ? "+" : ""}
+              {fmt(metric, trend.delta)} vs last week
+            </span>
+          )}
+        </div>
 
-            <div className="h-40 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                  data={trend.points}
-                  margin={{ top: 5, right: 8, bottom: 0, left: -20 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis
-                    dataKey="day"
-                    tickFormatter={shortDay}
-                    tick={{ fontSize: 10, fill: "#94a3b8" }}
-                    interval="preserveStartEnd"
-                    minTickGap={24}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 10, fill: "#94a3b8" }}
-                    domain={["auto", "auto"]}
-                    width={32}
-                  />
-                  <Tooltip
-                    formatter={(v) => [fmt(metric, Number(v)), cfg.label]}
-                    labelFormatter={(d) => shortDay(String(d))}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="value"
-                    stroke={cfg.color}
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+        <div className="h-40 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart
+              data={trend.points}
+              margin={{ top: 5, right: 8, bottom: 0, left: -20 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <XAxis
+                dataKey="day"
+                tickFormatter={shortDay}
+                tick={{ fontSize: 10, fill: "#94a3b8" }}
+                interval="preserveStartEnd"
+                minTickGap={24}
+              />
+              <YAxis
+                tick={{ fontSize: 10, fill: "#94a3b8" }}
+                domain={["auto", "auto"]}
+                width={32}
+              />
+              <Tooltip
+                formatter={(v) => [fmt(metric, Number(v)), cfg.label]}
+                labelFormatter={(d) => shortDay(String(d))}
+              />
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke={cfg.color}
+                strokeWidth={2}
+                dot={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
           </div>
         )}
-      </CardContent>
-    </Card>
+    </InsightCard>
   )
 }

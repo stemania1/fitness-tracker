@@ -2,12 +2,6 @@
 
 import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Moon } from "lucide-react"
@@ -28,6 +22,7 @@ import {
 } from "@/lib/sleep-insights"
 import { formatShortDate, parseLocalDay } from "@/lib/dates"
 import { CARD_ACCENTS, CHIP_TONES } from "@/lib/constants"
+import { InsightCard } from "@/components/ui/insight-card"
 
 const WINDOWS = [30, 60, 90] as const
 
@@ -97,136 +92,131 @@ export function RemInsightsCard() {
   )
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Moon className={`h-5 w-5 ${CARD_ACCENTS.neutral}`} />
-            REM &amp; Sleep Insights
-          </CardTitle>
-          <div className="flex rounded-lg bg-gray-100 p-0.5">
-            {WINDOWS.map((w) => (
-              <button
-                key={w}
-                onClick={() => setDays(w)}
-                className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
-                  days === w
-                    ? "bg-white text-gray-900 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                {w}d
-              </button>
-            ))}
-          </div>
+    <InsightCard
+      icon={Moon}
+      title="REM &amp; Sleep Insights"
+      action={
+        <div className="flex rounded-lg bg-gray-100 p-0.5">
+          {WINDOWS.map((w) => (
+            <button
+              key={w}
+              onClick={() => setDays(w)}
+              className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+                days === w
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {w}d
+            </button>
+          ))}
         </div>
-      </CardHeader>
-      <CardContent>
+      }
+    >
         {isLoading ? (
           <Skeleton className="h-40 w-full" />
         ) : isError ? (
           <div className="flex flex-col items-center gap-2 py-4 text-center">
-            <Moon className="h-6 w-6 text-gray-300" />
-            <p className="text-sm text-gray-500">
-              Unable to load Oura sleep data right now.
-            </p>
+        <Moon className="h-6 w-6 text-gray-300" />
+        <p className="text-sm text-gray-500">
+          Unable to load Oura sleep data right now.
+        </p>
           </div>
         ) : remNights.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-4 text-center">
-            <Moon className="h-6 w-6 text-gray-300" />
-            <p className="text-sm text-gray-500">
-              No Oura sleep history yet.
-            </p>
-            <p className="text-xs text-gray-400">
-              Connect your Oura Ring on the Profile page — REM trends and
-              correlations appear once a few nights have synced.
-            </p>
+        <Moon className="h-6 w-6 text-gray-300" />
+        <p className="text-sm text-gray-500">
+          No Oura sleep history yet.
+        </p>
+        <p className="text-xs text-gray-400">
+          Connect your Oura Ring on the Profile page — REM trends and
+          correlations appear once a few nights have synced.
+        </p>
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="flex items-baseline gap-3">
-              {avgRemPct != null && (
-                <p className="text-2xl font-bold text-gray-900">
-                  {`${avgRemPct}%`}
-                  <span className="ml-1 text-xs font-normal text-gray-500">
-                    avg REM · {remNights.length} nights
-                  </span>
-                </p>
-              )}
-            </div>
-
-            <ResponsiveContainer width="100%" height={140}>
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis
-                  dataKey="day"
-                  tickFormatter={formatDay}
-                  tick={{ fontSize: 10 }}
-                  stroke="#9ca3af"
-                  interval="preserveStartEnd"
-                  minTickGap={40}
-                />
-                <YAxis
-                  tick={{ fontSize: 10 }}
-                  stroke="#9ca3af"
-                  width={32}
-                  unit="m"
-                />
-                <Tooltip
-                  contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                  labelFormatter={(day) => formatDay(String(day))}
-                  formatter={(value, _name, item) => [
-                    `${value} min (${item?.payload?.remPct ?? "?"}%)`,
-                    "REM",
-                  ]}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="rem"
-                  stroke="#6366f1"
-                  strokeWidth={1.5}
-                  dot={false}
-                  connectNulls
-                  activeDot={{ r: 3 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-gray-500">
-                What tracks with your REM?
-              </p>
-              {rankedCorrelations.map((c) => (
-                <div
-                  key={c.key}
-                  className="rounded-lg border border-gray-100 p-2.5"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium text-gray-900">
-                      {c.label}
-                    </span>
-                    <Badge className={strengthBadge[c.strength].className}>
-                      {c.r != null && c.strength !== "none"
-                        ? `${strengthBadge[c.strength].label} ${c.direction === "positive" ? "↑" : "↓"}`
-                        : strengthBadge[c.strength].label}
-                    </Badge>
-                  </div>
-                  <p className="mt-1 text-xs text-gray-500">
-                    {describeCorrelation(c)}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
-              Exploratory only — these are associations across {remNights.length}{" "}
-              nights, not proof of cause. Alcohol, late meals, and screen time
-              aren&apos;t measured. REM is compared as a % of sleep, so
-              &ldquo;total sleep&rdquo; reflects quality, not just duration.
+        <div className="flex items-baseline gap-3">
+          {avgRemPct != null && (
+            <p className="text-2xl font-bold text-gray-900">
+              {`${avgRemPct}%`}
+              <span className="ml-1 text-xs font-normal text-gray-500">
+                avg REM · {remNights.length} nights
+              </span>
             </p>
+          )}
+        </div>
+
+        <ResponsiveContainer width="100%" height={140}>
+          <LineChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <XAxis
+              dataKey="day"
+              tickFormatter={formatDay}
+              tick={{ fontSize: 10 }}
+              stroke="#9ca3af"
+              interval="preserveStartEnd"
+              minTickGap={40}
+            />
+            <YAxis
+              tick={{ fontSize: 10 }}
+              stroke="#9ca3af"
+              width={32}
+              unit="m"
+            />
+            <Tooltip
+              contentStyle={{ fontSize: 12, borderRadius: 8 }}
+              labelFormatter={(day) => formatDay(String(day))}
+              formatter={(value, _name, item) => [
+                `${value} min (${item?.payload?.remPct ?? "?"}%)`,
+                "REM",
+              ]}
+            />
+            <Line
+              type="monotone"
+              dataKey="rem"
+              stroke="#6366f1"
+              strokeWidth={1.5}
+              dot={false}
+              connectNulls
+              activeDot={{ r: 3 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-gray-500">
+            What tracks with your REM?
+          </p>
+          {rankedCorrelations.map((c) => (
+            <div
+              key={c.key}
+              className="rounded-lg border border-gray-100 p-2.5"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-medium text-gray-900">
+                  {c.label}
+                </span>
+                <Badge className={strengthBadge[c.strength].className}>
+                  {c.r != null && c.strength !== "none"
+                    ? `${strengthBadge[c.strength].label} ${c.direction === "positive" ? "↑" : "↓"}`
+                    : strengthBadge[c.strength].label}
+                </Badge>
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                {describeCorrelation(c)}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          Exploratory only — these are associations across {remNights.length}{" "}
+          nights, not proof of cause. Alcohol, late meals, and screen time
+          aren&apos;t measured. REM is compared as a % of sleep, so
+          &ldquo;total sleep&rdquo; reflects quality, not just duration.
+        </p>
           </div>
         )}
-      </CardContent>
-    </Card>
+    </InsightCard>
   )
 }

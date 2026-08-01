@@ -2,7 +2,6 @@
 
 import { useMemo } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Flame } from "lucide-react"
@@ -11,7 +10,7 @@ import { estimateStrengthCalories, estimateCardioCalories } from "@/lib/calories
 import { calcWeeklyStreak, startOfWeekISO } from "@/lib/weekly-progress"
 import { useProfile } from "@/hooks/useProfile"
 import { useUserQuery } from "@/lib/supabase/user-query"
-import { CARD_ACCENTS } from "@/lib/constants"
+import { InsightCard } from "@/components/ui/insight-card"
 
 const supabase = createClient()
 
@@ -160,60 +159,56 @@ export function ThisWeekCard() {
   )
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Flame className={`h-5 w-5 ${CARD_ACCENTS.progress}`} />
-          This Week
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+    <InsightCard
+      icon={Flame}
+      accent="progress"
+      title="This Week"
+    >
         {weeklyLoading || profileLoading ? (
           <div className="space-y-2">
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-3 w-full" />
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-3 w-full" />
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="space-y-2">
-              <div className="flex items-baseline justify-between">
-                <span className="text-sm text-gray-600">
-                  <span className="text-lg font-semibold text-gray-900">
-                    {completedWorkouts}
-                  </span>{" "}
-                  of {workoutTarget} workouts
-                </span>
-                <span className="text-sm font-medium text-purple-600">
-                  {weeklyProgress}%
-                </span>
-              </div>
-              <Progress value={weeklyProgress} />
-            </div>
-            {!caloriesLoading && weeklyCalories != null && weeklyCalories > 0 && (
-              <div className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2">
-                <Flame className="h-4 w-4 text-gray-400" />
-                <span className="text-sm text-gray-700">
-                  <span className="font-semibold text-gray-900">
-                    {weeklyCalories.toLocaleString()}
-                  </span>{" "}
-                  calories burned
-                </span>
-              </div>
-            )}
-            {!allWorkoutsLoading && weeklyStreak >= 1 && (
-              <div className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2">
-                <Flame className="h-4 w-4 text-emerald-600" />
-                <span className="text-sm text-gray-700">
-                  <span className="font-semibold text-gray-900">
-                    {weeklyStreak}
-                  </span>{" "}
-                  week streak
-                </span>
-              </div>
-            )}
+        <div className="space-y-2">
+          <div className="flex items-baseline justify-between">
+        <span className="text-sm text-gray-600">
+          <span className="text-lg font-semibold text-gray-900">
+            {completedWorkouts}
+          </span>{" "}
+          of {workoutTarget} workouts
+        </span>
+        <span className="text-sm font-medium text-purple-600">
+          {weeklyProgress}%
+        </span>
+          </div>
+          <Progress value={weeklyProgress} />
+        </div>
+        {!caloriesLoading && weeklyCalories != null && weeklyCalories > 0 && (
+          <div className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2">
+        <Flame className="h-4 w-4 text-gray-400" />
+        <span className="text-sm text-gray-700">
+          <span className="font-semibold text-gray-900">
+            {weeklyCalories.toLocaleString()}
+          </span>{" "}
+          calories burned
+        </span>
           </div>
         )}
-      </CardContent>
-    </Card>
+        {!allWorkoutsLoading && weeklyStreak >= 1 && (
+          <div className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2">
+        <Flame className="h-4 w-4 text-emerald-600" />
+        <span className="text-sm text-gray-700">
+          <span className="font-semibold text-gray-900">
+            {weeklyStreak}
+          </span>{" "}
+          week streak
+        </span>
+          </div>
+        )}
+          </div>
+        )}
+    </InsightCard>
   )
 }

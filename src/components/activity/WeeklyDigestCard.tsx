@@ -3,7 +3,6 @@
 import { useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ClipboardList, Dumbbell, Scale, Sparkles, Target } from "lucide-react"
 import {
@@ -21,7 +20,7 @@ import {
   type Tone,
 } from "@/lib/weekly-digest"
 import { useUserQuery } from "@/lib/supabase/user-query"
-import { CARD_ACCENTS } from "@/lib/constants"
+import { InsightCard } from "@/components/ui/insight-card"
 
 const supabase = createClient()
 
@@ -157,56 +156,52 @@ export function WeeklyDigestCard() {
   const digest = useMemo(() => (data ? buildWeeklyDigest(data) : null), [data])
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <ClipboardList className={`h-5 w-5 ${CARD_ACCENTS.progress}`} />
-          Weekly Check-In
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+    <InsightCard
+      icon={ClipboardList}
+      accent="progress"
+      title="Weekly Check-In"
+    >
         {isLoading || !digest ? (
           <Skeleton className="h-40 w-full" />
         ) : (
           <div className="space-y-4">
-            <div className="space-y-2.5">
-              {digest.sections.map((s) => {
-                const Icon = iconFor[s.key]
-                return (
-                  <div key={s.key} className="flex items-start gap-2.5">
-                    <span
-                      className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${toneDot[s.tone]}`}
-                    />
-                    <Icon className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-900">
-                        {s.headline}
-                      </p>
-                      {s.detail && (
-                        <p className="text-xs text-gray-500">{s.detail}</p>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            <div className="rounded-lg bg-purple-50 p-3">
-              <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-purple-700">
-                <Target className="h-3.5 w-3.5" />
-                This week&apos;s focus
+        <div className="space-y-2.5">
+          {digest.sections.map((s) => {
+        const Icon = iconFor[s.key]
+        return (
+          <div key={s.key} className="flex items-start gap-2.5">
+            <span
+              className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${toneDot[s.tone]}`}
+            />
+            <Icon className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-gray-900">
+                {s.headline}
               </p>
-              <ul className="space-y-1.5">
-                {digest.actions.map((a, idx) => (
-                  <li key={idx} className="text-sm text-purple-900">
-                    {a.text}
-                  </li>
-                ))}
-              </ul>
+              {s.detail && (
+                <p className="text-xs text-gray-500">{s.detail}</p>
+              )}
             </div>
           </div>
+        )
+          })}
+        </div>
+
+        <div className="rounded-lg bg-purple-50 p-3">
+          <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-purple-700">
+        <Target className="h-3.5 w-3.5" />
+        This week&apos;s focus
+          </p>
+          <ul className="space-y-1.5">
+        {digest.actions.map((a, idx) => (
+          <li key={idx} className="text-sm text-purple-900">
+            {a.text}
+          </li>
+        ))}
+          </ul>
+        </div>
+          </div>
         )}
-      </CardContent>
-    </Card>
+    </InsightCard>
   )
 }
