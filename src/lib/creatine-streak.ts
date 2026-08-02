@@ -26,7 +26,14 @@ export function currentStreak(takenDates: Iterable<string>, today: string): numb
 /** Default daily creatine target (g) — the classic maintenance dose. */
 export const DEFAULT_CREATINE_TARGET_G = 5
 /** Dose sizes offered on the card, in grams. */
-export const CREATINE_DOSE_OPTIONS = [2.5, 5, 10]
+/**
+ * Dose chips, most-used first rather than ascending.
+ *
+ * 5 g is the standard daily dose and the one tapped once a morning, so it led
+ * off a row that read 2.5 / 5 / 10 — putting the everyday action in the middle
+ * and the rare loading dose an equal tap away.
+ */
+export const CREATINE_DOSE_OPTIONS = [5, 2.5, 10]
 
 export interface CreatineProgress {
   /** Grams logged today. */

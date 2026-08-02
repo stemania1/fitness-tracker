@@ -15,8 +15,11 @@ const supabase = createClient()
 
 export function QuickLogCaffeine() {
   const [open, setOpen] = useState(false)
-  const [source, setSource] = useState<string | null>("Coffee")
-  const [mg, setMg] = useState("95")
+  // Opens on the first preset, which is the most-used one — the morning
+  // thermos. Read from the list rather than duplicated, so reordering the
+  // presets moves the default with them.
+  const [source, setSource] = useState<string | null>(CAFFEINE_PRESETS[0].label)
+  const [mg, setMg] = useState(String(CAFFEINE_PRESETS[0].mg))
   // When it was consumed. Defaults to now; can be backdated to a drink you
   // forgot to log. datetime-local (local) string; converted to UTC on save.
   const [loggedAt, setLoggedAt] = useState(nowLocalDatetimeString)

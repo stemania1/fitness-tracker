@@ -5,9 +5,30 @@ import {
   lateCaffeineFlag,
   formatHour,
   CAFFEINE_HALF_LIFE_MIN,
+  CAFFEINE_PRESETS,
   type CaffeineDose,
 } from "./caffeine"
 import { buildBedtimePlan } from "./bedtime"
+
+describe("CAFFEINE_PRESETS", () => {
+  const mg = (label: string) =>
+    CAFFEINE_PRESETS.find((p) => p.label === label)?.mg
+
+  it("keeps Thermos at exactly two coffees", () => {
+    // Derived rather than hardcoded, so revising the Coffee estimate can't
+    // silently leave the Thermos preset describing something else.
+    expect(mg("Thermos")).toBe(mg("Coffee")! * 2)
+  })
+
+  it("has no duplicate labels", () => {
+    const labels = CAFFEINE_PRESETS.map((p) => p.label)
+    expect(new Set(labels).size).toBe(labels.length)
+  })
+
+  it("puts the most-used drink first, since the dialog opens on it", () => {
+    expect(CAFFEINE_PRESETS[0].label).toBe("Thermos")
+  })
+})
 
 describe("caffeineOnBoardMg", () => {
   it("returns the full dose at time zero", () => {

@@ -42,8 +42,16 @@ export interface CaffeineDose {
   minute?: number
 }
 
-/** Common drinks → typical caffeine content (mg), for quick logging. */
+/**
+ * Common drinks → typical caffeine content (mg), for quick logging.
+ *
+ * Ordered by how often it is actually tapped, not by size. The thermos is two
+ * cups and gets poured every morning, so it leads and supplies the dialog's
+ * default; a list sorted by anything else puts the daily action behind the
+ * occasional ones.
+ */
 export const CAFFEINE_PRESETS: Array<{ label: string; mg: number }> = [
+  { label: "Thermos", mg: 190 },
   { label: "Coffee", mg: 95 },
   { label: "Espresso", mg: 65 },
   { label: "Cold brew", mg: 155 },
