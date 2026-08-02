@@ -23,6 +23,7 @@ import {
   type PlanSession,
 } from "@/data/training-plan"
 import { planWeekNumber, sessionForDate } from "@/lib/training-plan"
+import { matchesSession } from "@/lib/plan-audit"
 
 /** Shape of a workout_logs row the detector needs. */
 export interface RecentWorkout {
@@ -85,15 +86,16 @@ function mondayOfWeek(week: number): Date {
   return addDays(planStart(), (week - 1) * 7)
 }
 
+/**
+ * Shared with the plan audit (lib/plan-audit), so the panel that explains a
+ * "missed" nudge can never reach a different conclusion than the nudge.
+ */
 function loggedOn(
   workouts: RecentWorkout[],
   title: string,
   day: Date
 ): boolean {
-  return workouts.some(
-    (w) =>
-      w.name === title && Math.abs(diffDays(new Date(w.started_at), day)) <= 1
-  )
+  return workouts.some((w) => matchesSession(w, title, day))
 }
 
 function testLoggedNear(
