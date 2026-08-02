@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from "vitest"
-import { render, screen, fireEvent, cleanup } from "@testing-library/react"
+import { render, screen, fireEvent, cleanup, act } from "@testing-library/react"
 import {
   Dialog,
   DialogTrigger,
@@ -140,5 +140,83 @@ describe("Dialog accessibility", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument()
     fireEvent.keyDown(document, { key: "Escape" })
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  })
+})
+
+describe("Dialog — keyboard-aware positioning", () => {
+  /** Install a fake visualViewport and return a way to shrink it. */
+  function fakeViewport(height: number, offsetTop = 0) {
+    const listeners: Record<string, Array<() => void>> = {}
+    const vv = {
+      height,
+      offsetTop,
+      addEventListener: (type: string, fn: () => void) => {
+        ;(listeners[type] ??= []).push(fn)
+      },
+      removeEventListener: (type: string, fn: () => void) => {
+        listeners[type] = (listeners[type] ?? []).filter((l) => l !== fn)
+      },
+    }
+    Object.defineProperty(window, "visualViewport", {
+      value: vv,
+      configurable: true,
+      writable: true,
+    })
+    return {
+      shrinkTo(next: number, top = 0) {
+        // act() so the resulting state update flushes before we assert.
+        act(() => {
+          vv.height = next
+          vv.offsetTop = top
+          for (const fn of listeners.resize ?? []) fn()
+        })
+      },
+    }
+  }
+
+  /** The box the dialog is centred within. */
+  function centeringBox() {
+    return screen.getByRole("dialog").parentElement as HTMLElement
+  }
+
+  it("centres within the visible region once the keyboard opens", () => {
+    // The reported bug: the meal dialog's text input sat behind the keyboard,
+    // because a fixed, centred panel centres in the layout viewport, which the
+    // keyboard does not shrink.
+    Object.defineProperty(window, "innerHeight", {
+      value: 956,
+      configurable: true,
+    })
+    const vp = fakeViewport(956)
+    render(<Basic />)
+    open()
+
+    // Nothing covering the screen — ordinary full-screen positioning.
+    expect(centeringBox().style.top).toBe("0px")
+    expect(centeringBox().style.bottom).toBe("0px")
+
+    vp.shrinkTo(620)
+    expect(centeringBox().style.height).toBe("620px")
+    expect(centeringBox().style.bottom).toBe("")
+  })
+
+  it("follows the offset when the visual viewport is panned", () => {
+    Object.defineProperty(window, "innerHeight", {
+      value: 956,
+      configurable: true,
+    })
+    const vp = fakeViewport(956)
+    render(<Basic />)
+    open()
+    vp.shrinkTo(620, 140)
+    expect(centeringBox().style.top).toBe("140px")
+  })
+
+  it("lets a panel taller than the visible region scroll", () => {
+    // Otherwise the keyboard simply clips whatever does not fit.
+    render(<Basic />)
+    open()
+    expect(screen.getByRole("dialog").className).toContain("overflow-y-auto")
+    expect(screen.getByRole("dialog").className).toContain("max-h-full")
   })
 })

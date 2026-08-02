@@ -17,6 +17,7 @@ vi.mock("@/lib/supabase/client", () => ({
 }))
 
 import { QuickLogCaffeine } from "./QuickLogCaffeine"
+import { CAFFEINE_PRESETS } from "@/lib/caffeine"
 
 beforeEach(() => {
   mocks.getUser.mockReset().mockResolvedValue({ data: { user: { id: "u1" } } })
@@ -44,11 +45,13 @@ describe("QuickLogCaffeine", () => {
     expect(screen.queryByRole("dialog")).toBeNull()
   })
 
-  it("defaults to Coffee at 95mg", async () => {
+  it("defaults to the first — most-used — preset", async () => {
+    // Asserted against the list rather than a literal, so reordering the
+    // presets moves the expectation with the default instead of failing here.
     renderWithClient(<QuickLogCaffeine />)
     await openDialog()
     const mgInput = screen.getByLabelText(/caffeine \(mg\)/i) as HTMLInputElement
-    expect(mgInput.value).toBe("95")
+    expect(mgInput.value).toBe(String(CAFFEINE_PRESETS[0].mg))
   })
 
   it("sets mg when a preset is chosen", async () => {

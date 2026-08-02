@@ -3,6 +3,7 @@
 import * as React from "react"
 import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
+import { useVisualViewportBox } from "@/lib/visual-viewport"
 
 interface DialogContextValue {
   open: boolean
@@ -125,6 +126,7 @@ function DialogContent({ className, children, ...props }: DialogContentProps) {
     useDialogContext()
   const [mounted, setMounted] = React.useState(false)
   const panelRef = React.useRef<HTMLDivElement>(null)
+  const viewport = useVisualViewportBox(open)
 
   React.useEffect(() => {
     setMounted(true)
@@ -206,8 +208,20 @@ function DialogContent({ className, children, ...props }: DialogContentProps) {
   if (!mounted || !open) return null
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Overlay */}
+    // Centred within the VISIBLE region, not the layout viewport. With the
+    // keyboard open those differ by several hundred points on a phone, and
+    // centring against the layout viewport puts the lower half of the dialog —
+    // including the field being typed into — behind the keyboard.
+    <div
+      className="fixed left-0 right-0 z-50 flex items-center justify-center"
+      style={
+        viewport
+          ? { top: viewport.top, height: viewport.height }
+          : { top: 0, bottom: 0 }
+      }
+    >
+      {/* Overlay. Stays pinned to the whole screen so the dim covers the area
+          behind the keyboard too, rather than stopping at the panel's box. */}
       <div
         className="fixed inset-0 bg-black/50 backdrop-blur-sm"
         onClick={() => setOpen(false)}
@@ -222,7 +236,7 @@ function DialogContent({ className, children, ...props }: DialogContentProps) {
         aria-describedby={hasDescription ? descriptionId : undefined}
         tabIndex={-1}
         className={cn(
-          "relative z-50 w-full max-w-lg rounded-xl border border-gray-200 bg-white p-6 shadow-lg",
+          "relative z-50 max-h-full w-full max-w-lg overflow-y-auto rounded-xl border border-gray-200 bg-white p-6 shadow-lg",
           "animate-in fade-in-0 zoom-in-95",
           className
         )}
