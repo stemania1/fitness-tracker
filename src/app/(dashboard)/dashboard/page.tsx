@@ -283,13 +283,18 @@ export default function DashboardPage() {
         )}
       </Section>
 
+      {/* Creatine leads: it is a once-a-day, one-tap action that is either done
+          or not, so burying it under two larger read-mostly cards meant
+          scrolling past them every morning to tap a single chip. Nutrition and
+          caffeine are consulted repeatedly through the day and read fine
+          further down; a card you act on beats cards you check. */}
       <Section title="Fuel">
+        <CreatineCard />
         <NutritionCard
           caloriesBurnedToday={ouraSummary?.activity?.total_calories}
           targets={nutritionTargets}
         />
         <CaffeineCard />
-        <CreatineCard />
       </Section>
 
       <Section title="Progress">
