@@ -10,10 +10,10 @@
  *     they expire and the plan just resumes.
  *
  * Everything is suggestion-only: this module proposes, the user decides.
- * Detection is deliberately simple — a planned session counts as done when
- * a workout log with the session's exact title exists within +/- 1 day
- * (so doing Saturday's session on Sunday doesn't flag a miss). Freestyle
- * logs under other names won't match; that's accepted imprecision.
+ * Whether a session counts as done lives in `matchesSession` (lib/plan-audit),
+ * shared with the audit panel so the explanation can never disagree with the
+ * nudge: the session's exact title within +/- 1 day, plus any cardio-machine
+ * name on a cardio day, since Quick Log names those after the exercise.
  */
 
 import {
@@ -92,10 +92,10 @@ function mondayOfWeek(week: number): Date {
  */
 function loggedOn(
   workouts: RecentWorkout[],
-  title: string,
+  session: PlanSession,
   day: Date
 ): boolean {
-  return workouts.some((w) => matchesSession(w, title, day))
+  return workouts.some((w) => matchesSession(w, session, day))
 }
 
 function testLoggedNear(
@@ -204,7 +204,7 @@ export function planSuggestion(
       PLAN_TESTS.some((t) => t.week === week)
     )
       continue
-    if (loggedOn(workouts, session.title, day)) continue
+    if (loggedOn(workouts, session, day)) continue
 
     const rest = nextSessionDay(t0, "rest")
     if (!rest) return null

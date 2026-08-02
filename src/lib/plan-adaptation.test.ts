@@ -97,6 +97,40 @@ describe("planSuggestion — missed regular sessions", () => {
     expect(s).toBeNull()
   })
 
+  it("does not nag about a cardio session that was quick-logged", () => {
+    // The reported bug: Quick Log names a workout after the exercise, so a
+    // 4×4 the user had actually done still came back as "never logged".
+    const quickLogged = {
+      name: "Treadmill Run",
+      started_at: "2026-07-14T06:00:00",
+    }
+    // Everything else in the lookback window is logged, so Tuesday's 4×4 is
+    // the only session in question.
+    const s = planSuggestion(
+      d(2026, 7, 15),
+      [
+        { name: PULL_B, started_at: "2026-07-09T06:00:00" },
+        pullALog,
+        quickLogged,
+      ],
+      week1Done
+    )
+    expect(s).toBeNull()
+  })
+
+  it("still flags a strength day that only has a cardio log", () => {
+    // Doing a treadmill run is not doing Pull B; the leniency is scoped to
+    // cardio sessions, where the naming mismatch actually arises.
+    const run = { name: "Treadmill Run", started_at: "2026-07-16T06:00:00" }
+    const tuesday4x4 = {
+      name: "VO2 Max intervals — 4×4",
+      started_at: "2026-07-14T06:00:00",
+    }
+    const s = planSuggestion(d(2026, 7, 17), [run, tuesday4x4], week1Done)!
+    expect(s.kind).toBe("slide-session")
+    expect(s.headline).toContain(PULL_B)
+  })
+
   it("suggests only the most recent miss, not a backlog", () => {
     // Week 2: both Tuesday's 4×4 and Thursday's Pull B missed; Friday shows
     // only Pull B (most recent). Chasing a backlog is how programs die.

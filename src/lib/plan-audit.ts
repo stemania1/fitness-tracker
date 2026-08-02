@@ -13,6 +13,8 @@
  */
 import { sessionForDate, planWeekNumber } from "@/lib/training-plan"
 import { localDateString } from "@/lib/dates"
+import { exercises } from "@/data/exercises"
+import type { PlanSession } from "@/data/training-plan"
 
 export interface AuditWorkout {
   name: string
@@ -24,15 +26,22 @@ export interface AuditWorkout {
 export const MATCH_GRACE_DAYS = 1
 
 /**
- * The detector's rule: same name, within a day either side. Exported so the
- * audit and the nudge can never drift apart.
+ * Names Quick Log gives a cardio workout. It names after the *exercise*
+ * ("Treadmill Run"), never the plan session ("VO2 Max intervals — 4×4"), so
+ * exact-title matching can never credit a quick-logged cardio session.
+ *
+ * Derived from the catalog rather than listed by hand, so a new cardio machine
+ * is covered the day it is added.
  */
-export function matchesSession(
-  workout: AuditWorkout,
-  title: string,
-  day: Date
-): boolean {
-  if (workout.name !== title) return false
+const CARDIO_WORKOUT_NAMES = new Set(
+  exercises.filter((e) => e.exerciseType === "cardio").map((e) => e.name)
+)
+
+/** The session fields matching needs — anything with a title and a type. */
+type MatchableSession = Pick<PlanSession, "title" | "type">
+
+/** Whether a workout falls on the planned day, or within the grace window. */
+function withinGrace(workout: AuditWorkout, day: Date): boolean {
   const a = new Date(workout.started_at)
   const diff = Math.round(
     (new Date(a.getFullYear(), a.getMonth(), a.getDate()).getTime() -
@@ -40,6 +49,36 @@ export function matchesSession(
       86_400_000
   )
   return Math.abs(diff) <= MATCH_GRACE_DAYS
+}
+
+/**
+ * Whether a logged workout counts as having done a planned session. Exported
+ * so the audit and the nudge can never drift apart.
+ *
+ * Exact title is the confident signal, and it is all strength days need: the
+ * logger names a workout from `session.title`, so Pull A and Pull B match on
+ * the nose.
+ *
+ * Cardio days also accept any workout named after a cardio machine. Without
+ * that, the app told the user twice that a session they had done was "never
+ * logged" — the row was right there, under the name Quick Log gave it. A
+ * detector that calls a completed session missed is worse than one that is
+ * occasionally too generous: the first teaches you to distrust it, the second
+ * only stays quiet.
+ *
+ * The accepted cost is that a short easy walk on an interval day counts as the
+ * intervals. Narrowing that would mean reading each workout's duration or its
+ * exercises, which is a heavier query for a case that mistakes doing something
+ * for doing enough — a far cheaper error than the one it replaces.
+ */
+export function matchesSession(
+  workout: AuditWorkout,
+  session: MatchableSession,
+  day: Date
+): boolean {
+  if (!withinGrace(workout, day)) return false
+  if (workout.name === session.title) return true
+  return session.type === "cardio" && CARDIO_WORKOUT_NAMES.has(workout.name)
 }
 
 export type AuditVerdict =
@@ -86,12 +125,12 @@ export function auditPlanDays(
     let verdict: AuditVerdict
     if (session.type === "rest") {
       verdict = "rest"
-    } else if (workouts.some((w) => matchesSession(w, session.title, day))) {
+    } else if (workouts.some((w) => matchesSession(w, session, day))) {
       verdict = "done"
     } else if (loggedThatDay.length > 0) {
-      // The row exists — it just isn't named what the detector looks for.
-      // Quick Log names a workout after the exercise ("Treadmill Run"), not
-      // the plan session, so a quick-logged session lands here.
+      // Something was logged, but nothing the matcher will credit — a
+      // differently-named workout on a strength day. Quick-logged cardio no
+      // longer lands here; it is accepted as `done`.
       verdict = "name-mismatch"
     } else {
       verdict = "missing"
