@@ -123,6 +123,33 @@
     overscroll-behavior: none;
   }
 
+  /* `overflow: hidden` was not enough, and the failure got worse the longer
+     the app stayed open: measured off successive screenshots, the shell sat
+     ~148pt high one session and ~286pt the next, each pan nudging it further
+     with nothing to bring it back. By then the TopBar — and with it the only
+     route to Profile, since the bottom nav has no Profile tab and a
+     standalone PWA has no address bar — was off the top of the screen.
+
+     iOS treats `overflow: hidden` on the root as advisory in standalone mode
+     and will still pan the document. Taking the body OUT OF FLOW removes the
+     thing being panned: there is no document scroll position left to move.
+
+     Only `top`/`left`/`right` are pinned, deliberately not `bottom` — the
+     height chain above (100% in a tab, 100lvh installed) is doing careful
+     work that an over-constrained `bottom: 0` would silently override.
+
+     This is not the `position: fixed` hazard described further up. That one
+     was about a fixed bottom NAV re-anchoring to the visual viewport when the
+     keyboard opened. The nav is still in flow; the scroller is still <main>,
+     so focusing an input scrolls <main> and the browser brings it into view
+     as normal. */
+  body:has([data-app-shell]) {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+  }
+
   body {
     @apply bg-background text-foreground;
   }

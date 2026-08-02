@@ -7,6 +7,7 @@ import { BottomNav } from "@/components/layout/bottom-nav"
 import { OfflineSyncManager } from "@/components/activity/OfflineSyncManager"
 import { ServiceWorkerManager } from "@/components/pwa/ServiceWorkerManager"
 import { ViewportDebug } from "@/components/pwa/ViewportDebug"
+import { DocumentScrollGuard } from "@/components/layout/document-scroll-guard"
 import { CONTENT_COLUMN } from "@/components/layout/shell"
 
 export default async function DashboardLayout({
@@ -58,6 +59,9 @@ export default async function DashboardLayout({
       </main>
       <OfflineSyncManager />
       <ServiceWorkerManager />
+      {/* Recovers the TopBar — and with it the only route to Profile — if the
+          document ever scrolls despite the CSS. */}
+      <DocumentScrollGuard />
       {/* Renders only with ?debug=viewport in the URL. */}
       <ViewportDebug />
       <BottomNav />
