@@ -3,6 +3,10 @@ import {
   listPending,
   addPending,
   removePending,
+  markAttempt,
+  isStuck,
+  stuckPending,
+  MAX_SYNC_ATTEMPTS,
   type PendingWorkout,
   type QueueStorage,
 } from "./pending-workouts"
@@ -61,5 +65,76 @@ describe("pending-workouts queue", () => {
   it("survives corrupt storage by returning empty", () => {
     expect(listPending(memoryStore("not json"))).toEqual([])
     expect(listPending(memoryStore("{}"))).toEqual([]) // not an array
+  })
+})
+
+describe("attempt tracking", () => {
+  it("counts a failed attempt without dropping the entry", () => {
+    const store = memoryStore()
+    addPending(store, entry("a"))
+    markAttempt(store, "a", "duplicate key")
+
+    const [e] = listPending(store)
+    expect(e.id).toBe("a")
+    expect(e.attempts).toBe(1)
+    expect(e.lastError).toBe("duplicate key")
+    // The payload must survive — it's the whole reason the entry exists.
+    expect(e.payload.name).toBe("Pull A")
+  })
+
+  it("accumulates across attempts and keeps the latest error", () => {
+    const store = memoryStore()
+    addPending(store, entry("a"))
+    markAttempt(store, "a", "first")
+    markAttempt(store, "a", "second")
+    expect(listPending(store)[0].attempts).toBe(2)
+    expect(listPending(store)[0].lastError).toBe("second")
+  })
+
+  it("only touches the entry named", () => {
+    const store = memoryStore()
+    addPending(store, entry("a"))
+    addPending(store, entry("b"))
+    markAttempt(store, "a", "boom")
+    const byId = Object.fromEntries(listPending(store).map((p) => [p.id, p]))
+    expect(byId.a.attempts).toBe(1)
+    expect(byId.b.attempts).toBeUndefined()
+  })
+
+  it("treats an entry written before the field existed as zero attempts", () => {
+    // Real localStorage will hold these after a deploy; `?? 0` must hold.
+    const legacy = memoryStore(JSON.stringify([entry("old")]))
+    expect(isStuck(listPending(legacy)[0])).toBe(false)
+    markAttempt(legacy, "old", "boom")
+    expect(listPending(legacy)[0].attempts).toBe(1)
+  })
+
+  it("becomes stuck only at the threshold", () => {
+    const store = memoryStore()
+    addPending(store, entry("a"))
+    for (let i = 1; i < MAX_SYNC_ATTEMPTS; i++) {
+      markAttempt(store, "a", "boom")
+      expect(stuckPending(store)).toEqual([])
+    }
+    markAttempt(store, "a", "boom")
+    expect(stuckPending(store).map((p) => p.id)).toEqual(["a"])
+  })
+
+  it("separates stuck entries from ones still worth retrying", () => {
+    const store = memoryStore()
+    addPending(store, entry("bad"))
+    addPending(store, entry("fine"))
+    for (let i = 0; i < MAX_SYNC_ATTEMPTS; i++) markAttempt(store, "bad", "boom")
+
+    expect(stuckPending(store).map((p) => p.id)).toEqual(["bad"])
+    expect(listPending(store)).toHaveLength(2)
+  })
+
+  it("is a no-op for an id that is not queued", () => {
+    const store = memoryStore()
+    addPending(store, entry("a"))
+    markAttempt(store, "ghost", "boom")
+    expect(listPending(store)).toHaveLength(1)
+    expect(listPending(store)[0].attempts).toBeUndefined()
   })
 })

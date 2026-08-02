@@ -60,7 +60,11 @@ import {
   isOfflineError,
   saveErrorMessage,
 } from "@/lib/finish-workout"
-import { addPending, localStorageQueue } from "@/lib/pending-workouts"
+import {
+  addPending,
+  removePending,
+  localStorageQueue,
+} from "@/lib/pending-workouts"
 import { plannedSession } from "@/lib/todays-workout"
 import { isTimedTarget, repsTargetLabel } from "@/lib/reps-target"
 import { isBodyweightLoad } from "@/lib/load-type"
@@ -117,6 +121,11 @@ export default function LogWorkoutPage() {
   /** Exercises we've already pre-filled this session, so we don't clobber
    *  user edits if they tab back to the exercise. */
   const prefilledExercises = useRef<Set<string>>(new Set())
+  /**
+   * Queue entry holding this session after a failed save, so a later success
+   * (or another failure) can replace it instead of stacking duplicates.
+   */
+  const parkedId = useRef<string | null>(null)
 
   const elapsed = useElapsedSeconds(timerStart)
 
@@ -352,21 +361,42 @@ export default function LogWorkoutPage() {
 
     try {
       const logId = await saveWorkout(supabase, payload)
+      // An earlier attempt may have parked this session in the queue. It has
+      // landed now, so drop that copy before OfflineSyncManager replays it into
+      // a duplicate workout.
+      if (parkedId.current) {
+        removePending(localStorageQueue, parkedId.current)
+        parkedId.current = null
+      }
       // Everything derived from workouts — This Week's count and streak,
       // calories burned, recent workouts, PRs — was served from cache until
       // it happened to expire. Refresh before navigating away.
       invalidateWorkoutData(queryClient)
       router.push(`/activity/${logId}`)
     } catch (err) {
+      // Park the session on *every* failure, not just connectivity ones.
+      // Previously a server-side rejection left the workout in component state
+      // and nowhere else: the banner invited a retry, but closing the tab or
+      // tapping away threw the session out with no queue entry and no trace.
+      // That is the same invisibility that cost a Cooper test its workout row.
+      //
+      // Replace rather than append, so repeated retries leave one entry
+      // carrying the latest payload instead of a pile of near-duplicates.
+      if (parkedId.current) removePending(localStorageQueue, parkedId.current)
+      const id = crypto.randomUUID()
+      addPending(localStorageQueue, {
+        id,
+        queuedAt: new Date().toISOString(),
+        payload,
+      })
+      parkedId.current = id
+
       if (isOfflineError(err)) {
-        // Don't lose the session — queue it and sync when back online.
-        addPending(localStorageQueue, {
-          id: crypto.randomUUID(),
-          queuedAt: new Date().toISOString(),
-          payload,
-        })
+        // Nothing useful to say — it syncs when the signal comes back.
         router.push("/dashboard?queued=1")
       } else {
+        // Stay put so the user can retry immediately; the queue is the safety
+        // net for when they don't.
         setSaving(false)
         setFinishError(saveErrorMessage(err))
       }
