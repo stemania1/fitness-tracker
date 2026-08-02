@@ -130,9 +130,9 @@ export function PlanAuditCard() {
 
         <p className="text-[10px] leading-relaxed text-gray-400">
           &ldquo;Logged under another name&rdquo; means a workout exists that
-          day but its name differs from the plan session, so the missed-session
-          check does not match it. Quick Log names a workout after the exercise
-          rather than the plan session, which is the usual cause.
+          day but the missed-session check will not credit it. Cardio days
+          accept any cardio machine, so a quick-logged run counts; a strength
+          day still wants the session&rsquo;s own name.
         </p>
       </div>
     </InsightCard>

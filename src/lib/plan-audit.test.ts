@@ -8,12 +8,14 @@ const at = (m: number, d: number, h = 8) =>
 
 describe("matchesSession", () => {
   const tue = new Date(2026, 6, 28)
+  const intervals = { title: "VO2 Max intervals — 4×4", type: "cardio" } as const
+  const pullB = { title: "Pull B — strength", type: "strength" } as const
 
   it("matches an identically named workout on the day", () => {
     expect(
       matchesSession(
         { ...at(7, 28), name: "VO2 Max intervals — 4×4" },
-        "VO2 Max intervals — 4×4",
+        intervals,
         tue
       )
     ).toBe(true)
@@ -23,7 +25,7 @@ describe("matchesSession", () => {
     expect(
       matchesSession(
         { ...at(7, 29), name: "VO2 Max intervals — 4×4" },
-        "VO2 Max intervals — 4×4",
+        intervals,
         tue
       )
     ).toBe(true)
@@ -33,16 +35,43 @@ describe("matchesSession", () => {
     expect(
       matchesSession(
         { ...at(7, 30), name: "VO2 Max intervals — 4×4" },
-        "VO2 Max intervals — 4×4",
+        intervals,
         tue
       )
     ).toBe(false)
   })
 
-  it("is an exact name match — this is the trap Quick Log falls into", () => {
-    // Quick Log names a workout after the exercise, not the plan session.
+  it("credits a quick-logged cardio machine on a cardio day", () => {
+    // The bug this fixes: Quick Log names a workout after the exercise, so the
+    // app twice told the user a session they had done was never logged.
     expect(
-      matchesSession({ ...at(7, 28), name: "Treadmill Run" }, "VO2 Max intervals — 4×4", tue)
+      matchesSession({ ...at(7, 28), name: "Treadmill Run" }, intervals, tue)
+    ).toBe(true)
+    expect(
+      matchesSession({ ...at(7, 28), name: "Stationary Bike" }, intervals, tue)
+    ).toBe(true)
+  })
+
+  it("still holds a strength day to its own name", () => {
+    // Strength sessions are logged from the plan, so they match exactly; a
+    // cardio machine on a lifting day is a different session, not that one.
+    expect(
+      matchesSession({ ...at(7, 28), name: "Treadmill Run" }, pullB, tue)
+    ).toBe(false)
+    expect(
+      matchesSession({ ...at(7, 28), name: "Pull A + Zone 2 finisher" }, pullB, tue)
+    ).toBe(false)
+  })
+
+  it("does not credit an unrecognised name on a cardio day", () => {
+    expect(
+      matchesSession({ ...at(7, 28), name: "Freestyle" }, intervals, tue)
+    ).toBe(false)
+  })
+
+  it("keeps the day window for a cardio-name match", () => {
+    expect(
+      matchesSession({ ...at(7, 30), name: "Treadmill Run" }, intervals, tue)
     ).toBe(false)
   })
 })
@@ -59,16 +88,28 @@ describe("auditPlanDays", () => {
     expect(tue.expected).toBe("VO2 Max intervals — 4×4")
   })
 
-  it("distinguishes a name mismatch from a genuinely missing session", () => {
+  it("credits a quick-logged run on a cardio day", () => {
     const rows = auditPlanDays(sat, 7, [{ ...at(7, 28), name: "Treadmill Run" }])
     const tue = rows.find((r) => r.day === "2026-07-28")!
-    // The row exists — the detector just won't match it.
-    expect(tue.verdict).toBe("name-mismatch")
+    expect(tue.verdict).toBe("done")
     expect(tue.logged.map((l) => l.name)).toEqual(["Treadmill Run"])
 
     const thu = rows.find((r) => r.day === "2026-07-30")!
     expect(thu.verdict).toBe("missing")
     expect(thu.logged).toEqual([])
+  })
+
+  it("distinguishes a name mismatch from a genuinely missing session", () => {
+    // Thursday 30 July is Pull B — a strength day, so a cardio machine is a
+    // different session and still shows as unmatched rather than credited.
+    const rows = auditPlanDays(sat, 7, [{ ...at(7, 30), name: "Treadmill Run" }])
+    const thu = rows.find((r) => r.day === "2026-07-30")!
+    expect(thu.verdict).toBe("name-mismatch")
+    expect(thu.logged.map((l) => l.name)).toEqual(["Treadmill Run"])
+
+    const tue = rows.find((r) => r.day === "2026-07-28")!
+    expect(tue.verdict).toBe("missing")
+    expect(tue.logged).toEqual([])
   })
 
   it("marks rest days as rest, not missing", () => {
