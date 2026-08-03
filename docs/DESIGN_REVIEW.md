@@ -420,7 +420,8 @@ flattening them would make the stacked bar unreadable.
 | `dashboard/page.tsx` | 577 lines, 11 queries | 301 lines, 5 queries |
 | Duplicate day-scoped query pairs | 4 | 0 |
 | `slate-*` utilities (guide said slate, code said gray) | 5 | 0 |
-| Tests | 1291 | 1347 |
+| Interactive controls under the 44px target | nav (5) + sleep toggles (3) | 0 |
+| Tests | 1291 | 1430 |
 
 Note the auth-user id is now cached for the session. It is cleared on
 sign-in/sign-out via `QueryProvider`, but any test that simulates a signed-out
@@ -434,6 +435,64 @@ recent `workout-edits` / `finish-workout` / `session-pr` extractions are the
 pattern the component layer should follow. Every finding above is in
 `components/`, `app/`, or the seam to Supabase.
 
+
+---
+
+## What remains open
+
+One item from this review was never scheduled, and it is the only thing in the
+document that is not done:
+
+- **Responsive `md` / `lg` layouts.** Item 1 capped the content column at
+  `max-w-lg`, which fixed the 1600px-wide chart of eight data points. It did
+  not make the app *use* a wide viewport — there are still only 3 `md:`/`lg:`
+  utilities in the codebase. On a desktop browser the app is a phone-width
+  column centred in white space. That is a deliberate stopping point, not an
+  oversight: the app is used one-handed at a gym, and a real desktop layout is
+  a design exercise rather than a refactor.
+
+Everything else below the line is closed.
+
+---
+
+## After the review: what the app actually taught us
+
+The review found structural problems by reading the code. Using the app for a
+week found a different class, and the second class was more damaging. Recorded
+here because the pattern is the lesson, not the individual fixes.
+
+| Bug | Symptom | PR |
+|---|---|---|
+| Cooper test's companion workout save was swallowed by an empty `catch` | Week total silently one short | #163 |
+| Only connectivity failures were queued; every other rejection lived in React state | Session lost on navigate-away, no trace | #165 |
+| `overflow: hidden` does not hold the document in an installed iOS PWA | Shell slid up, TopBar and Profile unreachable | #166 |
+| Missed-session detector matched on exact title; Quick Log names by exercise | "Never logged" for sessions that were done | #167 |
+| Pinning the body removed the pan iOS used to reveal focused inputs | Keyboard covered dialog fields | #168 |
+
+**The through-line is invisibility.** Every one of these failed silently: a
+swallowed error, a lost session, a nudge stating a conclusion without its
+evidence. None would have been found by reading the code, because none of them
+*look* wrong — the empty `catch` even carried a comment explaining why losing
+the workout was the kinder outcome.
+
+What broke the deadlock was building the instrument rather than guessing again:
+`PlanAuditCard` (#164) puts the detector's inputs on screen, and it earned its
+keep twice over — it ruled the matcher **out** as the cause of missing rows,
+then three screenshots later ruled it **in** once a real session was logged
+under another name. Fixing the matcher on the first reading would have masked
+the swallowed save that was the actual bug.
+
+Two things worth carrying forward:
+
+- **A diagnostic behind a broken layout is not a diagnostic.** The shell bug
+  took the TopBar off screen, and the TopBar holds the only route to Profile,
+  where the audit card and viewport readout live. The instrument vanished
+  exactly when it was needed. `DocumentScrollGuard` exists so that state is
+  self-correcting rather than terminal.
+- **iOS layout fixes are not local.** #166 and #168 are the same root problem
+  from two sides: stopping the document pan fixed the drifting shell and broke
+  keyboard handling in dialogs. Anything `position: fixed` that holds an input
+  will hit it; anything built on `DialogContent` inherits the fix.
 
 ---
 

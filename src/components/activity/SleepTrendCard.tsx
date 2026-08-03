@@ -92,7 +92,9 @@ export function SleepTrendCard() {
               key={m.key}
               type="button"
               onClick={() => setMetric(m.key)}
-              className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+              // min-h-11 is the 44px target the guide asks for. The chip keeps
+              // its compact look — the box grows, the fill does not.
+              className={`min-h-11 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                 metric === m.key
                   ? "bg-purple-600 text-white"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
