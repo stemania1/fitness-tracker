@@ -43,11 +43,24 @@ function wrap(ui: React.ReactElement) {
 }
 
 beforeEach(() => {
+  // Pin mid-week. The fixtures below are written as "n days ago", and the
+  // digest counts from Monday — so on a real Monday every one of them falls
+  // into last week and the card correctly reports nothing. The test passed
+  // six days out of seven, which is worse than failing.
+  //
+  // shouldAdvanceTime so React Query's polling still progresses; a frozen
+  // clock makes findBy* hang rather than resolve.
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  vi.setSystemTime(new Date(2026, 7, 6, 12, 0, 0)) // Thursday 6 Aug, midday
+
   mocks.getUser.mockReset().mockResolvedValue({ data: { user: { id: "u1" } } })
   mocks.byTable = {}
   mocks.profile = { current_weight: 200, target_weight: 180 }
 })
-afterEach(cleanup)
+afterEach(() => {
+  vi.useRealTimers()
+  cleanup()
+})
 
 describe("WeeklyDigestCard", () => {
   it("renders all three goal sections and a focus block", async () => {
