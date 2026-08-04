@@ -5,7 +5,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Utensils, Plus, Trash2, ChevronDown, Pencil, Scale } from "lucide-react"
+import {
+  Utensils,
+  Plus,
+  Trash2,
+  ChevronDown,
+  Pencil,
+  Scale,
+  Coffee,
+} from "lucide-react"
 import type { MacroTargets } from "@/lib/macro-targets"
 import {
   classifyDailyGl,
@@ -88,7 +96,11 @@ export function NutritionCard({
   const logAgain = useMutation({
     mutationFn: async (meal: FoodLogRow) => {
       const userId = await getAuthUserId()
+      // Id generated here so a caffeinated drink's second serving can point
+      // its own caffeine row at the new meal.
+      const newId = crypto.randomUUID()
       const { error } = await supabase.from("food_logs").insert({
+        id: newId,
         user_id: userId,
         description: meal.description,
         // Value comes straight from a stored row, so it's a valid meal_type.
@@ -109,12 +121,26 @@ export function NutritionCard({
         edited: false,
       })
       if (error) throw error
+
+      // A second Dr Pepper is a second dose. Best-effort, like the meal photo
+      // elsewhere — the serving is logged either way.
+      const dose = meal.caffeine_logs?.[0]
+      if (dose) {
+        const { error: caffErr } = await supabase.from("caffeine_logs").insert({
+          user_id: userId,
+          mg: dose.mg,
+          source: meal.description.slice(0, 80),
+          source_food_log_id: newId,
+        })
+        if (caffErr) console.warn("[NutritionCard] caffeine copy failed", caffErr)
+      }
     },
     onMutate: (meal) => setPendingId(meal.id),
     onSettled: () => setPendingId(null),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["food-logs-today"] })
       queryClient.invalidateQueries({ queryKey: ["weekly-calories"] })
+      queryClient.invalidateQueries({ queryKey: ["caffeine-today"] })
     },
   })
 
@@ -140,6 +166,9 @@ export function NutritionCard({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["food-logs-today"] })
       queryClient.invalidateQueries({ queryKey: ["weekly-calories"] })
+      // Any caffeine that came with the meal went with it (FK cascade), so
+      // the caffeine card has to re-read.
+      queryClient.invalidateQueries({ queryKey: ["caffeine-today"] })
     },
   })
 
@@ -189,12 +218,30 @@ export function NutritionCard({
         })
         .eq("id", meal.id)
       if (error) throw error
+
+      // Drinking half the cup means half the caffeine — leaving the dose at
+      // full strength would keep overstating the day and the sleep warning.
+      const dose = meal.caffeine_logs?.[0]
+      if (dose) {
+        const scaled = Math.round(dose.mg * (factor > 0 ? factor : 1))
+        // caffeine_logs requires mg > 0, so a dose that rounds away is
+        // removed rather than written as a zero the table would reject.
+        const { error: caffErr } =
+          scaled > 0
+            ? await supabase
+                .from("caffeine_logs")
+                .update({ mg: scaled })
+                .eq("id", dose.id)
+            : await supabase.from("caffeine_logs").delete().eq("id", dose.id)
+        if (caffErr) console.warn("[NutritionCard] caffeine rescale failed", caffErr)
+      }
     },
     onMutate: ({ meal }) => setPendingId(meal.id),
     onSettled: () => setPendingId(null),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["food-logs-today"] })
       queryClient.invalidateQueries({ queryKey: ["weekly-calories"] })
+      queryClient.invalidateQueries({ queryKey: ["caffeine-today"] })
       setPortionMealId(null)
     },
   })
@@ -547,6 +594,16 @@ export function NutritionCard({
                       </div>
                     ))}
                   </div>
+                  {/* Caffeine logged with this meal. Shown here so the drink
+                      that put 109mg on the day is traceable from the meal,
+                      not just from the caffeine card. */}
+                  {(m.caffeine_logs?.[0]?.mg ?? 0) > 0 && (
+                    <p className="mt-1.5 flex items-center gap-1 text-[10px] text-amber-700">
+                      <Coffee className="h-2.5 w-2.5" aria-hidden="true" />
+                      {m.caffeine_logs[0].mg} mg caffeine logged with this
+                    </p>
+                  )}
+
                   <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-gray-400">
                     {editingTimeId === m.id ? (
                       <>

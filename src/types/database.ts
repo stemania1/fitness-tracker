@@ -573,6 +573,8 @@ export interface Database {
           user_id: string
           mg: number
           source: string | null
+          /** Set when this dose came from a logged meal; cascades on delete. */
+          source_food_log_id: string | null
           logged_at: string
           created_at: string
           updated_at: string
@@ -582,6 +584,7 @@ export interface Database {
           user_id: string
           mg: number
           source?: string | null
+          source_food_log_id?: string | null
           logged_at?: string
           created_at?: string
           updated_at?: string
@@ -591,6 +594,7 @@ export interface Database {
           user_id?: string
           mg?: number
           source?: string | null
+          source_food_log_id?: string | null
           logged_at?: string
           created_at?: string
           updated_at?: string

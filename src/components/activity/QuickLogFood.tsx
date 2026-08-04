@@ -14,13 +14,15 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Camera, Loader2, RefreshCw } from "lucide-react"
+import { Camera, Coffee, Loader2, RefreshCw } from "lucide-react"
 import { fileToProcessedImage, type ProcessedImage } from "@/lib/image-resize"
 import {
   macroConsistency,
   scaleEstimate,
+  MAX_CAFFEINE_MG,
   type FoodEstimate,
 } from "@/lib/food-estimate"
+import { resolveCaffeineMg } from "@/lib/caffeine-foods"
 import { classifyMealGl, GL_WALK_TIP } from "@/lib/glycemic-load"
 import { BackdateChips, nowLocalDatetimeString } from "./BackdateChips"
 import { getAuthUserId } from "@/lib/supabase/user-query"
@@ -46,6 +48,16 @@ export function QuickLogFood() {
   const [image, setImage] = useState<ProcessedImage | null>(null)
   const [manualText, setManualText] = useState("")
   const [factor, setFactor] = useState(1)
+  // Caffeine that came with the meal — a 32oz Dr Pepper is about a cup of
+  // coffee's worth, and it belongs in the caffeine tracker rather than only
+  // in the calorie count. Offered pre-checked, never logged silently: it's a
+  // second row in another table, and the user should see it before it lands.
+  // `caffeineBase` is the unscaled suggestion so the portion buttons can
+  // rescale from it without compounding.
+  const [caffeineBase, setCaffeineBase] = useState(0)
+  const [caffeineMg, setCaffeineMg] = useState(0)
+  const [caffeineLabel, setCaffeineLabel] = useState<string | null>(null)
+  const [logCaffeine, setLogCaffeine] = useState(false)
   const [reestimating, setReestimating] = useState(false)
   const [reestimateError, setReestimateError] = useState<string | null>(null)
   // When the meal was eaten. Defaults to now; the user can backdate a meal
@@ -63,8 +75,27 @@ export function QuickLogFood() {
     setManualText("")
     setMealType("meal")
     setFactor(1)
+    setCaffeineBase(0)
+    setCaffeineMg(0)
+    setCaffeineLabel(null)
+    setLogCaffeine(false)
     setReestimateError(null)
     setLoggedAt(nowLocalDatetimeString())
+  }
+
+  /**
+   * Adopt a fresh estimate, working out the caffeine to suggest alongside it.
+   * A drink the table recognizes by name beats the model's guess — it can't
+   * tell Coke from Diet Coke in a photo, and the two differ by a third.
+   */
+  function adoptEstimate(next: FoodEstimate) {
+    setEstimate(next)
+    setOriginal(next)
+    const caffeine = resolveCaffeineMg(next)
+    setCaffeineBase(caffeine.mg)
+    setCaffeineMg(caffeine.mg)
+    setCaffeineLabel(caffeine.label)
+    setLogCaffeine(caffeine.mg > 0)
   }
 
   /** Scale the original estimate by a portion multiplier. */
@@ -72,6 +103,9 @@ export function QuickLogFood() {
     if (!original) return
     setFactor(f)
     setEstimate(scaleEstimate(original, f))
+    // Half the drink is half the dose. Scaled from the original suggestion,
+    // not the current one, so tapping 2× then ½× lands back where it started.
+    setCaffeineMg(Math.round(caffeineBase * f))
   }
 
   /** Send a photo, a typed description, or both to the estimate API. Split
@@ -100,8 +134,7 @@ export function QuickLogFood() {
         throw new Error(body.error ?? "Could not analyze the photo.")
       }
       const body = (await res.json()) as { estimate: FoodEstimate }
-      setEstimate(body.estimate)
-      setOriginal(body.estimate)
+      adoptEstimate(body.estimate)
       setPhase("review")
     } catch (err) {
       // A dropped connection surfaces as fetch's "Load failed" / "Failed to
@@ -155,8 +188,7 @@ export function QuickLogFood() {
         throw new Error(body.error ?? "Could not re-estimate. Try again.")
       }
       const body = (await res.json()) as { estimate: FoodEstimate }
-      setEstimate(body.estimate)
-      setOriginal(body.estimate)
+      adoptEstimate(body.estimate)
       setFactor(1)
     } catch (err) {
       setReestimateError((err as Error).message)
@@ -208,7 +240,12 @@ export function QuickLogFood() {
       const when = loggedAt ? new Date(loggedAt) : new Date()
       if (Number.isNaN(when.getTime())) throw new Error("Invalid date")
 
+      // Id generated here rather than read back from the insert: the caffeine
+      // row needs it to point at this meal, and one round-trip beats two.
+      const foodLogId = uuid()
+
       const { error: insErr } = await supabase.from("food_logs").insert({
+        id: foodLogId,
         user_id: userId,
         description: estimate.description,
         meal_type: mealType,
@@ -224,10 +261,29 @@ export function QuickLogFood() {
         logged_at: when.toISOString(),
       })
       if (insErr) throw insErr
+
+      // Caffeine goes in at the meal's own time — the whole point is the
+      // "still active now" and late-caffeine sleep reads, and both are timing
+      // driven. Best-effort like the photo upload above: the meal is already
+      // committed, and failing the save here would only invite a duplicate on
+      // retry. The row is recoverable from Log Caffeine either way.
+      if (logCaffeine && caffeineMg > 0) {
+        const { error: caffErr } = await supabase.from("caffeine_logs").insert({
+          user_id: userId,
+          mg: Math.min(caffeineMg, MAX_CAFFEINE_MG),
+          source: estimate.description.slice(0, 80),
+          source_food_log_id: foodLogId,
+          logged_at: when.toISOString(),
+        })
+        if (caffErr) {
+          console.warn("[QuickLogFood] caffeine log failed", caffErr)
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["food-logs-today"] })
       queryClient.invalidateQueries({ queryKey: ["weekly-calories"] })
+      queryClient.invalidateQueries({ queryKey: ["caffeine-today"] })
       setOpen(false)
       reset()
     },
@@ -512,6 +568,50 @@ export function QuickLogFood() {
                 The macros don&apos;t quite add up to the calorie total — one of
                 them may be off.
               </p>
+            )}
+
+            {/* Caffeine rides along as its own log entry so it reaches the
+                energy read and tonight's sleep warning. Shown only when
+                there's something to log, and always as a choice. */}
+            {caffeineMg > 0 && (
+              <div className="space-y-2 rounded-lg bg-amber-50 p-3">
+                <label className="flex items-center gap-2 text-sm text-amber-900">
+                  <input
+                    type="checkbox"
+                    checked={logCaffeine}
+                    onChange={(e) => setLogCaffeine(e.target.checked)}
+                    className="h-4 w-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                  />
+                  <Coffee className="h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
+                  <span>Also log the caffeine</span>
+                </label>
+                <div className="flex items-center gap-2 pl-6">
+                  <Input
+                    id="qlf-caffeine"
+                    type="number"
+                    min={0}
+                    max={MAX_CAFFEINE_MG}
+                    aria-label="Caffeine (mg)"
+                    disabled={!logCaffeine}
+                    value={caffeineMg === 0 ? "" : caffeineMg}
+                    onFocus={(e) => e.currentTarget.select()}
+                    onChange={(e) =>
+                      setCaffeineMg(
+                        Math.max(0, Math.round(Number(e.target.value) || 0))
+                      )
+                    }
+                    className="h-8 w-24 bg-white"
+                  />
+                  <span className="text-xs text-amber-800">mg</span>
+                </div>
+                <p className="pl-6 text-xs text-amber-700">
+                  {caffeineLabel
+                    ? `Typical for ${caffeineLabel} at this size.`
+                    : "Estimated from the photo — check it before saving."}{" "}
+                  Logged at the meal&apos;s time, so it counts toward
+                  tonight&apos;s sleep warning.
+                </p>
+              </div>
             )}
 
             <div className="space-y-2">

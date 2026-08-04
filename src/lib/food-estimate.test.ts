@@ -22,9 +22,19 @@ describe("sanitizeEstimate", () => {
       fat_g: 22,
       sugar_g: 6,
       glycemic_load: 8,
+      caffeine_mg: 0,
       confidence: "medium",
     }
     expect(sanitizeEstimate(raw)).toEqual(raw)
+  })
+
+  it("defaults caffeine to zero and caps it at the logging ceiling", () => {
+    // Most meals have none, and caffeine_logs rejects anything over 1000mg —
+    // a runaway number should be clamped here, not fail on insert.
+    expect(sanitizeEstimate({ description: "Toast" }).caffeine_mg).toBe(0)
+    expect(sanitizeEstimate({ caffeine_mg: 95 }).caffeine_mg).toBe(95)
+    expect(sanitizeEstimate({ caffeine_mg: 50_000 }).caffeine_mg).toBe(1000)
+    expect(sanitizeEstimate({ caffeine_mg: -20 }).caffeine_mg).toBe(0)
   })
 
   it("clamps sugar to the carb total and defaults it to zero", () => {
@@ -100,6 +110,7 @@ describe("scaleEstimate", () => {
     fat_g: 12,
     sugar_g: 15,
     glycemic_load: 14,
+    caffeine_mg: 40,
     confidence: "low",
   }
 
@@ -111,6 +122,7 @@ describe("scaleEstimate", () => {
     expect(doubled.fat_g).toBe(24)
     expect(doubled.sugar_g).toBe(30)
     expect(doubled.glycemic_load).toBe(28)
+    expect(doubled.caffeine_mg).toBe(80)
   })
 
   it("rounds fractional results (0.5×)", () => {
@@ -153,6 +165,7 @@ describe("macroConsistency", () => {
     fat_g: 10,
     sugar_g: 0,
     glycemic_load: 0,
+    caffeine_mg: 0,
     confidence: "medium",
   }
 

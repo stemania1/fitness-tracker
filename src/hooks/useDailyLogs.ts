@@ -37,6 +37,14 @@ export interface FoodLogRow {
   confidence: "low" | "medium" | "high" | null
   image_path: string | null
   logged_at: string
+  /**
+   * Caffeine logged as part of this meal, embedded from `caffeine_logs` via
+   * its `source_food_log_id` FK. At most one row in practice — a meal is
+   * offered a single dose when it's saved. Fetched with the meal so the card
+   * can rescale or repeat the dose alongside it rather than going back to the
+   * database to find out whether there is one.
+   */
+  caffeine_logs: { id: string; mg: number }[]
 }
 
 /** Meals logged in `[startIso, endIso)`. */
@@ -47,14 +55,21 @@ export function useFoodLogs(startIso: string, endIso: string) {
       const { data, error } = await supabase
         .from("food_logs")
         .select(
-          "id, description, meal_type, calories, protein_g, carbs_g, fat_g, sugar_g, glycemic_load, confidence, image_path, logged_at"
+          "id, description, meal_type, calories, protein_g, carbs_g, fat_g, sugar_g, glycemic_load, confidence, image_path, logged_at, caffeine_logs(id, mg)"
         )
         .eq("user_id", userId)
         .gte("logged_at", startIso)
         .lt("logged_at", endIso)
         .order("logged_at", { ascending: true })
       if (error) throw error
-      return (data ?? []) as unknown as FoodLogRow[]
+      // Normalize the embed: a meal with no caffeine comes back with an empty
+      // array, but a row cached before the embed existed has nothing at all.
+      return (data ?? []).map((row) => ({
+        ...(row as object),
+        caffeine_logs:
+          (row as { caffeine_logs?: { id: string; mg: number }[] })
+            .caffeine_logs ?? [],
+      })) as unknown as FoodLogRow[]
     }
   )
 }
