@@ -29,6 +29,12 @@ export interface FoodEstimate {
    * blood-glucose estimate. Bounded above by carbs_g (GI <= 100).
    */
   glycemic_load: number
+  /**
+   * Estimated caffeine in milligrams, 0 for the vast majority of meals. Only
+   * a fallback: `lib/caffeine-foods` resolves named drinks from a table
+   * first, because the model cannot tell Coke from Diet Coke in a photo.
+   */
+  caffeine_mg: number
   confidence: Confidence
 }
 
@@ -76,6 +82,11 @@ export const FOOD_ESTIMATE_SCHEMA = {
       description:
         "Estimated glycemic load for the stated portion: carbohydrate grams x glycemic index / 100. Never larger than carbs_g. Typical meals: 10 or less is low, 20+ is high.",
     },
+    caffeine_mg: {
+      type: "integer",
+      description:
+        "Estimated caffeine in milligrams for the stated portion. 0 for anything that is not a recognized caffeine source. Most meals are 0.",
+    },
     confidence: {
       type: "string",
       enum: ["low", "medium", "high"],
@@ -92,6 +103,7 @@ export const FOOD_ESTIMATE_SCHEMA = {
     "fat_g",
     "sugar_g",
     "glycemic_load",
+    "caffeine_mg",
     "confidence",
   ],
 } as const
@@ -102,15 +114,19 @@ Guidelines:
 - Identify each distinct food item and estimate its calories.
 - Estimate total calories, protein, carbohydrates, fat, and sugars in grams. Sugars count both natural and added sugar and are a subset of the carbohydrates.
 - Estimate the portion's glycemic load (carbohydrate grams x glycemic index / 100). Refined starches and sugary items score high; fiber, fat, protein, and acidity pull it down.
+- Estimate caffeine in milligrams. Return 0 unless the item is a recognized caffeine source — coffee, tea, soda, an energy drink, or a chocolate/coffee-flavored food. Most meals are 0, and a wrong non-zero number quietly corrupts the user's sleep and energy tracking, so only give one when you are confident the item contains caffeine.
 - Account for likely cooking oils, dressings, and sauces even when not obviously visible.
 - Judge portion sizes from visual cues (plate size, utensils, hand if present). With only a description, assume a typical serving unless it states quantities.
 - State the portion you assumed in everyday terms with an approximate weight (e.g. "about 1.5 cups (350g)"). All your numbers must correspond to that stated portion.
 - Portion size is the biggest source of error — when the portion is ambiguous, set confidence to "low" and lean toward a typical serving.
-- If the image does not show food, or the description does not describe food, return an empty items array, zero for every number, an empty portion, and confidence "low".
+- If the image does not show food or drink, or the description does not describe either, return an empty items array, zero for every number, an empty portion, and confidence "low".
 
 Be realistic, not optimistic. A typical restaurant plate is larger and more calorie-dense than a home portion.`
 
 const VALID_CONFIDENCE: ReadonlySet<string> = new Set(["low", "medium", "high"])
+
+/** Matches the `mg <= 1000` check on caffeine_logs. */
+export const MAX_CAFFEINE_MG = 1000
 
 /** Clamp to a non-negative integer; junk (NaN, negatives, strings) → 0. */
 function nonNegInt(value: unknown): number {
@@ -163,6 +179,9 @@ export function sanitizeEstimate(raw: unknown): FoodEstimate {
     sugar_g: Math.min(nonNegInt(obj.sugar_g), carbs_g),
     // GL = carbs x GI/100 and GI <= 100, so GL can never exceed carbs.
     glycemic_load: Math.min(nonNegInt(obj.glycemic_load), carbs_g),
+    // Capped at the same ceiling caffeine_logs enforces, so a runaway model
+    // number can't produce a row the database will reject on save.
+    caffeine_mg: Math.min(nonNegInt(obj.caffeine_mg), MAX_CAFFEINE_MG),
     confidence,
   }
 }
@@ -185,6 +204,9 @@ export function scaleEstimate(
     fat_g: Math.round(estimate.fat_g * f),
     sugar_g: Math.round(estimate.sugar_g * f),
     glycemic_load: Math.round(estimate.glycemic_load * f),
+    // Half the drink is half the dose — including for an espresso drink,
+    // where the fixed shot count is what's being halved.
+    caffeine_mg: Math.round(estimate.caffeine_mg * f),
   }
 }
 

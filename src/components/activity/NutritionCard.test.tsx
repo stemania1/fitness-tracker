@@ -35,12 +35,16 @@ vi.mock("@/lib/supabase/client", () => ({
           }),
         }),
       }),
-      insert: mocks.insert,
+      // Writes carry the table name as a trailing arg so tests can tell a
+      // food_logs write from the caffeine_logs one that follows it.
+      insert: (row: unknown) => mocks.insert(row, _t),
       update: (values: Record<string, unknown>) => {
-        mocks.updateValues(values)
+        mocks.updateValues(values, _t)
         return { eq: mocks.updateEq }
       },
-      delete: () => ({ eq: mocks.deleteEq }),
+      delete: () => ({
+        eq: (col: string, val: string) => mocks.deleteEq(col, val, _t),
+      }),
     }),
     storage: { from: (_b: string) => ({ remove: mocks.removePhoto }) },
   }),
@@ -260,7 +264,7 @@ describe("NutritionCard — delete entry", () => {
       screen.getByRole("button", { name: /confirm delete of fried fish/i })
     )
     await waitFor(() => expect(mocks.deleteEq).toHaveBeenCalledTimes(1))
-    expect(mocks.deleteEq).toHaveBeenCalledWith("id", "meal-1")
+    expect(mocks.deleteEq).toHaveBeenCalledWith("id", "meal-1", "food_logs")
     // Stored photo is cleaned up best-effort.
     await waitFor(() =>
       expect(mocks.removePhoto).toHaveBeenCalledWith(["u1/fish.jpg"])
@@ -300,8 +304,10 @@ describe("NutritionCard — log another serving", () => {
     expect(row.protein_g).toBe(22)
     expect(row.image_path).toBe("u1/fish.jpg")
     expect(row.edited).toBe(false)
-    // Not carrying over the original id or timestamp — it's a new row.
-    expect(row.id).toBeUndefined()
+    // A new row, not the original: fresh id (generated up front so a linked
+    // caffeine dose can point at it) and a default timestamp of now.
+    expect(row.id).toEqual(expect.any(String))
+    expect(row.id).not.toBe(FISH.id)
     expect(row.logged_at).toBeUndefined()
   })
 })
@@ -362,5 +368,94 @@ describe("NutritionCard — portion rescale", () => {
     )
     fireEvent.click(screen.getByRole("button", { name: /^cancel$/i }))
     expect(mocks.updateValues).not.toHaveBeenCalled()
+  })
+})
+
+describe("NutritionCard — caffeine logged with a meal", () => {
+  const SODA = {
+    ...FISH,
+    id: "meal-2",
+    description: "32 oz Dr Pepper soda",
+    meal_type: "snack",
+    calories: 380,
+    image_path: null,
+    caffeine_logs: [{ id: "caff-1", mg: 109 }],
+  }
+
+  beforeEach(() => {
+    mocks.rows = [SODA]
+  })
+
+  it("shows the dose in the meal's stats", async () => {
+    renderWithClient(<NutritionCard />)
+    expect(await screen.findByText("32 oz Dr Pepper soda")).toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole("button", { name: /show stats for 32 oz dr pepper/i })
+    )
+    expect(screen.getByText(/109 mg caffeine logged with this/i)).toBeInTheDocument()
+  })
+
+  it("scales the dose with the portion", async () => {
+    renderWithClient(<NutritionCard />)
+    expect(await screen.findByText("32 oz Dr Pepper soda")).toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole("button", { name: /show stats for 32 oz dr pepper/i })
+    )
+    fireEvent.click(
+      screen.getByRole("button", { name: /adjust portion for 32 oz dr pepper/i })
+    )
+    fireEvent.click(
+      screen.getByRole("button", { name: /rescale 32 oz dr pepper soda to ½/i })
+    )
+
+    await waitFor(() =>
+      expect(
+        mocks.updateValues.mock.calls.find((c) => c[1] === "caffeine_logs")
+      ).toBeTruthy()
+    )
+    // Half the cup is half the dose — 109 → 55, not still 109.
+    const caffeine = mocks.updateValues.mock.calls.find(
+      (c) => c[1] === "caffeine_logs"
+    )?.[0]
+    expect(caffeine.mg).toBe(55)
+    expect(mocks.updateEq).toHaveBeenCalledWith("id", "caff-1")
+  })
+
+  it("copies the dose onto a second serving", async () => {
+    renderWithClient(<NutritionCard />)
+    expect(await screen.findByText("32 oz Dr Pepper soda")).toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /log another serving of 32 oz dr pepper/i,
+      })
+    )
+
+    await waitFor(() => expect(mocks.insert).toHaveBeenCalledTimes(2))
+    const food = mocks.insert.mock.calls.find((c) => c[1] === "food_logs")?.[0]
+    const caffeine = mocks.insert.mock.calls.find(
+      (c) => c[1] === "caffeine_logs"
+    )?.[0]
+    expect(caffeine.mg).toBe(109)
+    // Pointed at the new meal, not the one it was copied from.
+    expect(caffeine.source_food_log_id).toBe(food.id)
+    expect(caffeine.source_food_log_id).not.toBe("meal-2")
+  })
+
+  it("leaves a caffeine-free meal alone", async () => {
+    mocks.rows = [{ ...FISH, caffeine_logs: [] }]
+    renderWithClient(<NutritionCard />)
+    expect(await screen.findByText("Fried fish")).toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole("button", { name: /show stats for fried fish/i })
+    )
+    expect(screen.queryByText(/mg caffeine logged/i)).toBeNull()
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /log another serving of fried fish/i })
+    )
+    await waitFor(() => expect(mocks.insert).toHaveBeenCalledTimes(1))
+    expect(
+      mocks.insert.mock.calls.find((c) => c[1] === "caffeine_logs")
+    ).toBeUndefined()
   })
 })

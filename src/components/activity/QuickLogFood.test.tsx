@@ -20,7 +20,11 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({
     auth: { getUser: mocks.getUser },
-    from: (_t: string) => ({ insert: mocks.insert }),
+    // Table name is passed through as a second arg so tests can tell a
+    // food_logs insert from the caffeine_logs one that rides along with it.
+    from: (table: string) => ({
+      insert: (row: unknown) => mocks.insert(row, table),
+    }),
     storage: { from: (_b: string) => ({ upload: mocks.upload }) },
   }),
 }))
@@ -366,5 +370,158 @@ describe("QuickLogFood", () => {
     const yesterday = new Date()
     yesterday.setDate(yesterday.getDate() - 1)
     expect(logged.toDateString()).toBe(yesterday.toDateString())
+  })
+
+  describe("caffeine", () => {
+    /** Mock the estimate endpoint with a caffeinated drink. */
+    function estimateDrink(overrides: Record<string, unknown> = {}) {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          estimate: {
+            ...ESTIMATE,
+            description: "32 oz Dr Pepper soda",
+            calories: 380,
+            carbs_g: 104,
+            sugar_g: 104,
+            glycemic_load: 60,
+            caffeine_mg: 0,
+            ...overrides,
+          },
+        }),
+      }) as unknown as typeof fetch
+    }
+
+    /** The caffeine_logs insert, or undefined if none was made. */
+    function caffeineRow() {
+      return mocks.insert.mock.calls.find((c) => c[1] === "caffeine_logs")?.[0]
+    }
+
+    it("offers the drink's caffeine pre-checked and logs it with the meal", async () => {
+      estimateDrink()
+      renderWithClient(<QuickLogFood />)
+      fireEvent.click(screen.getByRole("button", { name: /snap meal/i }))
+      await screen.findByRole("dialog")
+      selectPhoto()
+      await screen.findByDisplayValue("32 oz Dr Pepper soda")
+
+      // Table-derived, not the model's 0: 41mg/12oz over 32oz.
+      const box = screen.getByRole("checkbox", { name: /also log the caffeine/i })
+      expect(box).toBeChecked()
+      expect(screen.getByLabelText("Caffeine (mg)")).toHaveValue(109)
+      expect(screen.getByText(/typical for dr pepper/i)).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole("button", { name: /save meal/i }))
+      await waitFor(() => expect(mocks.insert).toHaveBeenCalledTimes(2))
+
+      const food = mocks.insert.mock.calls.find((c) => c[1] === "food_logs")?.[0]
+      const caffeine = caffeineRow()
+      expect(caffeine.mg).toBe(109)
+      expect(caffeine.source).toBe("32 oz Dr Pepper soda")
+      // Linked to the meal so a delete cascades and a rescale can follow it.
+      expect(caffeine.source_food_log_id).toBe(food.id)
+      // Same instant as the meal — the late-caffeine warning is timing based.
+      expect(caffeine.logged_at).toBe(food.logged_at)
+    })
+
+    it("logs nothing extra when the caffeine is unchecked", async () => {
+      estimateDrink()
+      renderWithClient(<QuickLogFood />)
+      fireEvent.click(screen.getByRole("button", { name: /snap meal/i }))
+      await screen.findByRole("dialog")
+      selectPhoto()
+      await screen.findByDisplayValue("32 oz Dr Pepper soda")
+
+      fireEvent.click(
+        screen.getByRole("checkbox", { name: /also log the caffeine/i })
+      )
+      fireEvent.click(screen.getByRole("button", { name: /save meal/i }))
+
+      await waitFor(() => expect(mocks.insert).toHaveBeenCalledTimes(1))
+      expect(caffeineRow()).toBeUndefined()
+    })
+
+    it("scales the dose with the portion multiplier", async () => {
+      estimateDrink()
+      renderWithClient(<QuickLogFood />)
+      fireEvent.click(screen.getByRole("button", { name: /snap meal/i }))
+      await screen.findByRole("dialog")
+      selectPhoto()
+      await screen.findByDisplayValue("32 oz Dr Pepper soda")
+
+      fireEvent.click(screen.getByRole("button", { name: "0.5×" }))
+      expect(screen.getByLabelText("Caffeine (mg)")).toHaveValue(55)
+      // Scaled from the original each time, so this is 109 again, not 27.
+      fireEvent.click(screen.getByRole("button", { name: "1×" }))
+      expect(screen.getByLabelText("Caffeine (mg)")).toHaveValue(109)
+    })
+
+    it("respects a hand-corrected milligram value", async () => {
+      estimateDrink()
+      renderWithClient(<QuickLogFood />)
+      fireEvent.click(screen.getByRole("button", { name: /snap meal/i }))
+      await screen.findByRole("dialog")
+      selectPhoto()
+      await screen.findByDisplayValue("32 oz Dr Pepper soda")
+
+      fireEvent.change(screen.getByLabelText("Caffeine (mg)"), {
+        target: { value: "80" },
+      })
+      fireEvent.click(screen.getByRole("button", { name: /save meal/i }))
+
+      await waitFor(() => expect(mocks.insert).toHaveBeenCalledTimes(2))
+      expect(caffeineRow().mg).toBe(80)
+    })
+
+    it("shows nothing for a meal with no caffeine", async () => {
+      renderWithClient(<QuickLogFood />)
+      await openAndEstimate()
+      expect(
+        screen.queryByRole("checkbox", { name: /also log the caffeine/i })
+      ).toBeNull()
+
+      fireEvent.click(screen.getByRole("button", { name: /save meal/i }))
+      await waitFor(() => expect(mocks.insert).toHaveBeenCalledTimes(1))
+      expect(caffeineRow()).toBeUndefined()
+    })
+
+    it("falls back to the model's estimate for a drink it can't name", async () => {
+      estimateDrink({
+        description: "Iced coffee with chocolate syrup and whipped cream",
+        caffeine_mg: 165,
+      })
+      renderWithClient(<QuickLogFood />)
+      fireEvent.click(screen.getByRole("button", { name: /snap meal/i }))
+      await screen.findByRole("dialog")
+      selectPhoto()
+      await screen.findByDisplayValue(/iced coffee/i)
+
+      // "coffee" is in the table at 95mg/8oz, and no volume is stated — the
+      // table still wins over the model where it recognizes the drink.
+      expect(screen.getByLabelText("Caffeine (mg)")).toHaveValue(95)
+    })
+
+    it("still logs the meal when the caffeine insert fails", async () => {
+      estimateDrink()
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+      mocks.insert.mockImplementation((_row: unknown, table: string) =>
+        Promise.resolve({
+          error: table === "caffeine_logs" ? { message: "nope" } : null,
+        })
+      )
+
+      renderWithClient(<QuickLogFood />)
+      fireEvent.click(screen.getByRole("button", { name: /snap meal/i }))
+      await screen.findByRole("dialog")
+      selectPhoto()
+      await screen.findByDisplayValue("32 oz Dr Pepper soda")
+      fireEvent.click(screen.getByRole("button", { name: /save meal/i }))
+
+      // Dialog closes: the meal saved, and a failed second row is not worth
+      // making the user re-log the meal over.
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+      expect(warn).toHaveBeenCalled()
+      warn.mockRestore()
+    })
   })
 })
