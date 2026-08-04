@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest"
 import {
   scaleMealNutrients,
   describePortion,
+  parsePortionPrefix,
   PORTION_OPTIONS,
 } from "./meal-portion"
 
@@ -86,5 +87,38 @@ describe("describePortion", () => {
     for (const p of PORTION_OPTIONS) {
       expect(describePortion(desc, p.factor)).toBe(`${p.label} of ${desc}`)
     }
+  })
+})
+
+describe("parsePortionPrefix", () => {
+  it("splits a rescaled description into its factor and original text", () => {
+    expect(parsePortionPrefix("½ of 32 oz Dr Pepper soda")).toEqual({
+      factor: 0.5,
+      base: "32 oz Dr Pepper soda",
+    })
+  })
+
+  it("treats an unprefixed description as a full serving", () => {
+    expect(parsePortionPrefix("32 oz Dr Pepper soda")).toEqual({
+      factor: 1,
+      base: "32 oz Dr Pepper soda",
+    })
+  })
+
+  it("round-trips every portion option", () => {
+    for (const p of PORTION_OPTIONS) {
+      const written = describePortion("Chicken bowl", p.factor)
+      expect(parsePortionPrefix(written)).toEqual({
+        factor: p.factor,
+        base: "Chicken bowl",
+      })
+    }
+  })
+
+  it("does not mistake an 'of' phrase in the meal itself for a prefix", () => {
+    expect(parsePortionPrefix("Bowl of oatmeal")).toEqual({
+      factor: 1,
+      base: "Bowl of oatmeal",
+    })
   })
 })
