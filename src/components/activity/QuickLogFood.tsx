@@ -58,6 +58,9 @@ export function QuickLogFood() {
   const [caffeineMg, setCaffeineMg] = useState(0)
   const [caffeineLabel, setCaffeineLabel] = useState<string | null>(null)
   const [logCaffeine, setLogCaffeine] = useState(false)
+  // Set once the user types their own milligrams, which stops a later
+  // description edit from overwriting the number they chose.
+  const [caffeineEdited, setCaffeineEdited] = useState(false)
   const [reestimating, setReestimating] = useState(false)
   const [reestimateError, setReestimateError] = useState<string | null>(null)
   // When the meal was eaten. Defaults to now; the user can backdate a meal
@@ -79,6 +82,7 @@ export function QuickLogFood() {
     setCaffeineMg(0)
     setCaffeineLabel(null)
     setLogCaffeine(false)
+    setCaffeineEdited(false)
     setReestimateError(null)
     setLoggedAt(nowLocalDatetimeString())
   }
@@ -96,6 +100,8 @@ export function QuickLogFood() {
     setCaffeineMg(caffeine.mg)
     setCaffeineLabel(caffeine.label)
     setLogCaffeine(caffeine.mg > 0)
+    // A fresh estimate supersedes whatever the user typed for the last one.
+    setCaffeineEdited(false)
   }
 
   /** Scale the original estimate by a portion multiplier. */
@@ -211,6 +217,25 @@ export function QuickLogFood() {
       ...estimate,
       [field]: numeric ? Math.max(0, Math.round(Number(value) || 0)) : value,
     })
+    // Correcting "Coke" to "Diet Coke" changes the caffeine by a third, and
+    // the macros can't follow a description edit on their own — but this can,
+    // because the drink is identified by name. Held back once the user has
+    // typed their own mg: their number outranks the table's.
+    if (field === "description" && !caffeineEdited) {
+      resolveCaffeineFor(value)
+    }
+  }
+
+  /** Re-derive the suggested dose from a description, keeping the portion. */
+  function resolveCaffeineFor(description: string) {
+    const caffeine = resolveCaffeineMg({
+      description,
+      caffeine_mg: original?.caffeine_mg ?? 0,
+    })
+    setCaffeineBase(caffeine.mg)
+    setCaffeineMg(Math.round(caffeine.mg * (factor > 0 ? factor : 1)))
+    setCaffeineLabel(caffeine.label)
+    setLogCaffeine(caffeine.mg > 0)
   }
 
   const saveMutation = useMutation({
@@ -595,11 +620,12 @@ export function QuickLogFood() {
                     disabled={!logCaffeine}
                     value={caffeineMg === 0 ? "" : caffeineMg}
                     onFocus={(e) => e.currentTarget.select()}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setCaffeineMg(
                         Math.max(0, Math.round(Number(e.target.value) || 0))
                       )
-                    }
+                      setCaffeineEdited(true)
+                    }}
                     className="h-8 w-24 bg-white"
                   />
                   <span className="text-xs text-amber-800">mg</span>
