@@ -29,6 +29,25 @@ npx supabase db push
 > integration) can't apply these for you — run them against this project
 > directly.
 
+## One-off data scripts
+
+Backfills and other one-shot data fixes live in `scripts/`. They use the
+service role, so they run locally against the project and never from
+user-facing code. Each is dry-run by default and prints exactly what it would
+write; `--apply` is what actually writes.
+
+```bash
+# Caffeine for meals logged before Snap Meal offered it (migration 00022).
+node --experimental-strip-types --env-file=.env.local \
+  scripts/backfill-meal-caffeine.ts            # preview
+node --experimental-strip-types --env-file=.env.local \
+  scripts/backfill-meal-caffeine.ts --apply    # write
+```
+
+The decisions these scripts make live in `src/lib/` under unit test — a
+script itself should stay a thin shell around a tested function, because a
+wrong row written into last month is harder to notice than a missing one.
+
 ## Conventions
 See `CLAUDE.md → Database Conventions`. In short: `snake_case` plural table
 names; every table has `id` / `created_at` / `updated_at`; user-owned tables

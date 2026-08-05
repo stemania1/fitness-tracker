@@ -10,6 +10,11 @@
     "module": "esnext",
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
+    // Node's --experimental-strip-types runner needs explicit .ts extensions
+    // on relative imports, which is how scripts/ imports from src/. Safe with
+    // noEmit: it permits the extension, it doesn't require it, and nothing
+    // under src/ uses one.
+    "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
