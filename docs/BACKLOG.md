@@ -319,6 +319,24 @@ viewport readout — so neither needed server logs or a dashboard in the end.
 - [x] One-tap "log another serving"
 - [x] Today's Nutrition card (calories in, macros, net vs. Oura out)
 - [x] Robustness: raised function timeout + retry-same-photo on a drop
+- [x] Caffeine from a logged drink reaches the caffeine tracker. A 32 oz Dr
+      Pepper is ~110mg — about a cup of coffee — and used to contribute
+      nothing to the energy read or the late-caffeine sleep warning unless
+      the same drink was logged twice. Snap Meal now offers the dose,
+      pre-checked and editable, and writes it as a `caffeine_logs` row
+      linked by `source_food_log_id` so a delete cascades and a portion
+      rescale follows. Known drinks resolve from a name/volume table
+      (`src/lib/caffeine-foods.ts`) rather than the model, which can't tell
+      Coke from Diet Coke in a photo. Log Caffeine takes a typed drink name
+      too, since its presets are fixed servings.
+- [ ] **Run the caffeine backfill against the live database.** Meals logged
+      before the feature still contribute 0mg. Dry run first — it prints
+      every insert and skip and writes nothing without `--apply`:
+      `node --experimental-strip-types --env-file=.env.local scripts/backfill-meal-caffeine.ts`
+      Needs `SUPABASE_SERVICE_ROLE_KEY` in `.env.local` (Supabase dashboard
+      → Project Settings → API). Idempotent: meals that already have a
+      linked dose are skipped, so re-running is safe. See
+      `supabase/README.md → One-off data scripts`.
 
 ## Energy & recovery
 - [x] Energy Check-In (v1): subjective 1-5 log + a felt-vs-expected read.
