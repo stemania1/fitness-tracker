@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Coffee } from "lucide-react"
 import { CAFFEINE_PRESETS } from "@/lib/caffeine"
+import { lookupCaffeine } from "@/lib/caffeine-foods"
 import { BackdateChips, nowLocalDatetimeString } from "./BackdateChips"
 import { getAuthUserId } from "@/lib/supabase/user-query"
 import { QuickLogDialog } from "@/components/activity/QuickLogDialog"
@@ -23,12 +24,36 @@ export function QuickLogCaffeine() {
   // When it was consumed. Defaults to now; can be backdated to a drink you
   // forgot to log. datetime-local (local) string; converted to UTC on save.
   const [loggedAt, setLoggedAt] = useState(nowLocalDatetimeString)
+  // What the user typed, when they name the drink instead of tapping a chip.
+  const [typed, setTyped] = useState("")
   const queryClient = useQueryClient()
 
   function selectPreset(label: string, presetMg: number) {
     setSource(label)
     setMg(String(presetMg))
+    setTyped("")
   }
+
+  /**
+   * Naming the drink fills in its caffeine. The presets are one-tap for the
+   * drinks you have daily, but they're fixed servings — "Soda" is a 12 oz
+   * can, so tapping it for a 32 oz fountain cup logs a third of the real
+   * dose. Typing what you actually drank sizes it properly.
+   */
+  function typeDrink(value: string) {
+    setTyped(value)
+    const known = lookupCaffeine(value)
+    if (!known) {
+      // Unrecognized: keep whatever mg is in the box, but the label the user
+      // typed is still the better description of what they drank.
+      setSource(value.trim() || null)
+      return
+    }
+    setSource(value.trim())
+    setMg(String(known.mg))
+  }
+
+  const typedMatch = typed.trim() ? lookupCaffeine(typed) : null
 
   const mgNum = parseInt(mg, 10)
 
@@ -54,6 +79,7 @@ export function QuickLogCaffeine() {
       queryClient.invalidateQueries({ queryKey: ["caffeine-today"] })
       setOpen(false)
       setLoggedAt(nowLocalDatetimeString())
+      setTyped("")
     },
   })
 
@@ -64,7 +90,9 @@ export function QuickLogCaffeine() {
       trigger={{ icon: Coffee, label: "Log Caffeine" }}
       title="Log Caffeine"
       description="Timing matters — a late one can cut into tonight's sleep."
-      submitDisabled={!mg}
+      // A zero is a real answer for a caffeine-free drink, but there's no row
+      // to write for it — caffeine_logs requires mg > 0.
+      submitDisabled={!mg || !Number.isFinite(mgNum) || mgNum <= 0}
       mutation={mutation}
       onSubmit={() => mutation.mutate()}
     >
@@ -90,6 +118,27 @@ export function QuickLogCaffeine() {
       </div>
 
       <div className="space-y-2">
+        <Label htmlFor="qlc-drink">Or name it</Label>
+        <Input
+          id="qlc-drink"
+          value={typed}
+          onChange={(e) => typeDrink(e.target.value)}
+          placeholder='e.g. "32 oz Dr Pepper" or "16 oz cold brew"'
+        />
+        {typedMatch && typedMatch.mg > 0 && (
+          <p className="text-xs text-gray-500">
+            Typical for {typedMatch.label}
+            {typedMatch.oz ? ` at ${+typedMatch.oz.toFixed(1)} oz` : ""}.
+          </p>
+        )}
+        {typedMatch && typedMatch.mg === 0 && (
+          <p className="text-xs text-emerald-700">
+            {typedMatch.label} has no caffeine — nothing to log.
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-2">
         <Label htmlFor="qlc-mg">Caffeine (mg)</Label>
         <Input
           id="qlc-mg"
@@ -100,7 +149,9 @@ export function QuickLogCaffeine() {
           value={mg}
           onChange={(e) => {
             setMg(e.target.value)
-            setSource(null)
+            // A hand-typed number no longer matches the preset it came from,
+            // but a drink the user named themselves is still what they drank.
+            setSource(typed.trim() || null)
           }}
         />
       </div>

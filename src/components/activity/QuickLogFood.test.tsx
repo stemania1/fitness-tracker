@@ -501,6 +501,72 @@ describe("QuickLogFood", () => {
       expect(screen.getByLabelText("Caffeine (mg)")).toHaveValue(95)
     })
 
+    it("re-resolves the dose when the description is corrected", async () => {
+      estimateDrink({ description: "Coke", caffeine_mg: 0 })
+      renderWithClient(<QuickLogFood />)
+      fireEvent.click(screen.getByRole("button", { name: /snap meal/i }))
+      await screen.findByRole("dialog")
+      selectPhoto()
+      await screen.findByDisplayValue("Coke")
+      expect(screen.getByLabelText("Caffeine (mg)")).toHaveValue(34)
+
+      // The model can't tell these apart in a photo; the name can.
+      fireEvent.change(screen.getByLabelText("Meal"), {
+        target: { value: "Diet Coke" },
+      })
+      expect(screen.getByLabelText("Caffeine (mg)")).toHaveValue(46)
+    })
+
+    it("drops the row when the description changes to something without caffeine", async () => {
+      estimateDrink({ description: "Coke", caffeine_mg: 0 })
+      renderWithClient(<QuickLogFood />)
+      fireEvent.click(screen.getByRole("button", { name: /snap meal/i }))
+      await screen.findByRole("dialog")
+      selectPhoto()
+      await screen.findByDisplayValue("Coke")
+
+      fireEvent.change(screen.getByLabelText("Meal"), {
+        target: { value: "Sprite" },
+      })
+      expect(
+        screen.queryByRole("checkbox", { name: /also log the caffeine/i })
+      ).toBeNull()
+    })
+
+    it("does not overwrite a dose the user typed themselves", async () => {
+      estimateDrink({ description: "Coke", caffeine_mg: 0 })
+      renderWithClient(<QuickLogFood />)
+      fireEvent.click(screen.getByRole("button", { name: /snap meal/i }))
+      await screen.findByRole("dialog")
+      selectPhoto()
+      await screen.findByDisplayValue("Coke")
+
+      fireEvent.change(screen.getByLabelText("Caffeine (mg)"), {
+        target: { value: "70" },
+      })
+      fireEvent.change(screen.getByLabelText("Meal"), {
+        target: { value: "Diet Coke" },
+      })
+      // Their number outranks the table's.
+      expect(screen.getByLabelText("Caffeine (mg)")).toHaveValue(70)
+    })
+
+    it("keeps the chosen portion when the description is corrected", async () => {
+      estimateDrink({ description: "Coke", caffeine_mg: 0 })
+      renderWithClient(<QuickLogFood />)
+      fireEvent.click(screen.getByRole("button", { name: /snap meal/i }))
+      await screen.findByRole("dialog")
+      selectPhoto()
+      await screen.findByDisplayValue("Coke")
+
+      fireEvent.click(screen.getByRole("button", { name: "2×" }))
+      fireEvent.change(screen.getByLabelText("Meal"), {
+        target: { value: "Diet Coke" },
+      })
+      // 46 for the drink, doubled for the portion already chosen.
+      expect(screen.getByLabelText("Caffeine (mg)")).toHaveValue(92)
+    })
+
     it("still logs the meal when the caffeine insert fails", async () => {
       estimateDrink()
       const warn = vi.spyOn(console, "warn").mockImplementation(() => {})

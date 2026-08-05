@@ -104,6 +104,81 @@ describe("QuickLogCaffeine", () => {
     expect(logged.toDateString()).toBe(yesterday.toDateString())
   })
 
+  describe("naming the drink", () => {
+    it("sizes a soda properly instead of assuming a 12 oz can", async () => {
+      renderWithClient(<QuickLogCaffeine />)
+      await openDialog()
+      fireEvent.change(screen.getByLabelText(/or name it/i), {
+        target: { value: "32 oz Dr Pepper" },
+      })
+
+      // The "Soda" preset would have logged 40mg — a third of the real dose.
+      expect(screen.getByLabelText(/caffeine \(mg\)/i)).toHaveValue(109)
+      expect(screen.getByText(/typical for dr pepper at 32 oz/i)).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole("button", { name: /^save$/i }))
+      await waitFor(() => expect(mocks.insert).toHaveBeenCalledTimes(1))
+      const row = mocks.insert.mock.calls[0][0]
+      expect(row.mg).toBe(109)
+      expect(row.source).toBe("32 oz Dr Pepper")
+    })
+
+    it("keeps a typed name as the source when mg is hand-corrected", async () => {
+      renderWithClient(<QuickLogCaffeine />)
+      await openDialog()
+      fireEvent.change(screen.getByLabelText(/or name it/i), {
+        target: { value: "office pour-over" },
+      })
+      fireEvent.change(screen.getByLabelText(/caffeine \(mg\)/i), {
+        target: { value: "120" },
+      })
+      fireEvent.click(screen.getByRole("button", { name: /^save$/i }))
+
+      await waitFor(() => expect(mocks.insert).toHaveBeenCalledTimes(1))
+      const row = mocks.insert.mock.calls[0][0]
+      expect(row.mg).toBe(120)
+      // Unlike a preset, a name the user typed survives editing the number.
+      expect(row.source).toBe("office pour-over")
+    })
+
+    it("says a caffeine-free drink has nothing to log, and blocks saving", async () => {
+      renderWithClient(<QuickLogCaffeine />)
+      await openDialog()
+      fireEvent.change(screen.getByLabelText(/or name it/i), {
+        target: { value: "Sprite" },
+      })
+
+      expect(screen.getByText(/has no caffeine — nothing to log/i)).toBeInTheDocument()
+      // caffeine_logs requires mg > 0, so there is no row to write.
+      expect(screen.getByRole("button", { name: /^save$/i })).toBeDisabled()
+    })
+
+    it("leaves the mg alone for a drink it doesn't recognize", async () => {
+      renderWithClient(<QuickLogCaffeine />)
+      await openDialog()
+      fireEvent.change(screen.getByLabelText(/or name it/i), {
+        target: { value: "yerba mate gourd" },
+      })
+      // Still the default preset's value — no guessing at an unknown drink.
+      expect(screen.getByLabelText(/caffeine \(mg\)/i)).toHaveValue(
+        CAFFEINE_PRESETS[0].mg
+      )
+    })
+
+    it("tapping a preset clears a typed name", async () => {
+      renderWithClient(<QuickLogCaffeine />)
+      await openDialog()
+      fireEvent.change(screen.getByLabelText(/or name it/i), {
+        target: { value: "32 oz Dr Pepper" },
+      })
+      fireEvent.click(screen.getByRole("button", { name: /espresso/i }))
+      fireEvent.click(screen.getByRole("button", { name: /^save$/i }))
+
+      await waitFor(() => expect(mocks.insert).toHaveBeenCalledTimes(1))
+      expect(mocks.insert.mock.calls[0][0].source).toBe("Espresso")
+    })
+  })
+
   it("shows an insert error and keeps the dialog open", async () => {
     mocks.insert.mockResolvedValue({ error: { message: "row violates RLS" } })
     renderWithClient(<QuickLogCaffeine />)
