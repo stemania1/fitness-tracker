@@ -121,6 +121,53 @@ describe("QuickLogWeight", () => {
     })
   })
 
+  it("saves the weigh-in with the time the user picked", async () => {
+    mocks.getUser.mockResolvedValue({ data: { user: { id: "user-1" } } })
+    renderWithClient(<QuickLogWeight />)
+    await openDialogAndType("182.5")
+
+    fireEvent.change(screen.getByLabelText("Time"), {
+      target: { value: "07:30" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }))
+
+    await waitFor(() => {
+      expect(mocks.insert).toHaveBeenCalledTimes(1)
+    })
+
+    const loggedAt = new Date(mocks.insert.mock.calls[0][0].logged_at)
+    expect(loggedAt.getHours()).toBe(7)
+    expect(loggedAt.getMinutes()).toBe(30)
+    // Still today's date, so current_weight is updated too.
+    expect(mocks.updateEq).toHaveBeenCalledWith("id", "user-1")
+  })
+
+  it("backdating to yesterday logs the entry but leaves current_weight alone", async () => {
+    mocks.getUser.mockResolvedValue({ data: { user: { id: "user-1" } } })
+    renderWithClient(<QuickLogWeight />)
+    await openDialogAndType("182.5")
+
+    fireEvent.click(screen.getByRole("button", { name: /yesterday/i }))
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }))
+
+    await waitFor(() => {
+      expect(mocks.insert).toHaveBeenCalledTimes(1)
+    })
+
+    const loggedAt = new Date(mocks.insert.mock.calls[0][0].logged_at)
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    expect(loggedAt.getDate()).toBe(yesterday.getDate())
+
+    // A day-old measurement shouldn't overwrite the profile's current weight.
+    expect(mocks.updateEq).not.toHaveBeenCalled()
+
+    // Backdating still counts as success — the dialog closes.
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull()
+    })
+  })
+
   it("shows 'Not authenticated' when there is no user", async () => {
     mocks.getUser.mockResolvedValue({ data: { user: null } })
     renderWithClient(<QuickLogWeight />)
