@@ -329,14 +329,25 @@ viewport readout — so neither needed server logs or a dashboard in the end.
       (`src/lib/caffeine-foods.ts`) rather than the model, which can't tell
       Coke from Diet Coke in a photo. Log Caffeine takes a typed drink name
       too, since its presets are fixed servings.
-- [ ] **Run the caffeine backfill against the live database.** Meals logged
-      before the feature still contribute 0mg. Dry run first — it prints
-      every insert and skip and writes nothing without `--apply`:
-      `node --experimental-strip-types --env-file=.env.local scripts/backfill-meal-caffeine.ts`
-      Needs `SUPABASE_SERVICE_ROLE_KEY` in `.env.local` (Supabase dashboard
-      → Project Settings → API). Idempotent: meals that already have a
-      linked dose are skipped, so re-running is safe. See
+- [x] **Caffeine backfill run against the live database.** Applied 2026-08-06:
+      131 meals scanned, 6 rows written (458mg) — two coffees, iced tea, a
+      cola, green tea, and the 32oz Dr Pepper. The script stays in `scripts/`
+      and is idempotent (meals with a linked dose are skipped), so it's safe
+      to re-run if history is ever imported from elsewhere. See
       `supabase/README.md → One-off data scripts`.
+
+      Three real bugs were caught by the dry run before anything was
+      written, which is the argument for that script printing its plan
+      rather than just doing the work:
+      - A glass of milk scored as 128mg of espresso, because the model's
+        hedge — "(or milky beverage like chai latte)" — was matched instead
+        of the food. Parenthetical asides are now stripped before matching.
+      - A cola scored as caffeine-free: the table knew Coca-Cola but not a
+        generic "cola", so the only match in "iced cola soft drink, root
+        beer" was the root beer.
+      - One cola counted twice, from a plate row mentioning it in passing
+        and the drink row logged at the same second. Same-drink doses inside
+        the duplicate window now collapse.
 
 ## Energy & recovery
 - [x] Energy Check-In (v1): subjective 1-5 log + a felt-vs-expected read.
