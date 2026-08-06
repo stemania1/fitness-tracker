@@ -68,6 +68,13 @@ const SOURCES: readonly CaffeineSource[] = [
   { kind: "per_oz", label: "Pepsi", match: /\bpepsi\b/i, mgPerOz: 38 / 12, defaultOz: 12 },
   { kind: "per_oz", label: "Mountain Dew", match: /mountain\s*dew|\bmtn\s*dew\b/i, mgPerOz: 54 / 12, defaultOz: 12 },
   { kind: "per_oz", label: "Barq's root beer", match: /barq/i, mgPerOz: 22 / 12, defaultOz: 12 },
+  // Generic colas, for when the description doesn't name a brand ("large
+  // iced cola"). Listed above the caffeine-free sodas on purpose: a
+  // description that mentions both ("iced cola, root beer") is far more
+  // likely to be a cola than a root beer, and reading it as caffeine-free
+  // silently drops a real dose.
+  { kind: "per_oz", label: "Diet cola", match: /diet\s+cola|\bcola\s+zero\b/i, mgPerOz: 46 / 12, defaultOz: 12 },
+  { kind: "per_oz", label: "Cola", match: /\bcola\b/i, mgPerOz: 34 / 12, defaultOz: 12 },
   // Caffeine-free by formulation. Listed so a confident model guess of
   // "it's a soda, so ~40mg" can't put phantom caffeine on the day.
   {
@@ -149,15 +156,35 @@ export interface KnownCaffeine {
  * it's what keeps a model guess from adding caffeine that was never there.
  */
 export function lookupCaffeine(description: string): KnownCaffeine | null {
-  const source = SOURCES.find((s) => s.match.test(description))
+  const text = stripAsides(description)
+  const source = SOURCES.find((s) => s.match.test(text))
   if (!source) return null
 
   if (source.kind === "per_serving") {
     return { mg: source.mg, label: source.label, oz: null }
   }
 
+  // Volume is read from the full text: a parenthetical is often where the
+  // size lives ("iced coffee (16 oz)"), and a number there is a measurement
+  // rather than a competing drink.
   const oz = parseVolumeOz(description) ?? source.defaultOz
   return { mg: Math.round(source.mgPerOz * oz), label: source.label, oz }
+}
+
+/**
+ * Drop parenthetical asides before matching a drink name.
+ *
+ * A vision model hedges inside parentheses, and the hedge names things that
+ * aren't on the plate: "Glass of milk (or milky beverage like chai latte)" is
+ * milk, but the aside says "latte" and a naive match reads it as 128mg of
+ * espresso. The food is what's outside the parentheses; what's inside is a
+ * clarification, an example, or a guess.
+ *
+ * Found by a backfill dry run over real history, which is the only reason
+ * that milk didn't get 128mg written against it.
+ */
+function stripAsides(description: string): string {
+  return description.replace(/\([^)]*\)/g, " ")
 }
 
 /**

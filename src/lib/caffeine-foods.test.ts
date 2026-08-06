@@ -85,6 +85,39 @@ describe("lookupCaffeine", () => {
     expect(lookupCaffeine("16 oz coffee")?.mg).toBe(190)
   })
 
+  it("ignores drink names inside a parenthetical aside", () => {
+    // A real backfill row: the model hedged, and matching inside the hedge
+    // would have written 128mg of espresso against a glass of milk.
+    expect(
+      lookupCaffeine("Glass of milk (or milky beverage like chai latte)")
+    ).toBeNull()
+  })
+
+  it("still matches the drink named outside the parentheses", () => {
+    expect(lookupCaffeine("Latte (espresso with steamed milk)")?.mg).toBe(128)
+  })
+
+  it("reads a volume stated inside parentheses", () => {
+    // Parenthetical numbers are measurements, not competing drinks.
+    expect(lookupCaffeine("Iced coffee (16 oz)")?.mg).toBe(190)
+  })
+
+  it("recognizes an unbranded cola", () => {
+    expect(lookupCaffeine("Large iced cola soft drink")?.mg).toBe(34)
+    expect(lookupCaffeine("diet cola")?.mg).toBe(46)
+  })
+
+  it("reads a cola as a cola even when root beer is also mentioned", () => {
+    // Another real row. Matching only "root beer" scored a cola as zero.
+    expect(lookupCaffeine("Large iced cola soft drink,  root beer")).toEqual({
+      mg: 34,
+      label: "Cola",
+      oz: 12,
+    })
+    // A root beer on its own is still caffeine-free.
+    expect(lookupCaffeine("root beer float")?.mg).toBe(0)
+  })
+
   it("returns null for anything it doesn't recognize", () => {
     expect(lookupCaffeine("Chicken bowl with rice")).toBeNull()
     expect(lookupCaffeine("dark chocolate square")).toBeNull()
