@@ -110,6 +110,49 @@ describe("planCaffeineBackfill", () => {
     expect(skipped[0].reason).toMatch(/no caffeine/)
   })
 
+  it("counts one drink once when two meals describe it", () => {
+    // Real pair from a dry run: the plate row mentioned the cola in passing
+    // and the drink row was logged alongside it, at the same second.
+    const { planned, skipped } = planCaffeineBackfill(
+      [
+        meal({ id: "plate", description: "Fried chicken bites, plus a cola drink" }),
+        meal({ id: "drink", description: "Large iced cola soft drink" }),
+      ],
+      []
+    )
+    expect(planned).toHaveLength(1)
+    expect(planned[0].meal.id).toBe("plate")
+    expect(skipped[0].reason).toMatch(/same Cola already backfilled/)
+  })
+
+  it("keeps two different drinks logged at the same meal", () => {
+    // Collapsing on time alone would lose the coffee.
+    const { planned } = planCaffeineBackfill(
+      [
+        meal({ id: "a", description: "Large iced cola" }),
+        meal({ id: "b", description: "8 oz coffee" }),
+      ],
+      []
+    )
+    expect(planned.map((p) => p.label).sort()).toEqual(["Coffee", "Cola"])
+  })
+
+  it("keeps the same drink again once the window has passed", () => {
+    const { planned } = planCaffeineBackfill(
+      [
+        meal({ id: "morning", description: "8 oz coffee" }),
+        meal({
+          id: "afternoon",
+          description: "8 oz coffee",
+          logged_at: minutesFromMeal(DUPLICATE_WINDOW_MIN + 1),
+        }),
+      ],
+      []
+    )
+    // A second coffee hours later is a second coffee.
+    expect(planned).toHaveLength(2)
+  })
+
   it("plans each meal independently across a mixed history", () => {
     const { planned } = planCaffeineBackfill(
       [

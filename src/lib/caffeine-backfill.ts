@@ -61,6 +61,11 @@ function minutesApart(a: string, b: string): number {
   return Math.abs(Date.parse(a) - Date.parse(b)) / 60000
 }
 
+/** Keep a skip reason to one readable line — descriptions run long. */
+function truncate(text: string, max = 40): string {
+  return text.length <= max ? text : `${text.slice(0, max - 1)}…`
+}
+
 /**
  * Work out which meals need a caffeine row, and which are deliberately left
  * alone. Pure: it reads the two histories and returns the plan, so the script
@@ -117,6 +122,27 @@ export function planCaffeineBackfill(
       skipped.push({
         meal,
         reason: `${near.mg}mg already logged by hand within ${DUPLICATE_WINDOW_MIN}min`,
+      })
+      continue
+    }
+
+    // The same drink can appear in two meals at once: the plate row that
+    // mentions it in passing ("...plus a cola drink") and the drink row
+    // logged alongside it. Backfilling both doubles one soda.
+    //
+    // Matched on the drink, not just the time, so a coffee and a cola at the
+    // same lunch both survive — it's only the same drink described twice
+    // that collapses.
+    const twin = planned.find(
+      (p) =>
+        p.meal.user_id === meal.user_id &&
+        p.label === known.label &&
+        minutesApart(p.meal.logged_at, meal.logged_at) <= DUPLICATE_WINDOW_MIN
+    )
+    if (twin) {
+      skipped.push({
+        meal,
+        reason: `same ${known.label} already backfilled from "${truncate(twin.meal.description)}"`,
       })
       continue
     }
