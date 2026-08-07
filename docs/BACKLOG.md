@@ -409,9 +409,14 @@ viewport readout — so neither needed server logs or a dashboard in the end.
       `EnergyDriversCard` on /insights): correlates felt energy against its
       candidate drivers and surfaces each user's top levers. Was shipped but
       left unchecked here.
-- [ ] Morning vs. evening framing: tailor the prompt/target to the part of
-      day (e.g. morning readiness vs. evening wind-down) rather than one
-      generic "right now" read.
+- [x] Morning vs. evening framing: the check-in prompt and the
+      felt-vs-expected copy are now phrased per part of day
+      (`checkinPrompt` + a part-aware `reconcileEnergy`). The fix that
+      motivated it: a strong morning used to get the evening's "don't
+      let it turn into a late night" advice — it now reads as a base to
+      train on; a drained morning gets get-going advice, a drained
+      evening gets wind-down advice. `assessEnergy` threads the hour's
+      part of day through automatically.
 
 ## Equipment & exercises
 - [x] Free-weight exercise catalog expanded (16 added Apr–May 2026)

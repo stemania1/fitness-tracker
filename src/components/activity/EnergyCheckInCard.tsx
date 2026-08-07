@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { BatteryCharging, Sparkles, Moon } from "lucide-react"
 import {
   assessEnergy,
+  checkinPrompt,
   partOfDay,
   type EnergyLevel,
   type EnergyBand,
@@ -141,7 +142,9 @@ export function EnergyCheckInCard({
           </div>
         ) : showSelector ? (
           <div className="space-y-3">
-        <p className="text-sm text-gray-600">How&apos;s your energy right now?</p>
+        <p className="text-sm text-gray-600">
+          {checkinPrompt(partOfDay(new Date().getHours()))}
+        </p>
         <div className="grid grid-cols-5 gap-1.5" role="group" aria-label="Energy level">
           {LEVELS.map((l) => (
             <button

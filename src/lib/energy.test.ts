@@ -4,6 +4,7 @@ import {
   expectedEnergy,
   reconcileEnergy,
   assessEnergy,
+  checkinPrompt,
   deriveFuelState,
   type EnergyInputs,
 } from "./energy"
@@ -285,5 +286,54 @@ describe("assessEnergy", () => {
     const { readout } = assessEnergy(base({ sleepScore: 80 }), 3)
     expect(readout).not.toBeNull()
     expect(readout?.felt).toBe(3)
+  })
+})
+
+describe("part-of-day framing", () => {
+  it("phrases the check-in prompt for each part of day", () => {
+    expect(checkinPrompt("morning")).toMatch(/starting the day/i)
+    expect(checkinPrompt("afternoon")).toMatch(/holding up/i)
+    expect(checkinPrompt("evening")).toMatch(/this evening/i)
+  })
+
+  it("frames a strong morning as a base to train on, not a late-night risk", () => {
+    const exp = expectedEnergy({ hour: 8, sleepScore: 40 }) // low expectation
+    const r = reconcileEnergy(5, exp, "morning")
+    expect(r.verdict).toBe("above")
+    expect(r.detail).toMatch(/session/i)
+    expect(r.detail).not.toMatch(/late night/i)
+  })
+
+  it("keeps the late-night caution for a strong evening", () => {
+    const exp = expectedEnergy({ hour: 21, sleepScore: 40 })
+    const r = reconcileEnergy(5, exp, "evening")
+    expect(r.verdict).toBe("above")
+    expect(r.detail).toMatch(/late night/i)
+  })
+
+  it("gives a drained morning get-going advice, and a drained evening wind-down advice", () => {
+    const highExp = expectedEnergy({ hour: 8, sleepScore: 92, readinessScore: 90 })
+    const morning = reconcileEnergy(1, highExp, "morning")
+    expect(morning.verdict).toBe("below")
+    expect(morning.headline).toMatch(/start/i)
+    expect(morning.detail).toMatch(/scale today's session/i)
+
+    const evening = reconcileEnergy(1, highExp, "evening")
+    expect(evening.headline).toMatch(/wind-down/i)
+    expect(evening.detail).toMatch(/early wind-down/i)
+  })
+
+  it("assessEnergy threads the hour's part of day into the framing", () => {
+    const { readout } = assessEnergy({ hour: 8, sleepScore: 40 }, 5)
+    expect(readout!.detail).not.toMatch(/late night/i)
+    const { readout: night } = assessEnergy({ hour: 21, sleepScore: 40 }, 5)
+    expect(night!.detail).toMatch(/late night/i)
+  })
+
+  it("matches keep a part-appropriate tail", () => {
+    const exp = expectedEnergy({ hour: 20, sleepScore: 74, fuel: "over" })
+    const r = reconcileEnergy(2, exp, "evening")
+    expect(r.verdict).toBe("matches")
+    expect(r.detail).toMatch(/wind-down/i)
   })
 })

@@ -249,14 +249,33 @@ export function expectedEnergy(inputs: EnergyInputs): EnergyExpectation {
   }
 }
 
+/** The check-in question, phrased for the part of day — "right now" is the
+ *  one wording that fits none of them well. */
+export function checkinPrompt(part: PartOfDay): string {
+  switch (part) {
+    case "morning":
+      return "How are you starting the day?"
+    case "afternoon":
+      return "How's your energy holding up?"
+    case "evening":
+      return "How's your energy this evening?"
+  }
+}
+
 /**
  * Compare how the user feels against what the signals predict. Within ~0.75
  * of expected reads as a match; a bigger gap is surfaced as feeling worse
  * (worth a look) or better (a bonus) than the day would suggest.
+ *
+ * The copy is framed for the part of day: a strong morning is a base to
+ * train on, a strong evening is a late-night risk, a drained morning gets
+ * get-going advice while a drained evening gets wind-down advice. Defaults
+ * to the neutral mid-day framing when no part is given.
  */
 export function reconcileEnergy(
   felt: EnergyLevel,
-  expectation: EnergyExpectation
+  expectation: EnergyExpectation,
+  part: PartOfDay = "afternoon"
 ): EnergyReadout {
   const diff = felt - expectation.score
   const expectedLabel = bandLabel[expectation.band]
@@ -272,21 +291,49 @@ export function reconcileEnergy(
   if (Math.abs(diff) <= 0.75) {
     verdict = "matches"
     headline = "This tracks."
-    detail =
-      `What you're feeling lines up with a ${expectedLabel}-energy read${softHedge}. ` +
-      "Nothing here looks off — trust it and act accordingly."
+    const tail =
+      part === "morning"
+        ? "A steady start — plan today's effort around it."
+        : part === "evening"
+          ? "Evenings run lower by design — let the wind-down do its job."
+          : "Nothing here looks off — trust it and act accordingly."
+    detail = `What you're feeling lines up with a ${expectedLabel}-energy read${softHedge}. ${tail}`
   } else if (diff < 0) {
     verdict = "below"
-    headline = "Lower than your day would predict."
-    detail =
-      `Your signals point to ${expectedLabel} energy, but you're feeling more drained than that${softHedge}. ` +
-      "Common culprits the app can't see: hydration, under-eating, a stressful day, poor light/screen exposure, or a bug coming on. Worth a gentle check-in with yourself."
+    if (part === "morning") {
+      headline = "Rougher start than your night would predict."
+      detail =
+        `Your signals point to ${expectedLabel} energy, but the morning feels heavier than that${softHedge}. ` +
+        "Slow starts often lift with light, water, and a little movement — if it hasn't lifted by mid-morning, scale today's session down rather than skipping it."
+    } else if (part === "evening") {
+      headline = "More drained than a normal wind-down."
+      detail =
+        `Your signals point to ${expectedLabel} energy, but tonight feels emptier than that${softHedge}. ` +
+        "One off evening is just a day; if most evenings feel like this, the usual culprits are sleep debt and under-eating. Either way, tonight's best move is an early wind-down."
+    } else {
+      headline = "Lower than your day would predict."
+      detail =
+        `Your signals point to ${expectedLabel} energy, but you're feeling more drained than that${softHedge}. ` +
+        "Common culprits the app can't see: hydration, under-eating, a stressful day, poor light/screen exposure, or a bug coming on. Worth a gentle check-in with yourself."
+    }
   } else {
     verdict = "above"
-    headline = "More in the tank than expected."
-    detail =
-      `Your signals point to ${expectedLabel} energy, yet you feel better than that${softHedge} — nice. ` +
-      "Ride it, but don't let a great evening turn into a late night before tomorrow's session."
+    if (part === "morning") {
+      headline = "Up and running ahead of your signals."
+      detail =
+        `Your signals point to ${expectedLabel} energy, yet you're feeling stronger than that${softHedge} — a good base for the day. ` +
+        "If a hard session is on the plan, this is the morning for it."
+    } else if (part === "evening") {
+      headline = "More in the tank than expected."
+      detail =
+        `Your signals point to ${expectedLabel} energy, yet you feel better than that${softHedge} — nice. ` +
+        "Ride it, but don't let a great evening turn into a late night before tomorrow's session."
+    } else {
+      headline = "More in the tank than expected."
+      detail =
+        `Your signals point to ${expectedLabel} energy, yet you feel better than that${softHedge} — nice. ` +
+        "A good window for the day's hardest thing, training included."
+    }
   }
 
   return { expectation, felt, verdict, headline, detail }
@@ -299,6 +346,8 @@ export function assessEnergy(
 ): { expectation: EnergyExpectation; readout: EnergyReadout | null } {
   const expectation = expectedEnergy(inputs)
   const readout =
-    felt != null ? reconcileEnergy(felt, expectation) : null
+    felt != null
+      ? reconcileEnergy(felt, expectation, partOfDay(inputs.hour))
+      : null
   return { expectation, readout }
 }
