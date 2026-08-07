@@ -47,6 +47,8 @@ fitness-tracker/
 │   │   ├── reps-target.ts           # Display helpers for prescribed rep targets
 │   │   ├── save-workout.ts          # Persist a finished workout to Supabase
 │   │   ├── pending-workouts.ts      # Offline queue for failed workout saves
+│   │   ├── workout-prefill.ts       # Adaptive weight prefill: decision + apply
+│   │   ├── exercise-display.ts      # Logger per-exercise render-mode flags
 │   │   ├── session-recap.ts         # Previous-vs-today per-lift comparison
 │   │   ├── volume-trend.ts          # Weekly volume + deload heuristic
 │   │   ├── weekly-summary.ts        # Weekly strength volume + Zone 2 minutes
@@ -98,7 +100,8 @@ fitness-tracker/
 │   │   ├── push-client.ts           # Browser web-push subscribe/unsubscribe
 │   │   └── service-worker.ts        # Register + auto-update the web-push SW
 │   ├── hooks/                # Custom React hooks (useExerciseHistory,
-│   │                         #   useStrengthSets, useSwipe, useGoalsData)
+│   │                         #   useStrengthSets, useSwipe, useGoalsData,
+│   │                         #   useWorkoutInit, useFinishWorkout, ...)
 │   ├── types/                # TypeScript type definitions
 │   └── data/                 # Static data (PF equipment catalog)
 ├── supabase/
