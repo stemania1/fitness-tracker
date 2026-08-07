@@ -1,8 +1,7 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
+import { useState, useCallback, useMemo } from "react"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -35,56 +34,30 @@ import { AdaptiveTargetBanner } from "@/components/activity/AdaptiveTargetBanner
 import { ExerciseInfo } from "@/components/activity/ExerciseInfo"
 import { ExerciseDrawer } from "@/components/activity/ExerciseDrawer"
 import { UncheckedExercisesDialog } from "@/components/activity/UncheckedExercisesDialog"
-import { adaptiveTarget } from "@/lib/adaptive-target"
-import { suggestedIncrement } from "@/lib/progressive-overload"
 import { useExerciseHistory } from "@/hooks/useExerciseHistory"
 import { useElapsedSeconds } from "@/hooks/useElapsedSeconds"
+import { useWorkoutInit } from "@/hooks/useWorkoutInit"
+import { useFinishWorkout } from "@/hooks/useFinishWorkout"
+import { useAdaptivePrefill } from "@/hooks/useAdaptivePrefill"
 import { isSessionPersonalRecord } from "@/lib/session-pr"
 import { type CalorieProfile } from "@/lib/calories"
 import { exerciseCalories, workoutCalories } from "@/lib/workout-calories"
-import {
-  plannedToActive,
-  remainingPlannedExercises,
-  templateRowsToActive,
-  loggedExerciseNames,
-  type TemplateExerciseRow,
-} from "@/lib/workout-init"
 import { formatMuscleGroup } from "@/lib/muscle-groups"
-import { useQueryClient } from "@tanstack/react-query"
-import { saveWorkout } from "@/lib/save-workout"
-import { invalidateWorkoutData } from "@/lib/queries/invalidate"
 import { useProfile } from "@/hooks/useProfile"
+import { uncheckedExercises } from "@/lib/finish-workout"
+import { repsTargetLabel } from "@/lib/reps-target"
+import { exerciseDisplay } from "@/lib/exercise-display"
 import {
-  buildWorkoutPayload,
-  uncheckedExercises,
-  isOfflineError,
-  saveErrorMessage,
-} from "@/lib/finish-workout"
-import {
-  addPending,
-  removePending,
-  localStorageQueue,
-} from "@/lib/pending-workouts"
-import { plannedSession } from "@/lib/todays-workout"
-import { isTimedTarget, repsTargetLabel } from "@/lib/reps-target"
-import { isBodyweightLoad } from "@/lib/load-type"
-import {
-  isTreadmill,
-  isOutdoorRun,
-  isDistanceCardio,
   computeSpeedMph,
   formatPace,
   formatTimer,
   type ActiveSet,
   type ActiveExercise,
-  type ActiveWorkout,
 } from "@/lib/active-workout"
 import * as edits from "@/lib/workout-edits"
 
 // ── Component ─────────────────────────────────────────────────
 export default function LogWorkoutPage() {
-  const queryClient = useQueryClient()
-  const router = useRouter()
   const searchParams = useSearchParams()
   const templateId = searchParams.get("template")
   // "?plan=today" pre-loads the day's prescribed session from the training plan.
@@ -93,12 +66,15 @@ export default function LogWorkoutPage() {
   // of creating a new one (e.g. logging sets you forgot to check off).
   const appendId = searchParams.get("append")
 
-  const [workout, setWorkout] = useState<ActiveWorkout | null>(null)
+  // Resolves what this session is (append / template / plan / freestyle) and
+  // loads its starting exercises.
+  const { workout, setWorkout, timerStart, appendInfo } = useWorkoutInit(
+    templateId,
+    planParam,
+    appendId
+  )
+
   const [currentIdx, setCurrentIdx] = useState(0)
-  /** When this sitting's clock started. For an appended workout this is the
-   *  moment of resuming, NOT the original session's started_at — the header
-   *  timer counts the current sitting. */
-  const [timerStart, setTimerStart] = useState<Date | null>(null)
   const [showPicker, setShowPicker] = useState(false)
   // When set, the exercise picker replaces the exercise at this index (a
   // "swap" for a broken machine) instead of appending a new one.
@@ -110,137 +86,11 @@ export default function LogWorkoutPage() {
   const [restTimer, setRestTimer] = useState<number | null>(null)
   // Index of the set currently being timed with the hold stopwatch, or null.
   const [holdTimerSet, setHoldTimerSet] = useState<number | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [finishError, setFinishError] = useState<string | null>(null)
   // Set when Finish is tapped while some exercises have no checked sets — those
   // won't be saved, so confirm before dropping them silently.
   const [pendingFinish, setPendingFinish] = useState(false)
-  /** When appending to a saved workout: its id and how many exercises it
-   *  already has (so new order_index values continue after them). */
-  const appendInfo = useRef<{ logId: string; orderOffset: number } | null>(null)
-  /** Exercises we've already pre-filled this session, so we don't clobber
-   *  user edits if they tab back to the exercise. */
-  const prefilledExercises = useRef<Set<string>>(new Set())
-  /**
-   * Queue entry holding this session after a failed save, so a later success
-   * (or another failure) can replace it instead of stacking duplicates.
-   */
-  const parkedId = useRef<string | null>(null)
 
   const elapsed = useElapsedSeconds(timerStart)
-
-  // Load template or start freestyle
-  useEffect(() => {
-    async function init() {
-      if (appendId) {
-        // Add exercises to an existing saved workout. finishWorkout() inserts
-        // into that workout instead of creating a new one. When the workout is
-        // a plan session, pre-load the plan's remaining exercises (the ones not
-        // already logged) so the user just fills in weights.
-        const supabase = createClient()
-        const { data: log } = await supabase
-          .from("workout_logs")
-          .select("id, name, started_at")
-          .eq("id", appendId)
-          .single()
-
-        if (!log) {
-          router.push("/activity")
-          return
-        }
-
-        // Names already logged in this workout (join exercises(name)).
-        const { data: existingRows } = await supabase
-          .from("exercise_logs")
-          .select("id, exercises(name)")
-          .eq("workout_log_id", appendId)
-        const existing = (existingRows ?? []) as Array<{
-          id: string
-          exercises: { name: string } | { name: string }[] | null
-        }>
-
-        // If this workout matches the plan session for its day, pre-load the
-        // still-missing prescribed exercises; otherwise start empty.
-        const planned = plannedSession(new Date(log.started_at))
-        const preloaded =
-          planned.name === log.name
-            ? remainingPlannedExercises(
-                planned.exercises,
-                loggedExerciseNames(existing),
-                exerciseCatalog
-              )
-            : []
-
-        appendInfo.current = { logId: appendId, orderOffset: existing.length }
-        const now = new Date()
-        setTimerStart(now)
-        setWorkout({
-          name: log.name,
-          templateId: null,
-          startedAt: new Date(log.started_at),
-          exercises: preloaded,
-        })
-        return
-      }
-
-      if (templateId) {
-        const supabase = createClient()
-        const { data: template } = await supabase
-          .from("workout_templates")
-          .select("id, name")
-          .eq("id", templateId)
-          .single()
-
-        const { data: templateExercises } = await supabase
-          .from("template_exercises")
-          .select(
-            "exercise_id, sets, reps, rest_seconds, order_index, exercises(name)"
-          )
-          .eq("template_id", templateId)
-          .order("order_index", { ascending: true })
-
-        const activeExercises = templateRowsToActive(
-          (templateExercises ?? []) as TemplateExerciseRow[],
-          exerciseCatalog
-        )
-
-        const now = new Date()
-        setTimerStart(now)
-        setWorkout({
-          name: template?.name ?? "Workout",
-          templateId: templateId,
-          startedAt: now,
-          exercises: activeExercises,
-        })
-      } else if (planParam === "today") {
-        // Pre-load today's prescribed session (lifts + Zone 2 finisher) from
-        // the training plan — no DB round-trip, exercises come from the static
-        // catalog so previous-performance + progressive-overload work as usual.
-        const planned = plannedSession(new Date())
-        const activeExercises = plannedToActive(planned.exercises, exerciseCatalog)
-
-        const now = new Date()
-        setTimerStart(now)
-        setWorkout({
-          name: planned.name,
-          templateId: null,
-          startedAt: now,
-          exercises: activeExercises,
-        })
-      } else {
-        const now = new Date()
-        setTimerStart(now)
-        setWorkout({
-          name: "Freestyle Workout",
-          templateId: null,
-          startedAt: now,
-          exercises: [],
-        })
-      }
-    }
-    init()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [templateId, planParam, appendId])
 
   // Body weight and RMR inputs for the calorie estimate, from the shared
   // profile query rather than this page's own fetch.
@@ -262,7 +112,7 @@ export default function LogWorkoutPage() {
     (exIdx: number, setIdx: number, patch: Partial<ActiveSet>) => {
       setWorkout((prev) => (prev ? edits.updateSet(prev, exIdx, setIdx, patch) : prev))
     },
-    []
+    [setWorkout]
   )
 
   const toggleSetComplete = useCallback(
@@ -280,20 +130,20 @@ export default function LogWorkoutPage() {
       setWorkout(next)
       if (restSeconds !== null) setRestTimer(restSeconds)
     },
-    [workout]
+    [workout, setWorkout]
   )
 
   const addSet = useCallback((exIdx: number) => {
     setWorkout((prev) => (prev ? edits.addSet(prev, exIdx) : prev))
-  }, [])
+  }, [setWorkout])
 
   const removeSet = useCallback((exIdx: number, setIdx: number) => {
     setWorkout((prev) => (prev ? edits.removeSet(prev, exIdx, setIdx) : prev))
-  }, [])
+  }, [setWorkout])
 
   const updateExerciseNotes = useCallback((exIdx: number, notes: string) => {
     setWorkout((prev) => (prev ? edits.updateExerciseNotes(prev, exIdx, notes) : prev))
-  }, [])
+  }, [setWorkout])
 
   const removeExercise = useCallback(
     (exIdx: number) => {
@@ -303,7 +153,7 @@ export default function LogWorkoutPage() {
         edits.clampIndexAfterRemoval(prev, exIdx, lengthBefore)
       )
     },
-    [workout?.exercises.length]
+    [workout?.exercises.length, setWorkout]
   )
 
   const addExercise = useCallback(
@@ -313,7 +163,7 @@ export default function LogWorkoutPage() {
       // Navigate to the newly added exercise
       setCurrentIdx(workout?.exercises.length ?? 0)
     },
-    [workout?.exercises.length]
+    [workout?.exercises.length, setWorkout]
   )
 
   /** Replace one exercise with a substitute (e.g. a broken machine), keeping
@@ -324,7 +174,7 @@ export default function LogWorkoutPage() {
       setSwappingIdx(null)
       setShowPicker(false)
     },
-    []
+    [setWorkout]
   )
 
   // ── Calorie estimates ────────────────────────────────────────
@@ -335,73 +185,12 @@ export default function LogWorkoutPage() {
   const totalCalories = workoutCalories(workout, userWeightLbs, calorieProfile)
 
   // ── Save workout ────────────────────────────────────────────
-  // Payload construction, the offline heuristic and the error copy all live in
-  // lib/finish-workout.ts (pure + tested); this handles only the IO.
-  const finishWorkout = async () => {
-    if (!workout || workout.exercises.length === 0) return
-    setSaving(true)
-    setFinishError(null)
-
-    const supabase = createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      setSaving(false)
-      setFinishError("You're signed out — sign in again to save.")
-      return
-    }
-
-    const payload = buildWorkoutPayload({
-      workout,
-      userId: user.id,
-      finishedAt: new Date(),
-      append: appendInfo.current,
-    })
-
-    try {
-      const logId = await saveWorkout(supabase, payload)
-      // An earlier attempt may have parked this session in the queue. It has
-      // landed now, so drop that copy before OfflineSyncManager replays it into
-      // a duplicate workout.
-      if (parkedId.current) {
-        removePending(localStorageQueue, parkedId.current)
-        parkedId.current = null
-      }
-      // Everything derived from workouts — This Week's count and streak,
-      // calories burned, recent workouts, PRs — was served from cache until
-      // it happened to expire. Refresh before navigating away.
-      invalidateWorkoutData(queryClient)
-      router.push(`/activity/${logId}`)
-    } catch (err) {
-      // Park the session on *every* failure, not just connectivity ones.
-      // Previously a server-side rejection left the workout in component state
-      // and nowhere else: the banner invited a retry, but closing the tab or
-      // tapping away threw the session out with no queue entry and no trace.
-      // That is the same invisibility that cost a Cooper test its workout row.
-      //
-      // Replace rather than append, so repeated retries leave one entry
-      // carrying the latest payload instead of a pile of near-duplicates.
-      if (parkedId.current) removePending(localStorageQueue, parkedId.current)
-      const id = crypto.randomUUID()
-      addPending(localStorageQueue, {
-        id,
-        queuedAt: new Date().toISOString(),
-        payload,
-      })
-      parkedId.current = id
-
-      if (isOfflineError(err)) {
-        // Nothing useful to say — it syncs when the signal comes back.
-        router.push("/dashboard?queued=1")
-      } else {
-        // Stay put so the user can retry immediately; the queue is the safety
-        // net for when they don't.
-        setSaving(false)
-        setFinishError(saveErrorMessage(err))
-      }
-    }
-  }
+  // The IO, queue parking and post-save navigation live in
+  // hooks/useFinishWorkout; the payload/error logic in lib/finish-workout.
+  const { finishWorkout, saving, finishError } = useFinishWorkout(
+    workout,
+    appendInfo
+  )
 
   // Exercises with no checked-off set — these get dropped on save.
   const unchecked = uncheckedExercises(workout)
@@ -432,54 +221,9 @@ export default function LogWorkoutPage() {
   const allTimeMaxWeight = currentHistory?.allTimeMaxWeight ?? null
   const allTimeMinWeight = currentHistory?.allTimeMinWeight ?? null
 
-  // Pre-fill set weights from the previous session. Runs once per exercise
-  // per session, only if every set is still untouched (no weight typed, no
-  // reps typed, not completed). Reps are not pre-filled since they vary
-  // more than weight session to session.
-  useEffect(() => {
-    if (!currentExercise) return
-    if (currentExercise.exerciseType !== "strength") return
-    if (prefilledExercises.current.has(currentExercise.exerciseId)) return
-    if (!currentHistory) return
-    const prevSets = currentHistory.previousSets
-    if (prevSets.length === 0) {
-      prefilledExercises.current.add(currentExercise.exerciseId)
-      return
-    }
-    const untouched = currentExercise.sets.every(
-      (s) => s.weight == null && s.reps == null && !s.completed
-    )
-    if (!untouched) {
-      prefilledExercises.current.add(currentExercise.exerciseId)
-      return
-    }
-    const exerciseId = currentExercise.exerciseId
-    // Pre-fill the adaptive target weight (progress / repeat / hold from last
-    // session) rather than mirroring each set's raw previous weight, so the
-    // prescribed session moves with recorded performance.
-    const target = adaptiveTarget({
-      previousSets: prevSets.map((s) => ({ weight: s.weight, reps: s.reps })),
-      repRange: currentExercise.repsTarget,
-      increment: suggestedIncrement(currentExercise.muscleGroups ?? []),
-      assisted: currentExercise.assisted,
-    })
-    const fillWeight = target.weight
-    if (fillWeight == null) {
-      prefilledExercises.current.add(currentExercise.exerciseId)
-      return
-    }
-    setWorkout((prev) => {
-      if (!prev) return prev
-      const idx = prev.exercises.findIndex((e) => e.exerciseId === exerciseId)
-      if (idx === -1) return prev
-      const exercises = [...prev.exercises]
-      const ex = { ...exercises[idx] }
-      ex.sets = ex.sets.map((s) => ({ ...s, weight: fillWeight }))
-      exercises[idx] = ex
-      return { ...prev, exercises }
-    })
-    prefilledExercises.current.add(currentExercise.exerciseId)
-  }, [currentExercise, currentHistory])
+  // Pre-fill set weights from the previous session (once per exercise per
+  // session, only while untouched) — see hooks/useAdaptivePrefill.
+  useAdaptivePrefill(currentExercise, currentHistory, setWorkout)
 
   // ── Render ──────────────────────────────────────────────────
   if (!workout) {
@@ -490,37 +234,17 @@ export default function LogWorkoutPage() {
     )
   }
 
-  const isCardio = currentExercise?.exerciseType === "cardio"
-  // Timed hold (e.g. plank "20-30 sec"): the reps column records seconds
-  // held, so the header and placeholder must say so.
-  const isTimedHold =
-    !isCardio && isTimedTarget(currentExercise?.repsTarget)
-  // Bodyweight moves (no loadable equipment): there's no weight to enter, so
-  // the weight cell shows "Bodyweight" instead of an lbs input.
-  const isBodyweight =
-    !!currentExercise &&
-    isBodyweightLoad({
-      equipmentId: currentExercise.equipmentId,
-      assisted: currentExercise.assisted,
-      exerciseType: currentExercise.exerciseType,
-    })
-  // Target seconds for the hold timer, parsed from e.g. "20-30 sec".
-  const holdTargetSeconds = isTimedHold
-    ? Number(currentExercise?.repsTarget?.match(/(\d+)/g)?.slice(-1)[0]) || null
-    : null
-  const isTreadmillExercise =
-    !!currentExercise && isTreadmill(currentExercise)
-  const isOutdoorRunExercise =
-    !!currentExercise && isOutdoorRun(currentExercise)
-  const isDistanceCardioExercise =
-    !!currentExercise && isDistanceCardio(currentExercise)
-  // The header row and every set row must share a column template or they
-  // drift out of alignment — they were two copies of this expression.
-  const setGridCols = isDistanceCardioExercise
-    ? "grid-cols-[2.5rem_1fr_1fr_3.5rem_3rem]"
-    : isCardio
-      ? "grid-cols-[2.5rem_1fr_1fr_1fr_3rem]"
-      : "grid-cols-[2.5rem_1fr_1fr_3rem]"
+  // Per-exercise render modes, derived in one tested place.
+  const {
+    isCardio,
+    isTimedHold,
+    isBodyweight,
+    holdTargetSeconds,
+    isTreadmill: isTreadmillExercise,
+    isOutdoorRun: isOutdoorRunExercise,
+    isDistanceCardio: isDistanceCardioExercise,
+    setGridCols,
+  } = exerciseDisplay(currentExercise)
 
   return (
     <div className="mx-auto max-w-lg">

@@ -460,8 +460,16 @@ roughly easiest → hardest; pick off in order.
             `projectFromRecentLogs`, weight percent → `weightGoalPercent`;
             AddGoalModal and GoalCard moved to `components/goals/`. All
             new lib code unit-tested.
-      - [ ] `activity/log/page.tsx` (1,206 lines) — the live workout
-            logger; the riskiest one, do with care.
+      - [x] `activity/log/page.tsx` (1,206 → 916 lines): the init effect
+            (append/template/plan/freestyle resolution) → `useWorkoutInit`,
+            save + queue-parking IO → `useFinishWorkout`, the adaptive
+            prefill → `useAdaptivePrefill` over pure `workout-prefill.ts`
+            (decision + transform), and the per-exercise render modes
+            (timed hold, bodyweight, grid columns, hold-timer parse) →
+            `exercise-display.ts`. What remains is render + thin state
+            wrappers over the already-tested `workout-edits` transforms;
+            the existing page component tests passed unchanged through
+            the refactor.
 - [ ] Consider swapping the custom Dialog component for
       `@radix-ui/react-dialog`. The current implementation lacks
       focus trap and scroll restoration that Radix gives for free.
