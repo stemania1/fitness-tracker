@@ -395,10 +395,16 @@ viewport readout — so neither needed server logs or a dashboard in the end.
       `ClockTime` now, compared at minute precision — a bedtime-derived one
       is usually off the hour — and `useBedtimePlan` shares the plan across
       the three cards that need it so they can't disagree.
-- [ ] Sharpen caffeine further: personal half-life / sensitivity learned from
-      the check-in history (the other half of the old "sharpen caffeine"
-      item; the fixed ~5.5h `CAFFEINE_HALF_LIFE_MIN` is still a population
-      average).
+- [x] Sharpen caffeine further: personal half-life / sensitivity learned
+      from the check-in history (`caffeine-personal.ts` + `useCaffeineModel`).
+      Grid-search over candidate half-lives (3–9h), scoring each by how well
+      its on-board estimate correlates with felt energy — computed WITHIN
+      time-of-day bands so the morning-coffee/morning-energy circadian
+      confound can't fake a signal — plus a sensitivity slope (energy per
+      100 mg). Falls back to the 5.5h population average, saying why, until
+      there are 12+ check-ins with real caffeinated/clear contrast. The
+      caffeine card's "still active" math uses the personal value and states
+      the finding in one line.
 - [x] Energy trend + personal drivers (`energy-correlations.ts` +
       `EnergyDriversCard` on /insights): correlates felt energy against its
       candidate drivers and surfaces each user's top levers. Was shipped but
