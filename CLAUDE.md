@@ -85,6 +85,7 @@ fitness-tracker/
 │   │   ├── meal-time.ts             # In-place time edit for meal/caffeine entries
 │   │   ├── image-resize.ts          # Browser image downscale for vision upload
 │   │   ├── caffeine.ts              # Caffeine alertness/crash + late-dose flag
+│   │   ├── caffeine-personal.ts     # Personal half-life learned from check-ins
 │   │   ├── creatine-streak.ts       # Daily creatine streak + multi-dose progress
 │   │   ├── energy.ts                # Fuse sleep/HRV/fuel/caffeine into an energy read
 │   │   ├── energy-correlations.ts   # Personal energy-driver correlation analysis

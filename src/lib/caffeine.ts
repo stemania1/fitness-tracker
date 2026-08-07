@@ -71,11 +71,16 @@ export interface CaffeineStatus {
   totalTodayMg: number
 }
 
-/** Caffeine still active now, summing each dose's exponential decay. */
-export function caffeineOnBoardMg(doses: CaffeineDose[]): number {
+/** Caffeine still active now, summing each dose's exponential decay.
+ *  `halfLifeMin` defaults to the population average; pass the learned
+ *  personal value (lib/caffeine-personal) when one exists. */
+export function caffeineOnBoardMg(
+  doses: CaffeineDose[],
+  halfLifeMin: number = CAFFEINE_HALF_LIFE_MIN
+): number {
   return doses.reduce((sum, d) => {
     if (d.minutesAgo < 0) return sum
-    return sum + d.mg * Math.pow(0.5, d.minutesAgo / CAFFEINE_HALF_LIFE_MIN)
+    return sum + d.mg * Math.pow(0.5, d.minutesAgo / halfLifeMin)
   }, 0)
 }
 
@@ -85,8 +90,11 @@ export function caffeineOnBoardMg(doses: CaffeineDose[]): number {
  *  - `fading`  — a real dose was taken but has mostly cleared (the crash window);
  *  - `none`    — negligible caffeine today.
  */
-export function caffeineStatus(doses: CaffeineDose[]): CaffeineStatus {
-  const onBoard = caffeineOnBoardMg(doses)
+export function caffeineStatus(
+  doses: CaffeineDose[],
+  halfLifeMin: number = CAFFEINE_HALF_LIFE_MIN
+): CaffeineStatus {
+  const onBoard = caffeineOnBoardMg(doses, halfLifeMin)
   const totalToday = doses.reduce((s, d) => s + (d.minutesAgo >= 0 ? d.mg : 0), 0)
   const onBoardMg = Math.round(onBoard)
   const totalTodayMg = Math.round(totalToday)

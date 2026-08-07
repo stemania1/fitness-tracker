@@ -13,6 +13,8 @@ import {
   type CaffeineDose,
 } from "@/lib/caffeine"
 import { localTimeValue, withLocalTime } from "@/lib/meal-time"
+import { describeCaffeineModel } from "@/lib/caffeine-personal"
+import { useCaffeineModel } from "@/hooks/useCaffeineModel"
 import { useBedtimePlan } from "@/hooks/useBedtimePlan"
 import { useUserQuery, getAuthUserId } from "@/lib/supabase/user-query"
 import { InsightCard } from "@/components/ui/insight-card"
@@ -95,6 +97,11 @@ export function CaffeineCard() {
   const { plan } = useBedtimePlan()
   const cutoff = plan?.caffeineCutoff
 
+  // Personal half-life learned from check-in history; population average
+  // until there's enough data to say otherwise.
+  const model = useCaffeineModel()
+  const modelNote = describeCaffeineModel(model)
+
   const { status, late } = useMemo(() => {
     const now = Date.now()
     const doses: CaffeineDose[] = (logs ?? []).map((r) => {
@@ -107,10 +114,10 @@ export function CaffeineCard() {
       }
     })
     return {
-      status: caffeineStatus(doses),
+      status: caffeineStatus(doses, model.halfLifeMin),
       late: lateCaffeineFlag(doses, cutoff),
     }
-  }, [logs, cutoff])
+  }, [logs, cutoff, model.halfLifeMin])
 
   const total = status.totalTodayMg
   const overGuideline = total > DAILY_CAFFEINE_GUIDELINE_MG
@@ -174,6 +181,10 @@ export function CaffeineCard() {
         <Moon className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
         <p className="text-xs text-amber-800">{late.message}</p>
           </div>
+        )}
+
+        {modelNote && (
+          <p className="text-xs text-gray-500">{modelNote}</p>
         )}
 
         <ul className="space-y-1.5">
