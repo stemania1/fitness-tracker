@@ -96,6 +96,12 @@ describe("ExerciseDrawer", () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
+  it("closes on Escape", async () => {
+    const { onClose } = setup()
+    await userEvent.keyboard("{Escape}")
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
   it("renders nothing but the header for an empty workout", () => {
     setup({ exercises: [] })
     expect(screen.getByText("Exercises")).toBeInTheDocument()

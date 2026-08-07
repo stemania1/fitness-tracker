@@ -418,6 +418,15 @@ viewport readout — so neither needed server logs or a dashboard in the end.
 
 ## Polish & quality
 - [ ] Accessibility audit (keyboard nav, screen reader, focus states)
+      - [x] Static pass across the app: every icon-only button now has an
+            accessible name (month nav, template edit/save/cancel, picker
+            close), the logger's set-row inputs carry per-set labels
+            ("Set 2 weight (lbs)", "Set 1 seconds held", incline, RPE with
+            aria-pressed), and the hand-rolled overlays (exercise picker,
+            exercise drawer) gained dialog semantics + Escape-to-close via
+            a shared `useEscapeKey`. Nav/TopBar/Dialog were already right.
+      - [ ] On-device screen-reader pass (VoiceOver) and a real keyboard
+            walk of the logger — the part a static sweep can't cover.
 - [ ] Performance audit (Core Web Vitals)
 - [x] Component tests for the live active-workout flow
       (`activity/log/page.tsx`): freestyle add→log→save, the
@@ -470,10 +479,13 @@ roughly easiest → hardest; pick off in order.
             wrappers over the already-tested `workout-edits` transforms;
             the existing page component tests passed unchanged through
             the refactor.
-- [ ] Consider swapping the custom Dialog component for
-      `@radix-ui/react-dialog`. The current implementation lacks
-      focus trap and scroll restoration that Radix gives for free.
-      Real but architectural — weigh against the testing churn.
+- [~] Consider swapping the custom Dialog component for
+      `@radix-ui/react-dialog`. *Stale:* the gap that motivated this —
+      no focus trap or scroll handling — has since been closed in place:
+      the custom Dialog now traps Tab, moves focus in on open and
+      restores it on close, closes on Escape, scroll-locks the app
+      shell, and sets aria-modal/labelledby/describedby. No remaining
+      reason to take the dependency + testing churn.
 
 ## Testing follow-ups
 - [x] Component tests for `QuickLogExercise` and `exercise-picker`

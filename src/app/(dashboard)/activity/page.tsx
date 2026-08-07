@@ -227,13 +227,23 @@ export default function ActivityPage() {
           <CardContent className="p-4">
             {/* Month navigation */}
             <div className="mb-4 flex items-center justify-between">
-              <Button variant="ghost" size="icon" onClick={prevMonth}>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={prevMonth}
+                aria-label="Previous month"
+              >
                 <ChevronLeft className="h-5 w-5" />
               </Button>
               <span className="text-sm font-semibold text-gray-900">
                 {MONTH_NAMES[calendarMonth.month]} {calendarMonth.year}
               </span>
-              <Button variant="ghost" size="icon" onClick={nextMonth}>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={nextMonth}
+                aria-label="Next month"
+              >
                 <ChevronRight className="h-5 w-5" />
               </Button>
             </div>

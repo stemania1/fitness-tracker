@@ -471,6 +471,7 @@ export default function WorkoutDetailPage() {
               variant="secondary"
               size="icon"
               onClick={cancelEditing}
+              aria-label="Cancel editing"
             >
               <X className="h-4 w-4" />
             </Button>
@@ -478,6 +479,7 @@ export default function WorkoutDetailPage() {
               size="icon"
               onClick={() => saveMutation.mutate()}
               disabled={saveMutation.isPending}
+              aria-label="Save changes"
             >
               {saveMutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -491,6 +493,7 @@ export default function WorkoutDetailPage() {
             variant="secondary"
             size="icon"
             onClick={startEditing}
+            aria-label="Edit template"
           >
             <Pencil className="h-4 w-4" />
           </Button>

@@ -10,6 +10,7 @@ import { equipment } from "@/data/equipment"
 import { MUSCLE_GROUPS, EQUIPMENT_CATEGORIES } from "@/lib/constants"
 import { formatMuscleGroup } from "@/lib/muscle-groups"
 import { cn } from "@/lib/utils"
+import { useEscapeKey } from "@/hooks/useEscapeKey"
 
 interface ExercisePickerProps {
   onSelect: (exercise: ExerciseDefinition) => void
@@ -20,6 +21,8 @@ export function ExercisePicker({ onSelect, onClose }: ExercisePickerProps) {
   const [search, setSearch] = useState("")
   const [muscleFilter, setMuscleFilter] = useState<string | null>(null)
   const [equipmentFilter, setEquipmentFilter] = useState<string | null>(null)
+
+  useEscapeKey(onClose)
 
   const equipmentMap = useMemo(() => {
     const map = new Map<string, string>()
@@ -56,11 +59,16 @@ export function ExercisePicker({ onSelect, onClose }: ExercisePickerProps) {
   }, [search, muscleFilter, equipmentFilter, equipmentCategoryMap])
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-white">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Add exercise"
+      className="fixed inset-0 z-50 flex flex-col bg-white"
+    >
       {/* Header */}
       <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
         <h2 className="text-lg font-semibold text-gray-900">Add Exercise</h2>
-        <Button variant="ghost" size="icon" onClick={onClose}>
+        <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close">
           <X className="h-5 w-5" />
         </Button>
       </div>
@@ -71,6 +79,7 @@ export function ExercisePicker({ onSelect, onClose }: ExercisePickerProps) {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <Input
             placeholder="Search exercises..."
+            aria-label="Search exercises"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
