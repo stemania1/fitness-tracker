@@ -7,8 +7,17 @@ import {
   goalProgressPercent,
   type ExerciseBest,
 } from "@/lib/goal-progress"
+import dynamic from "next/dynamic"
 import { buildGoalTrend, type DatedExerciseRow } from "@/lib/goal-trend"
-import { GoalTrendChart } from "@/components/goals/GoalTrendChart"
+
+// Recharts consumer; deferred so the chart library stays out of the goals
+// page's first-load bundle. Renders nothing until data warrants a chart, so
+// there's no skeleton to show while it loads.
+const GoalTrendChart = dynamic(
+  () =>
+    import("@/components/goals/GoalTrendChart").then((m) => m.GoalTrendChart),
+  { ssr: false }
+)
 import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"

@@ -444,6 +444,15 @@ viewport readout — so neither needed server logs or a dashboard in the end.
       - [ ] On-device screen-reader pass (VoiceOver) and a real keyboard
             walk of the logger — the part a static sweep can't cover.
 - [ ] Performance audit (Core Web Vitals)
+      - [x] Bundle pass: Recharts was statically bundled into the three
+            heaviest routes. All chart cards now load via `next/dynamic`
+            after first paint (each already renders behind its own data
+            skeleton, so nothing visible changes). First-load JS:
+            /dashboard 342→235 kB, /insights 315→196 kB, /goals
+            293→183 kB; every route now ≤235 kB.
+      - [ ] Field pass: read real Core Web Vitals (LCP/INP/CLS) from
+            Vercel Analytics once a few days of the lighter bundles have
+            shipped, and chase whatever the field data says is next.
 - [x] Component tests for the live active-workout flow
       (`activity/log/page.tsx`): freestyle add→log→save, the
       unchecked-sets confirmation, and the empty state. Heavy deps

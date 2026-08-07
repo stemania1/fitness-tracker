@@ -1,24 +1,46 @@
 "use client"
 
+import dynamic from "next/dynamic"
 import { useQuery } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
 import { WeeklyScheduleCard } from "@/components/activity/WeeklyScheduleCard"
-import { WeightTrendCard } from "@/components/activity/WeightTrendCard"
 import { MuscleBalanceCard } from "@/components/activity/MuscleBalanceCard"
 import { EnergyBalanceCard } from "@/components/activity/EnergyBalanceCard"
 import { EnergyDriversCard } from "@/components/activity/EnergyDriversCard"
-import { SleepTrendCard } from "@/components/activity/SleepTrendCard"
-import { RemInsightsCard } from "@/components/activity/RemInsightsCard"
 import { RecoveryWatchCard } from "@/components/activity/RecoveryWatchCard"
-import { Vo2MaxTrendCard } from "@/components/activity/Vo2MaxTrendCard"
 import { WeeklyTrainingCard } from "@/components/activity/WeeklyTrainingCard"
 import { RecentPRsCard } from "@/components/activity/RecentPRsCard"
 import { RecentWorkoutsCard } from "@/components/activity/RecentWorkoutsCard"
-import { VolumeTrendCard } from "@/components/activity/VolumeTrendCard"
 import { useProfile } from "@/hooks/useProfile"
 import { Section } from "@/components/layout/section"
+import { Skeleton } from "@/components/ui/skeleton"
 
 const supabase = createClient()
+
+// The five Recharts consumers, loaded after first paint so the chart library
+// stays out of the page's first-load bundle. Every card fetches its own data
+// behind a skeleton already, so deferring them changes nothing visible.
+// (Options are spelled out per call — next/dynamic requires a literal.)
+const WeightTrendCard = dynamic(
+  () => import("@/components/activity/WeightTrendCard").then((m) => m.WeightTrendCard),
+  { ssr: false, loading: () => <Skeleton className="h-48 w-full" /> }
+)
+const SleepTrendCard = dynamic(
+  () => import("@/components/activity/SleepTrendCard").then((m) => m.SleepTrendCard),
+  { ssr: false, loading: () => <Skeleton className="h-48 w-full" /> }
+)
+const RemInsightsCard = dynamic(
+  () => import("@/components/activity/RemInsightsCard").then((m) => m.RemInsightsCard),
+  { ssr: false, loading: () => <Skeleton className="h-48 w-full" /> }
+)
+const VolumeTrendCard = dynamic(
+  () => import("@/components/activity/VolumeTrendCard").then((m) => m.VolumeTrendCard),
+  { ssr: false, loading: () => <Skeleton className="h-48 w-full" /> }
+)
+const Vo2MaxTrendCard = dynamic(
+  () => import("@/components/activity/Vo2MaxTrendCard").then((m) => m.Vo2MaxTrendCard),
+  { ssr: false, loading: () => <Skeleton className="h-48 w-full" /> }
+)
 
 /**
  * The analytical half of the app. The dashboard is for what's actionable
