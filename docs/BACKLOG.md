@@ -147,14 +147,18 @@ viewport readout — so neither needed server logs or a dashboard in the end.
       comparison inverts for assisted exercises. 19 tests. The set-row grid
       template, previously two copies that would silently misalign the header
       from the rows, is now one constant.
-- [ ] `profile/page.tsx` (733 lines, from 1,019) — in progress. Done so far:
-      `profile-stats` (streak + volume; fixed a DST bug that truncated the
-      workout streak to 1 twice a year), `profile-form` (the ~90-line
-      parse-and-compare on save, which could write NaN), `oura-connect-errors`
-      (shared with the OAuth callback; the guard accepted prototype keys and
-      crashed the page), and `OuraConnectionCard` (self-fetching, owns the
-      whole connect/disconnect flow). Remaining: the settings sections →
-      components.
+- [x] `profile/page.tsx` (~200 lines, from 1,019) — done. Extractions along
+      the way: `profile-stats` (streak + volume; fixed a DST bug that
+      truncated the workout streak to 1 twice a year), `profile-form` (the
+      ~90-line parse-and-compare on save, which could write NaN),
+      `oura-connect-errors` (shared with the OAuth callback; the guard
+      accepted prototype keys and crashed the page), and `OuraConnectionCard`
+      (self-fetching, owns the whole connect/disconnect flow). Finished with
+      `ProfileSettingsCard` (the form: fifteen field states + the update
+      mutation) and `AccountCard` (email, password, sign-out, delete flow),
+      both self-fetching with component tests; the page keeps the header,
+      stats row, and the single feedback banner the cards report into
+      (`ProfileFeedback`, one shared type).
 - [x] `lib/load-type.ts` — one derivation of how an exercise carries load
       (loaded / bodyweight / assisted). Two bugs came from each call site
       inferring it separately from `equipmentId === null`: Pull-Up got weight
