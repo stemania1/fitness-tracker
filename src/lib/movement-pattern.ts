@@ -37,6 +37,7 @@ const BY_EXERCISE: Record<string, MovementPattern> = {
   "smith-machine-bench-press": "horizontal-press",
   "push-ups": "horizontal-press",
   "assisted-dip": "horizontal-press",
+  "cable-chest-press": "horizontal-press",
 
   // Push — overhead
   "shoulder-press-machine-exercise": "overhead-press",
@@ -61,6 +62,7 @@ const BY_EXERCISE: Record<string, MovementPattern> = {
   "seated-row-exercise": "horizontal-pull",
   "dumbbell-row": "horizontal-pull",
   "cable-row": "horizontal-pull",
+  "single-arm-cable-row": "horizontal-pull",
   "cable-face-pull": "horizontal-pull",
 
   "dumbbell-shrug": "shrug",
@@ -96,6 +98,7 @@ const BY_EXERCISE: Record<string, MovementPattern> = {
   "leg-extension-exercise": "leg-extension",
   "leg-curl-exercise": "leg-curl",
   "hip-abductor-exercise": "leg-extension",
+  "cable-glute-kickback": "leg-extension",
   "hip-adductor-exercise": "leg-extension",
   "dumbbell-calf-raise": "calf-raise",
 
@@ -105,6 +108,7 @@ const BY_EXERCISE: Record<string, MovementPattern> = {
   "bicycle-crunches": "crunch",
   "mountain-climbers": "crunch",
   "cable-woodchop": "crunch",
+  "cable-pallof-press": "hold",
   "dead-bug": "crunch",
   plank: "hold",
 }

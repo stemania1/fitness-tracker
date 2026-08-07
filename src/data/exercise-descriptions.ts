@@ -21,6 +21,8 @@ const DESCRIPTIONS: Record<string, string> = {
     "Seated machine: bring the padded arms together in front of your chest in a hugging motion, then open slowly.",
   "cable-crossover-exercise":
     "Stand between two high cables and sweep the handles down and together in front of you, squeezing the chest.",
+  "cable-chest-press":
+    "Stand between the functional trainer's columns and press both handles forward from chest height — like a bench press on your feet, with your core bracing the load.",
   "smith-machine-bench-press":
     "Bench press on the Smith machine's fixed vertical bar — press from chest to lockout on a guided path.",
   // Back
@@ -32,6 +34,12 @@ const DESCRIPTIONS: Record<string, string> = {
     "Hinge at the hips with one hand braced, and row a dumbbell up to your hip keeping the elbow close.",
   "cable-row":
     "Seated at a low cable, pull the handle to your stomach and squeeze your back, then extend under control.",
+  "single-arm-cable-row":
+    "Standing at a mid-height cable, row one handle to your hip while the other side resists the twist — back and biceps, with a core bonus.",
+  "cable-glute-kickback":
+    "Ankle strapped to a low cable, drive one leg straight back and squeeze the glute at the top, then return under control.",
+  "cable-pallof-press":
+    "Stand side-on to a mid-height cable and press the handle straight out from your chest, resisting the pull to rotate — an anti-rotation core hold.",
   "straight-arm-pulldown":
     "Standing at a high cable with straight arms, push the bar down to your thighs in an arc — isolates the lats.",
   "dumbbell-shrug":
