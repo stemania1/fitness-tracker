@@ -12,6 +12,7 @@ import {
   isOuraErrorReason,
   type OuraErrorReason,
 } from "@/lib/oura-connect-errors"
+import type { ProfileFeedback } from "./feedback"
 
 const supabase = createClient()
 
@@ -19,14 +20,9 @@ const supabase = createClient()
  *  including the battery level behind the dashboard's battery pill. */
 const OURA_SCOPE = "daily sleep heartrate personal spo2 stress ring_configuration"
 
-export interface OuraFeedback {
-  type: "success" | "error"
-  text: string
-}
-
 interface OuraConnectionCardProps {
   /** Surfaced in the profile page's shared banner. */
-  onFeedback: (feedback: OuraFeedback) => void
+  onFeedback: (feedback: ProfileFeedback) => void
 }
 
 /**
