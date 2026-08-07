@@ -59,7 +59,7 @@ describe("EnergyCheckInCard", () => {
 
   it("shows the 1-5 selector when there is no check-in today", async () => {
     renderWithClient(<EnergyCheckInCard />)
-    expect(await screen.findByText(/how's your energy right now/i)).toBeInTheDocument()
+    expect(await screen.findByText(/how are you starting the day|how's your energy (holding up|this evening)/i)).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /energized/i })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /drained/i })).toBeInTheDocument()
   })
@@ -84,7 +84,7 @@ describe("EnergyCheckInCard", () => {
 
     // A readout headline appears and the selector prompt is gone.
     expect(await screen.findByText(/update how i feel/i)).toBeInTheDocument()
-    expect(screen.queryByText(/how's your energy right now/i)).toBeNull()
+    expect(screen.queryByText(/how are you starting the day|how's your energy (holding up|this evening)/i)).toBeNull()
   })
 
   it("lets the user reopen the selector to update how they feel", async () => {
@@ -92,7 +92,7 @@ describe("EnergyCheckInCard", () => {
     renderWithClient(<EnergyCheckInCard />)
 
     fireEvent.click(await screen.findByRole("button", { name: /update how i feel/i }))
-    expect(await screen.findByText(/how's your energy right now/i)).toBeInTheDocument()
+    expect(await screen.findByText(/how are you starting the day|how's your energy (holding up|this evening)/i)).toBeInTheDocument()
   })
 
   it("shows the late-caffeine sleep warning when one is passed", async () => {
