@@ -157,12 +157,14 @@ describe("ExercisePicker — selection and close", () => {
   it("fires onClose when the X button is clicked", () => {
     const onClose = vi.fn()
     render(<ExercisePicker onSelect={() => {}} onClose={onClose} />)
-    // The close button has no accessible name beyond the X icon, so reach
-    // it via the header region.
-    const header = screen.getByRole("heading", { name: /add exercise/i })
-      .parentElement!
-    const closeBtn = within(header).getAllByRole("button")[0]
-    fireEvent.click(closeBtn)
+    fireEvent.click(screen.getByRole("button", { name: "Close" }))
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it("fires onClose on Escape", () => {
+    const onClose = vi.fn()
+    render(<ExercisePicker onSelect={() => {}} onClose={onClose} />)
+    fireEvent.keyDown(document, { key: "Escape" })
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 })

@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Check, Flame, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useEscapeKey } from "@/hooks/useEscapeKey"
 import type { ActiveExercise } from "@/lib/active-workout"
 
 interface ExerciseDrawerProps {
@@ -26,6 +27,8 @@ export function ExerciseDrawer({
   onSelect,
   onClose,
 }: ExerciseDrawerProps) {
+  useEscapeKey(onClose)
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col">
       <div
@@ -35,6 +38,7 @@ export function ExerciseDrawer({
       />
       <div
         role="dialog"
+        aria-modal="true"
         aria-label="Exercises"
         className="relative mt-auto max-h-[70vh] overflow-y-auto rounded-t-2xl bg-white pb-8"
       >

@@ -520,6 +520,7 @@ export default function LogWorkoutPage() {
                           type="number"
                           inputMode="decimal"
                           placeholder="min"
+                          aria-label={`Set ${si + 1} minutes`}
                           value={set.durationMins ?? ""}
                           onChange={(e) =>
                             updateSet(currentIdx, si, {
@@ -534,6 +535,7 @@ export default function LogWorkoutPage() {
                           type="number"
                           inputMode="decimal"
                           placeholder="mi"
+                          aria-label={`Set ${si + 1} miles`}
                           value={set.distanceMiles ?? ""}
                           onChange={(e) =>
                             updateSet(currentIdx, si, {
@@ -562,6 +564,7 @@ export default function LogWorkoutPage() {
                           type="number"
                           inputMode="decimal"
                           placeholder="min"
+                          aria-label={`Set ${si + 1} minutes`}
                           value={set.durationMins ?? ""}
                           onChange={(e) =>
                             updateSet(currentIdx, si, {
@@ -576,6 +579,7 @@ export default function LogWorkoutPage() {
                           type="number"
                           inputMode="decimal"
                           placeholder="mi"
+                          aria-label={`Set ${si + 1} miles`}
                           value={set.distanceMiles ?? ""}
                           onChange={(e) =>
                             updateSet(currentIdx, si, {
@@ -590,6 +594,7 @@ export default function LogWorkoutPage() {
                           type="number"
                           inputMode="decimal"
                           placeholder="mph"
+                          aria-label={`Set ${si + 1} average speed (mph)`}
                           value={set.speedMph ?? ""}
                           onChange={(e) =>
                             updateSet(currentIdx, si, {
@@ -626,6 +631,7 @@ export default function LogWorkoutPage() {
                             type="number"
                             inputMode="decimal"
                             placeholder="lbs"
+                            aria-label={`Set ${si + 1} weight (lbs)`}
                             value={set.weight ?? ""}
                             onChange={(e) =>
                               updateSet(currentIdx, si, {
@@ -642,6 +648,11 @@ export default function LogWorkoutPage() {
                             type="number"
                             inputMode="numeric"
                             placeholder={isTimedHold ? "sec" : "reps"}
+                            aria-label={
+                              isTimedHold
+                                ? `Set ${si + 1} seconds held`
+                                : `Set ${si + 1} reps`
+                            }
                             value={set.reps ?? ""}
                             onChange={(e) =>
                               updateSet(currentIdx, si, {
@@ -748,6 +759,7 @@ export default function LogWorkoutPage() {
                               min={0}
                               max={30}
                               placeholder="%"
+                              aria-label={`Set ${si + 1} incline percent`}
                               value={set.inclinePercent ?? ""}
                               onChange={(e) =>
                                 updateSet(currentIdx, si, {
@@ -793,6 +805,8 @@ export default function LogWorkoutPage() {
                               onClick={() =>
                                 updateSet(currentIdx, si, { rpe: v })
                               }
+                              aria-label={`Set ${si + 1} effort ${v} of 10`}
+                              aria-pressed={set.rpe === v}
                               className={cn(
                                 "flex h-7 flex-1 items-center justify-center rounded text-xs font-medium transition-colors",
                                 set.rpe === v
@@ -828,6 +842,7 @@ export default function LogWorkoutPage() {
                     onChange={(e) =>
                       updateExerciseNotes(currentIdx, e.target.value)
                     }
+                    aria-label="Exercise notes"
                     placeholder="Add notes for this exercise..."
                     className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-purple-500"
                     rows={2}
