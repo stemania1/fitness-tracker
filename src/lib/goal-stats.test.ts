@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest"
-import { getWeekLabel, calcWeeklyStreak, calcVolumeByWeek } from "./goal-stats"
+import {
+  getWeekLabel,
+  calcWeeklyStreak,
+  calcVolumeByWeek,
+  weightGoalPercent,
+} from "./goal-stats"
 
 describe("getWeekLabel", () => {
   it("labels dates in the same week identically and different weeks distinctly", () => {
@@ -71,5 +76,25 @@ describe("calcVolumeByWeek", () => {
       },
     ])
     expect(out[0].volume).toBe(0)
+  })
+})
+
+describe("weightGoalPercent", () => {
+  it("measures progress from the first logged weight toward the target", () => {
+    // Started at 250, now 225, aiming for 200 → halfway.
+    expect(weightGoalPercent(225, 200, 250)).toBe(50)
+  })
+
+  it("clamps overshoot to 100 and a wrong-direction trend to 0", () => {
+    expect(weightGoalPercent(195, 200, 250)).toBe(100)
+    expect(weightGoalPercent(255, 200, 250)).toBe(0)
+  })
+
+  it("reads 0 with no logged baseline (baseline falls back to current)", () => {
+    expect(weightGoalPercent(225, 200, undefined)).toBe(0)
+  })
+
+  it("doesn't divide by zero when the baseline equals the target", () => {
+    expect(Number.isFinite(weightGoalPercent(210, 200, 200))).toBe(true)
   })
 })

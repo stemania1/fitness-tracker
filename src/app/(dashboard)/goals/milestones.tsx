@@ -3,6 +3,11 @@
 import { Trophy, Lock } from "lucide-react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { formatMediumDate } from "@/lib/dates"
+import type { MilestoneData } from "@/lib/milestone-data"
+
+// The data shape lives in lib/milestone-data with its builder; re-exported
+// here so existing imports keep working.
+export type { MilestoneData }
 
 interface MilestoneDefinition {
   id: string
@@ -10,18 +15,6 @@ interface MilestoneDefinition {
   description: string
   check: (data: MilestoneData) => boolean
   getDate: (data: MilestoneData) => string | null
-}
-
-export interface MilestoneData {
-  workoutCount: number
-  firstWorkoutDate: string | null
-  tenthWorkoutDate: string | null
-  hasNewPR: boolean
-  prDate: string | null
-  goalsAchievedCount: number
-  firstGoalAchievedDate: string | null
-  streakLength: number
-  fourWeekStreakDate: string | null
 }
 
 const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [

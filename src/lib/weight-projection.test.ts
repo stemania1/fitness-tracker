@@ -3,6 +3,7 @@ import {
   linearRegression,
   logsToPoints,
   projectWeightDate,
+  projectFromRecentLogs,
 } from "./weight-projection"
 
 describe("linearRegression", () => {
@@ -134,5 +135,50 @@ describe("projectWeightDate — guardrails", () => {
     const result = projectWeightDate(200, 190, fit, now)
     expect(result?.onTrack).toBe(true)
     expect(result?.rapidRate).toBe(false)
+  })
+})
+
+describe("projectFromRecentLogs", () => {
+  const now = new Date("2026-08-07T12:00:00Z")
+
+  /** Steady 1 lb/week loss over the given days, newest last. */
+  function steadyLogs(days: number, startWeight: number) {
+    const out: { logged_at: string; weight: number }[] = []
+    for (let d = days; d >= 0; d -= 7) {
+      const t = new Date(now.getTime() - d * 86_400_000)
+      out.push({ logged_at: t.toISOString(), weight: startWeight - (days - d) / 7 })
+    }
+    return out
+  }
+
+  it("projects from the recent trend", () => {
+    const result = projectFromRecentLogs(steadyLogs(56, 200), 192, 188, now)
+    expect(result?.onTrack).toBe(true)
+    expect(result?.lbsPerWeek).toBeCloseTo(-1, 1)
+  })
+
+  it("ignores logs older than the 60-day window", () => {
+    // Old logs show rapid GAIN; recent logs show loss. If the window leaked,
+    // the slope would flip direction.
+    const old = [
+      { logged_at: new Date(now.getTime() - 100 * 86_400_000).toISOString(), weight: 150 },
+      { logged_at: new Date(now.getTime() - 90 * 86_400_000).toISOString(), weight: 170 },
+    ]
+    const result = projectFromRecentLogs(
+      [...old, ...steadyLogs(28, 200)],
+      196,
+      192,
+      now
+    )
+    expect(result?.onTrack).toBe(true)
+    expect(result?.lbsPerWeek).toBeLessThan(0)
+  })
+
+  it("returns null without a target, a current weight, or 2+ logs", () => {
+    const logs = steadyLogs(28, 200)
+    expect(projectFromRecentLogs(logs, null, 188, now)).toBeNull()
+    expect(projectFromRecentLogs(logs, 196, undefined, now)).toBeNull()
+    expect(projectFromRecentLogs([logs[0]], 196, 188, now)).toBeNull()
+    expect(projectFromRecentLogs(undefined, 196, 188, now)).toBeNull()
   })
 })

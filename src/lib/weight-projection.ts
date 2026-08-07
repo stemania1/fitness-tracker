@@ -147,3 +147,26 @@ export function logsToPoints(
       }
     })
 }
+
+/** Only this window of logs feeds the projection — older entries describe a
+ *  different phase of the cut/bulk, not the current rate. */
+const PROJECTION_WINDOW_DAYS = 60
+
+/**
+ * The full pipeline the Weight Goal card runs: filter to the recent window,
+ * fit, project. Returns null when a projection isn't possible — no target,
+ * no current weight, or fewer than 2 logs.
+ */
+export function projectFromRecentLogs(
+  logs: Array<{ logged_at: string; weight: number }> | undefined,
+  currentWeight: number | null | undefined,
+  targetWeight: number | null | undefined,
+  now: Date = new Date()
+): WeightProjection | null {
+  if (!currentWeight || !targetWeight) return null
+  if (!logs || logs.length < 2) return null
+  const cutoff = now.getTime() - PROJECTION_WINDOW_DAYS * 24 * 60 * 60 * 1000
+  const recent = logs.filter((w) => new Date(w.logged_at).getTime() >= cutoff)
+  const fit = linearRegression(logsToPoints(recent))
+  return projectWeightDate(currentWeight, targetWeight, fit, now)
+}

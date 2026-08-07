@@ -47,6 +47,24 @@ export function calcWeeklyStreak(
   return streak
 }
 
+/**
+ * Percent of the way from the first logged weight to the target. Baseline is
+ * the first weigh-in (falling back to the current weight, which yields 0);
+ * clamped to 0–100 so overshoot and a moved-away trend both stay displayable.
+ */
+export function weightGoalPercent(
+  currentWeight: number,
+  targetWeight: number,
+  firstLoggedWeight: number | undefined
+): number {
+  const baseline = firstLoggedWeight ?? currentWeight
+  const denom = targetWeight - baseline || 1
+  return Math.min(
+    100,
+    Math.max(0, Math.round(((currentWeight - baseline) / denom) * 100))
+  )
+}
+
 export interface VolumeWeek {
   week: string
   volume: number

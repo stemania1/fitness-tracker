@@ -450,10 +450,18 @@ roughly easiest → hardest; pick off in order.
       test-side awkwardness is fully handled by `vi.hoisted`.
       Leaving as-is unless we hit a concrete problem.
 - [ ] Extract business logic from the remaining 1000+ line page files
-      (`activity/log/page.tsx`, `goals/page.tsx`) into hooks under
-      `src/hooks/` and pure helpers under `src/lib/`. Refactor first,
-      then test what comes out. (`dashboard/page.tsx` is done — see the
-      Code & UI hygiene section.)
+      into hooks under `src/hooks/` and pure helpers under `src/lib/`.
+      Refactor first, then test what comes out. (`dashboard/page.tsx` is
+      done — see the Code & UI hygiene section.)
+      - [x] `goals/page.tsx` (897 → ~350 lines): reads → `useGoalsData`,
+            Add-Goal rules → `goal-form.ts` (typed insert, killed an
+            `as any`), row shaping → `goal-exercise-rows.ts`, milestones
+            → `milestone-data.ts`, projection pipeline →
+            `projectFromRecentLogs`, weight percent → `weightGoalPercent`;
+            AddGoalModal and GoalCard moved to `components/goals/`. All
+            new lib code unit-tested.
+      - [ ] `activity/log/page.tsx` (1,206 lines) — the live workout
+            logger; the riskiest one, do with care.
 - [ ] Consider swapping the custom Dialog component for
       `@radix-ui/react-dialog`. The current implementation lacks
       focus trap and scroll restoration that Radix gives for free.
