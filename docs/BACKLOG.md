@@ -424,8 +424,13 @@ viewport readout — so neither needed server logs or a dashboard in the end.
       (aliases like quadriceps→Quads, consistent casing across every
       badge/chip). Underlying stored-data reconciliation, if ever needed,
       is now a display-independent concern.
-- [ ] BACKLOG: catalog new equipment we haven't modeled (functional
-      trainer was added but unreferenced by any exercise yet)
+- [x] Functional trainer modeled end to end: it existed in the static
+      equipment catalog with no DB row and no exercises. Migration 00023
+      adds the equipment row plus four dual-column staples the
+      single-pulley Cable Machine doesn't cover — Cable Chest Press,
+      Single-Arm Cable Row, Cable Glute Kickback, Cable Pallof Press —
+      mirrored in the static catalog with logger descriptions.
+      (Remember: migrations are applied to the remote manually.)
 
 ## Polish & quality
 - [ ] Accessibility audit (keyboard nav, screen reader, focus states)
