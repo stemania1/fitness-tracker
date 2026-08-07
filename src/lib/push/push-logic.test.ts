@@ -29,14 +29,17 @@ describe("reminderNotification", () => {
     expect(n?.url).toBe("/dashboard")
   })
 
-  it("summarizes extras when several are due", () => {
+  it("lists each reminder on its own line when several are due", () => {
     const n = reminderNotification([
       R("log_workout", 80, "It's been 4 days since your last workout"),
       R("log_meal", 65, "No meals logged yet today"),
       R("log_weight", 30, "Time for a weekly weigh-in"),
     ])
-    expect(n?.body).toMatch(/last workout/)
-    expect(n?.body).toMatch(/\+2 more/)
+    expect(n?.body).toBe(
+      "It's been 4 days since your last workout\n" +
+        "No meals logged yet today\n" +
+        "Time for a weekly weigh-in"
+    )
   })
 })
 
