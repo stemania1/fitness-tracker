@@ -72,6 +72,9 @@ fitness-tracker/
 │   │   ├── goal-progress.ts         # Live strength/endurance goal progress
 │   │   ├── goal-stats.ts            # Pure stats helpers for the Goals page
 │   │   ├── goal-trend.ts            # Time series for a goal's progress chart
+│   │   ├── goal-form.ts             # Add-Goal form rules → typed goal insert
+│   │   ├── goal-exercise-rows.ts    # Joined workout rows → goal-matchable rows
+│   │   ├── milestone-data.ts        # Milestones input assembled from raw logs
 │   │   ├── macro-targets.ts         # Daily calorie/macro targets from profile
 │   │   ├── adaptive-tdee.ts         # Learns maintenance calories from the trend
 │   │   ├── food-estimate.ts         # Photo calorie/macro estimate schema + helpers
@@ -95,7 +98,7 @@ fitness-tracker/
 │   │   ├── push-client.ts           # Browser web-push subscribe/unsubscribe
 │   │   └── service-worker.ts        # Register + auto-update the web-push SW
 │   ├── hooks/                # Custom React hooks (useExerciseHistory,
-│   │                         #   useStrengthSets, useSwipe)
+│   │                         #   useStrengthSets, useSwipe, useGoalsData)
 │   ├── types/                # TypeScript type definitions
 │   └── data/                 # Static data (PF equipment catalog)
 ├── supabase/

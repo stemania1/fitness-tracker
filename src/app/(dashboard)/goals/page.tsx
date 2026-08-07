@@ -1,25 +1,24 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { createClient } from "@/lib/supabase/client"
+import { projectFromRecentLogs } from "@/lib/weight-projection"
+import { computeExerciseBests } from "@/lib/goal-progress"
 import {
-  linearRegression,
-  logsToPoints,
-  projectWeightDate,
-} from "@/lib/weight-projection"
-import { exercises as staticExercises } from "@/data/exercises"
+  calcWeeklyStreak,
+  calcVolumeByWeek,
+  weightGoalPercent,
+} from "@/lib/goal-stats"
+import { buildMilestoneData } from "@/lib/milestone-data"
 import {
-  ENDURANCE_DISTANCE_UNIT,
-  computeExerciseBests,
-  liveGoalCurrent,
-  goalProgressPercent,
-  type ExerciseBest,
-} from "@/lib/goal-progress"
-import { buildGoalTrend, type DatedExerciseRow } from "@/lib/goal-trend"
-import { calcWeeklyStreak, calcVolumeByWeek } from "@/lib/goal-stats"
-import { GoalTrendChart } from "@/components/goals/GoalTrendChart"
-import Milestones, { type MilestoneData } from "./milestones"
+  useGoals,
+  useWeightLogs,
+  useWorkoutLogs,
+  useSetLogs,
+  useExerciseBests,
+} from "@/hooks/useGoalsData"
+import { AddGoalModal } from "@/components/goals/AddGoalModal"
+import { GoalCard } from "@/components/goals/GoalCard"
+import Milestones from "./milestones"
 import {
   Card,
   CardHeader,
@@ -28,17 +27,6 @@ import {
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select } from "@/components/ui/select"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog"
 import {
   LineChart,
   Line,
@@ -50,533 +38,15 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts"
-import {
-  Scale,
-  Dumbbell,
-  Heart,
-  Calendar,
-  Flame,
-  Trophy,
-  Plus,
-  Target,
-} from "lucide-react"
-import type { UserGoal, UserProfile } from "@/types/database"
-import { formatMediumDate, formatShortDate } from "@/lib/dates"
-import { getAuthUserId } from "@/lib/supabase/user-query"
+import { Scale, Dumbbell, Flame, Plus, Target } from "lucide-react"
+import { formatShortDate } from "@/lib/dates"
 import { useProfile } from "@/hooks/useProfile"
 
-const supabase = createClient()
-
-type GoalType = "weight" | "strength" | "endurance" | "consistency"
-
-const GOAL_TYPE_CONFIG: Record<
-  GoalType,
-  { icon: typeof Scale; label: string; color: string }
-> = {
-  weight: { icon: Scale, label: "Weight", color: "text-blue-600" },
-  strength: { icon: Dumbbell, label: "Strength", color: "text-purple-600" },
-  endurance: { icon: Heart, label: "Endurance", color: "text-rose-600" },
-  consistency: { icon: Calendar, label: "Consistency", color: "text-amber-600" },
-}
-
-function goalProgress(goal: UserGoal): number {
-  const current = goal.current_value ?? 0
-  const target = goal.target_value
-  if (target === 0) return 0
-  return Math.min(100, Math.round((current / target) * 100))
-}
-
-// ─── Data fetching ─────────────────────────────────────────────
-
-function useGoals() {
-  return useQuery({
-    queryKey: ["user-goals"],
-    queryFn: async () => {
-      const userId = await getAuthUserId()
-      const { data, error } = await supabase
-        .from("user_goals")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-      if (error) throw error
-      return data as UserGoal[]
-    },
-  })
-}
-
-function useWeightLogs() {
-  return useQuery({
-    queryKey: ["weight-logs"],
-    queryFn: async () => {
-      const userId = await getAuthUserId()
-      const { data, error } = await supabase
-        .from("weight_logs")
-        .select("*")
-        .eq("user_id", userId)
-        .order("logged_at", { ascending: true })
-      if (error) throw error
-      return data
-    },
-  })
-}
-
-function useWorkoutLogs() {
-  return useQuery({
-    queryKey: ["workout-logs-all"],
-    queryFn: async () => {
-      const userId = await getAuthUserId()
-      const { data, error } = await supabase
-        .from("workout_logs")
-        // Must match the other ["workout-logs-all"] definitions — same key,
-        // same shape, or whichever mounts first decides what the others read.
-        // finished_at was selected here and never used.
-        .select("id, started_at")
-        .eq("user_id", userId)
-        .order("started_at", { ascending: true })
-      if (error) throw error
-      return data
-    },
-  })
-}
-
-function useSetLogs() {
-  return useQuery({
-    queryKey: ["set-logs-all"],
-    queryFn: async () => {
-      const userId = await getAuthUserId()
-      const { data, error } = await supabase
-        .from("workout_logs")
-        .select("started_at, exercise_logs(set_logs(weight, reps))")
-        .eq("user_id", userId)
-        .order("started_at", { ascending: true })
-      if (error) throw error
-      return data
-    },
-  })
-}
-
-/** Logged exercises shaped for computeExerciseBests: resolves each logged
- *  exercise's DB name back to its static catalog id so strength/endurance
- *  goals (which store the static id) can be matched. */
-function useExerciseBests() {
-  return useQuery({
-    queryKey: ["goal-exercise-bests"],
-    queryFn: async (): Promise<DatedExerciseRow[]> => {
-      const userId = await getAuthUserId()
-      const { data, error } = await supabase
-        .from("workout_logs")
-        .select(
-          "started_at, exercise_logs(exercises(name), set_logs(weight, reps, duration_mins, distance_miles))"
-        )
-        .eq("user_id", userId)
-      if (error) throw error
-
-      const byName = new Map(
-        staticExercises.map((e) => [e.name.toLowerCase(), e.id])
-      )
-      const workouts = (data ?? []) as Array<{
-        started_at: string
-        exercise_logs: Array<{
-          exercises: { name: string } | { name: string }[] | null
-          set_logs: Array<{
-            weight: number | null
-            reps: number | null
-            duration_mins: number | null
-            distance_miles: number | null
-          }>
-        }>
-      }>
-
-      const rows: DatedExerciseRow[] = []
-      for (const wl of workouts) {
-        for (const el of wl.exercise_logs ?? []) {
-          const rel = Array.isArray(el.exercises)
-            ? el.exercises[0]
-            : el.exercises
-          const name = rel?.name
-          const staticExerciseId = name
-            ? byName.get(name.toLowerCase()) ?? null
-            : null
-          const sets = el.set_logs ?? []
-          rows.push({
-            staticExerciseId,
-            date: wl.started_at,
-            sets: sets.map((s) => ({ weight: s.weight, reps: s.reps })),
-            sessionMinutes: sets.reduce(
-              (sum, s) => sum + (s.duration_mins ?? 0),
-              0
-            ),
-            sessionDistanceMiles: sets.reduce(
-              (sum, s) => sum + (s.distance_miles ?? 0),
-              0
-            ),
-          })
-        }
-      }
-      return rows
-    },
-  })
-}
-
-// ─── Milestone data builder ─────────────────────────────────────
-
-function buildMilestoneData(
-  workoutLogs: { started_at: string }[],
-  goals: UserGoal[],
-  streakLength: number
-): MilestoneData {
-  const sorted = [...workoutLogs].sort(
-    (a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime()
-  )
-
-  const achievedGoals = goals.filter((g) => g.achieved_at)
-
-  return {
-    workoutCount: workoutLogs.length,
-    firstWorkoutDate: sorted[0]?.started_at ?? null,
-    tenthWorkoutDate: sorted[9]?.started_at ?? null,
-    hasNewPR: false, // determined externally if needed
-    prDate: null,
-    goalsAchievedCount: achievedGoals.length,
-    firstGoalAchievedDate: achievedGoals[0]?.achieved_at ?? null,
-    streakLength,
-    fourWeekStreakDate: streakLength >= 4 ? new Date().toISOString() : null,
-  }
-}
-
-// ─── Add Goal Modal ─────────────────────────────────────────────
-
-interface AddGoalFormState {
-  goalType: GoalType
-  exerciseId: string
-  targetValue: string
-  deadline: string
-  /** Endurance only: chase a longer session or a further one. */
-  enduranceMetric: "duration" | "distance"
-}
-
-const initialFormState: AddGoalFormState = {
-  goalType: "weight",
-  exerciseId: "",
-  targetValue: "",
-  deadline: "",
-  enduranceMetric: "duration",
-}
-
-function unitForGoalType(
-  goalType: GoalType,
-  enduranceMetric: "duration" | "distance" = "duration"
-): string {
-  switch (goalType) {
-    case "weight":
-      return "lbs"
-    case "strength":
-      return "lbs"
-    case "endurance":
-      // The unit is what tells progress which best to read — see
-      // isDistanceGoal in lib/goal-progress.
-      return enduranceMetric === "distance" ? ENDURANCE_DISTANCE_UNIT : "mins"
-    case "consistency":
-      return "workouts/week"
-  }
-}
-
-function AddGoalModal({
-  open,
-  onOpenChange,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-}) {
-  const queryClient = useQueryClient()
-  const [form, setForm] = useState<AddGoalFormState>(initialFormState)
-
-  const strengthExercises = staticExercises.filter(
-    (e) => e.exerciseType === "strength"
-  )
-  const cardioExercises = staticExercises.filter(
-    (e) => e.exerciseType === "cardio"
-  )
-
-  const mutation = useMutation({
-    mutationFn: async () => {
-      const userId = await getAuthUserId()
-      const targetValue = parseFloat(form.targetValue)
-      if (isNaN(targetValue) || targetValue <= 0) {
-        throw new Error("Target value must be a positive number")
-      }
-
-      const insert: Record<string, unknown> = {
-        user_id: userId,
-        goal_type: form.goalType,
-        target_value: targetValue,
-        current_value: 0,
-        unit: unitForGoalType(form.goalType, form.enduranceMetric),
-      }
-
-      if (
-        (form.goalType === "strength" || form.goalType === "endurance") &&
-        form.exerciseId
-      ) {
-        insert.exercise_id = form.exerciseId
-      }
-
-      if (form.deadline) {
-        insert.deadline = form.deadline
-      }
-
-      const { error } = await supabase.from("user_goals").insert(insert as any)
-      if (error) throw error
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["user-goals"] })
-      setForm(initialFormState)
-      onOpenChange(false)
-    },
-  })
-
-  const exerciseList =
-    form.goalType === "strength"
-      ? strengthExercises
-      : form.goalType === "endurance"
-        ? cardioExercises
-        : []
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add New Goal</DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-4 py-4">
-          {/* Goal type */}
-          <div className="space-y-2">
-            <Label htmlFor="goal-type">Goal Type</Label>
-            <Select
-              id="goal-type"
-              value={form.goalType}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  goalType: e.target.value as GoalType,
-                  exerciseId: "",
-                })
-              }
-            >
-              <option value="weight">Weight</option>
-              <option value="strength">Strength</option>
-              <option value="endurance">Endurance</option>
-              <option value="consistency">Consistency</option>
-            </Select>
-          </div>
-
-          {/* Endurance: longer, or further? Decides the unit, and therefore
-              which logged best the goal tracks. */}
-          {form.goalType === "endurance" && (
-            <div className="space-y-2">
-              <Label htmlFor="endurance-metric">Track</Label>
-              <Select
-                id="endurance-metric"
-                value={form.enduranceMetric}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    enduranceMetric: e.target.value as "duration" | "distance",
-                  })
-                }
-              >
-                <option value="duration">Duration — longest session</option>
-                <option value="distance">Distance — furthest session</option>
-              </Select>
-            </div>
-          )}
-
-          {/* Exercise picker for strength / endurance */}
-          {(form.goalType === "strength" || form.goalType === "endurance") && (
-            <div className="space-y-2">
-              <Label htmlFor="exercise">Exercise</Label>
-              <Select
-                id="exercise"
-                value={form.exerciseId}
-                onChange={(e) =>
-                  setForm({ ...form, exerciseId: e.target.value })
-                }
-              >
-                <option value="">Select exercise...</option>
-                {exerciseList.map((ex) => (
-                  <option key={ex.id} value={ex.id}>
-                    {ex.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-          )}
-
-          {/* Target value */}
-          <div className="space-y-2">
-            <Label htmlFor="target-value">
-              {form.goalType === "strength" ? "Target 1-rep max" : "Target"}{" "}
-              <span className="text-gray-400">
-                ({unitForGoalType(form.goalType, form.enduranceMetric)})
-              </span>
-            </Label>
-            <Input
-              id="target-value"
-              type="number"
-              min="0"
-              step="any"
-              placeholder={
-                form.goalType === "weight"
-                  ? "e.g. 180"
-                  : form.goalType === "strength"
-                    ? "e.g. 225"
-                    : form.goalType === "endurance"
-                      ? "e.g. 30"
-                      : "e.g. 4"
-              }
-              value={form.targetValue}
-              onChange={(e) =>
-                setForm({ ...form, targetValue: e.target.value })
-              }
-            />
-            {form.goalType === "strength" && (
-              <p className="text-xs text-gray-500">
-                Tracked as your estimated 1-rep max (Epley) — heavier weight
-                and more reps both move it, so sub-max sets count too.
-              </p>
-            )}
-          </div>
-
-          {/* Deadline */}
-          <div className="space-y-2">
-            <Label htmlFor="deadline">
-              Deadline{" "}
-              <span className="text-gray-400">(optional)</span>
-            </Label>
-            <Input
-              id="deadline"
-              type="date"
-              value={form.deadline}
-              onChange={(e) =>
-                setForm({ ...form, deadline: e.target.value })
-              }
-            />
-          </div>
-
-          {mutation.isError && (
-            <p className="text-sm text-red-600">
-              {(mutation.error as Error).message}
-            </p>
-          )}
-        </div>
-
-        <DialogFooter>
-          <Button
-            variant="secondary"
-            onClick={() => onOpenChange(false)}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={() => mutation.mutate()}
-            disabled={mutation.isPending || !form.targetValue}
-          >
-            {mutation.isPending ? "Saving..." : "Save Goal"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-// ─── Goal Card ──────────────────────────────────────────────────
-
-function GoalCard({
-  goal,
-  bests,
-  rows,
-}: {
-  goal: UserGoal
-  bests: Map<string, ExerciseBest>
-  rows: DatedExerciseRow[]
-}) {
-  const config = GOAL_TYPE_CONFIG[goal.goal_type]
-  const Icon = config.icon
-  // Strength/endurance goals derive their current value from logged workouts;
-  // weight/consistency fall back to the stored value / their own summaries.
-  const isExerciseGoal =
-    goal.goal_type === "strength" || goal.goal_type === "endurance"
-  const liveCurrent = liveGoalCurrent(goal, bests)
-
-  const trend = useMemo(
-    () =>
-      isExerciseGoal && goal.exercise_id
-        ? buildGoalTrend(
-            rows,
-            goal.exercise_id,
-            goal.goal_type as "strength" | "endurance",
-            goal.unit
-          )
-        : [],
-    [rows, goal.exercise_id, goal.goal_type, goal.unit, isExerciseGoal]
-  )
-  const progress = isExerciseGoal
-    ? goalProgressPercent(liveCurrent, goal.target_value)
-    : goalProgress(goal)
-  const isAchieved = !!goal.achieved_at || (isExerciseGoal && progress >= 100)
-
-  // Nicely round minutes/lbs for display.
-  const exerciseName = goal.exercise_id
-    ? staticExercises.find((e) => e.id === goal.exercise_id)?.name
-    : undefined
-
-  return (
-    <Card>
-      <CardContent className="flex items-start gap-4 p-4">
-        <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 ${config.color}`}
-        >
-          <Icon className="h-5 w-5" />
-        </div>
-
-        <div className="min-w-0 flex-1 space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-medium text-gray-900">
-              {goal.goal_type === "weight"
-                ? `Body Weight: ${goal.current_value ?? "?"} ${goal.unit} \u2192 ${goal.target_value} ${goal.unit}`
-                : goal.goal_type === "consistency"
-                  ? `${goal.target_value} workouts per week`
-                  : `${exerciseName ? `${exerciseName}: ` : ""}${Math.round(liveCurrent)} ${goal.unit} \u2192 ${goal.target_value} ${goal.unit}${goal.goal_type === "strength" ? " est. 1RM" : ""}`}
-            </p>
-            <Badge variant={isAchieved ? "success" : "default"}>
-              {isAchieved ? "Achieved" : "In Progress"}
-            </Badge>
-          </div>
-
-          <Progress value={progress} />
-
-          <div className="flex items-center justify-between text-xs text-gray-500">
-            <span>{progress}% complete</span>
-            {goal.deadline && (
-              <span>Due {formatMediumDate(goal.deadline)}</span>
-            )}
-          </div>
-
-          {/* Progress trend for strength/endurance goals (needs 2+ sessions) */}
-          <GoalTrendChart
-            points={trend}
-            target={goal.target_value}
-            unit={goal.unit}
-          />
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-// ─── Main Page ──────────────────────────────────────────────────
-
+/**
+ * Goals & Progress. Composition only: the reads live in hooks/useGoalsData,
+ * the derivations in lib (goal-stats, goal-progress, weight-projection,
+ * milestone-data), and the interactive pieces in components/goals.
+ */
 export default function GoalsPage() {
   const [addOpen, setAddOpen] = useState(false)
 
@@ -632,30 +102,13 @@ export default function GoalsPage() {
   const targetWeight = profile?.target_weight
 
   // Project the target date from the last 60 days of weight logs.
-  const projection = useMemo(() => {
-    if (!currentWeight || !targetWeight) return null
-    if (!weightLogs || weightLogs.length < 2) return null
-    const cutoff = Date.now() - 60 * 24 * 60 * 60 * 1000
-    const recent = weightLogs.filter(
-      (w) => new Date(w.logged_at).getTime() >= cutoff
-    )
-    const points = logsToPoints(recent)
-    const fit = linearRegression(points)
-    return projectWeightDate(currentWeight, targetWeight, fit)
-  }, [weightLogs, currentWeight, targetWeight])
+  const projection = useMemo(
+    () => projectFromRecentLogs(weightLogs, currentWeight, targetWeight),
+    [weightLogs, currentWeight, targetWeight]
+  )
   const weightProgress =
     currentWeight && targetWeight
-      ? Math.min(
-          100,
-          Math.max(
-            0,
-            Math.round(
-              ((currentWeight - (weightLogs?.[0]?.weight ?? currentWeight)) /
-                ((targetWeight - (weightLogs?.[0]?.weight ?? currentWeight)) || 1)) *
-                100
-            )
-          )
-        )
+      ? weightGoalPercent(currentWeight, targetWeight, weightLogs?.[0]?.weight)
       : 0
 
   const hasGoals = (goals ?? []).length > 0
@@ -689,7 +142,7 @@ export default function GoalsPage() {
                     {currentWeight}
                   </span>
                   <span className="text-sm text-gray-500">
-                    {"\u2192"} {targetWeight} lbs
+                    {"→"} {targetWeight} lbs
                   </span>
                 </div>
                 <Progress value={weightProgress} />
@@ -700,7 +153,7 @@ export default function GoalsPage() {
                 {projection?.onTrack ? (
                   <div className="rounded-md bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
                     <span className="font-medium">
-                      On track \u2014 about{" "}
+                      On track — about{" "}
                       {projection.daysToTarget > 30
                         ? `${Math.round(projection.daysToTarget / 7)} weeks`
                         : `${projection.daysToTarget} days`}{" "}
