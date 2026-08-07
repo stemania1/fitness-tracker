@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import dynamic from "next/dynamic"
 import { projectFromRecentLogs } from "@/lib/weight-projection"
 import { computeExerciseBests } from "@/lib/goal-progress"
 import {
@@ -27,20 +28,25 @@ import {
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts"
-import { Scale, Dumbbell, Flame, Plus, Target } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Scale, Flame, Plus, Target } from "lucide-react"
 import { formatShortDate } from "@/lib/dates"
 import { useProfile } from "@/hooks/useProfile"
+
+// The page's only Recharts consumer — loaded after first paint so the chart
+// library stays out of the first-load bundle.
+const TrendCharts = dynamic(
+  () => import("@/components/goals/TrendCharts").then((m) => m.TrendCharts),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Skeleton className="h-[330px] w-full" />
+        <Skeleton className="h-[330px] w-full" />
+      </div>
+    ),
+  }
+)
 
 /**
  * Goals & Progress. Composition only: the reads live in hooks/useGoalsData,
@@ -258,87 +264,10 @@ export default function GoalsPage() {
       )}
 
       {/* ── Charts ──────────────────────────────────────────── */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Weight Trend */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Scale className="h-5 w-5 text-blue-600" />
-              Weight Trend
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {weightChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={250}>
-                <LineChart data={weightChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fontSize: 12 }}
-                    stroke="#9ca3af"
-                  />
-                  <YAxis
-                    tick={{ fontSize: 12 }}
-                    stroke="#9ca3af"
-                    domain={["dataMin - 5", "dataMax + 5"]}
-                  />
-                  <Tooltip />
-                  <Line
-                    type="monotone"
-                    dataKey="weight"
-                    stroke="#7c3aed"
-                    strokeWidth={2}
-                    dot={{ r: 3, fill: "#7c3aed" }}
-                    activeDot={{ r: 5 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex h-[250px] items-center justify-center text-sm text-gray-400">
-                No weight logs yet. Log your weight to see trends.
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Volume Trend */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Dumbbell className="h-5 w-5 text-purple-600" />
-              Volume Trend
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {volumeChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={volumeChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis
-                    dataKey="week"
-                    tick={{ fontSize: 12 }}
-                    stroke="#9ca3af"
-                  />
-                  <YAxis
-                    tick={{ fontSize: 12 }}
-                    stroke="#9ca3af"
-                  />
-                  <Tooltip />
-                  <Bar
-                    dataKey="volume"
-                    fill="#7c3aed"
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex h-[250px] items-center justify-center text-sm text-gray-400">
-                No workout data yet. Complete workouts to see volume trends.
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      <TrendCharts
+        weightChartData={weightChartData}
+        volumeChartData={volumeChartData}
+      />
 
       {/* ── Milestones ──────────────────────────────────────── */}
       <Milestones data={milestoneData} />

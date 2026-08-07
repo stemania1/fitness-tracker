@@ -49,12 +49,24 @@ import { QuickLogCaffeine } from "@/components/activity/QuickLogCaffeine"
 import { NutritionCard } from "@/components/activity/NutritionCard"
 import { CaffeineCard } from "@/components/activity/CaffeineCard"
 import { CreatineCard } from "@/components/activity/CreatineCard"
-import { OuraSummaryCard } from "@/components/activity/OuraSummaryCard"
+import dynamic from "next/dynamic"
 import { CardStack } from "@/components/ui/card-stack"
 import { InsightCard } from "@/components/ui/insight-card"
 import { useUserQuery } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
+
+// The only Recharts consumer on the dashboard. Loaded after first paint so
+// the chart library stays out of the page's first-load bundle; the card
+// fetches its own data and shows a skeleton anyway, so nothing visible
+// changes except a lighter initial load.
+const OuraSummaryCard = dynamic(
+  () =>
+    import("@/components/activity/OuraSummaryCard").then(
+      (m) => m.OuraSummaryCard
+    ),
+  { ssr: false, loading: () => <Skeleton className="h-40 w-full" /> }
+)
 
 const insightIconMap: Record<OuraInsight["icon"], typeof Heart> = {
   dumbbell: Dumbbell,
