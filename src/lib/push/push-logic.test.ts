@@ -6,7 +6,7 @@ import {
   daysBetweenLocalDates,
   localWeekdayInZone,
 } from "./timezone"
-import { dueReminderPush } from "./due"
+import { dueReminderPush, pushStartHour, DEFAULT_PUSH_START_HOUR } from "./due"
 import type { Reminder } from "@/lib/reminders"
 import type { ReminderContext } from "@/lib/reminders"
 
@@ -122,6 +122,58 @@ describe("dueReminderPush", () => {
       lastPushSentOn: null,
     })
     expect(n).toBeNull()
+  })
+
+  // The workout-gap and weigh-in nudges are true from the first minute of the
+  // local day, so without a floor the day's single push fires at 00:0x.
+  it("holds the day's push until a civil hour", () => {
+    const justAfterMidnight = { ...overdueCtx, hour: 0 }
+    expect(
+      dueReminderPush({
+        reminderSettingsRaw: {},
+        ctx: justAfterMidnight,
+        localDate: "2026-01-15",
+        lastPushSentOn: null,
+      })
+    ).toBeNull()
+    expect(
+      dueReminderPush({
+        reminderSettingsRaw: {},
+        ctx: { ...overdueCtx, hour: DEFAULT_PUSH_START_HOUR - 1 },
+        localDate: "2026-01-15",
+        lastPushSentOn: null,
+      })
+    ).toBeNull()
+    expect(
+      dueReminderPush({
+        reminderSettingsRaw: {},
+        ctx: { ...overdueCtx, hour: DEFAULT_PUSH_START_HOUR },
+        localDate: "2026-01-15",
+        lastPushSentOn: null,
+      })
+    ).not.toBeNull()
+  })
+
+  it("starts at the user's quiet-hours end when they've set one", () => {
+    // Quiet 22:00–06:00 → the day's push may go out from 6am, not 8am.
+    const settings = { quietStartHour: 22, quietEndHour: 6 }
+    expect(pushStartHour(6)).toBe(6)
+    expect(
+      dueReminderPush({
+        reminderSettingsRaw: settings,
+        ctx: { ...overdueCtx, hour: 6 },
+        localDate: "2026-01-15",
+        lastPushSentOn: null,
+      })
+    ).not.toBeNull()
+    expect(
+      dueReminderPush({
+        reminderSettingsRaw: settings,
+        ctx: { ...overdueCtx, hour: 5 },
+        localDate: "2026-01-15",
+        lastPushSentOn: null,
+      })
+    ).toBeNull()
   })
 })
 

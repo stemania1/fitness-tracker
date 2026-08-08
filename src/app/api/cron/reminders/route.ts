@@ -71,10 +71,19 @@ export async function GET(request: Request) {
     badTimezone: 0,
     notDue: 0,
     claimFailed: 0,
+    claimLost: 0,
   }
   // Messages from failed context queries, so a run that fabricated-then-
   // suppressed reminders is visible in the response (bounded to stay small).
   const contextErrors: string[] = []
+  // Push-service failures that aren't a dead subscription (429, 5xx, ...).
+  // Swallowing these made a run that reached nobody look identical to a run
+  // with nothing to say.
+  const sendErrors: string[] = []
+  // One line per user explaining what this run decided and why. Vercel Cron
+  // discards the response body, so the response alone documented nothing —
+  // this is what actually lands in the runtime logs.
+  const decisions: UserDecision[] = []
 
   for (const [userId, userSubs] of byUser) {
     const { data: profile } = await db
@@ -82,8 +91,11 @@ export async function GET(request: Request) {
       .select("reminder_settings, timezone, last_push_sent_on")
       .eq("id", userId)
       .single()
+    const decision: UserDecision = { user: userId.slice(0, 8), subs: userSubs?.length ?? 0 }
+    decisions.push(decision)
     if (!profile) {
       skipped.noProfile++
+      decision.outcome = "noProfile"
       continue
     }
     // Without a timezone we can't work out the user's local hour, so quiet
@@ -92,6 +104,7 @@ export async function GET(request: Request) {
     // means that user hasn't opened the app since this was added.
     if (!profile.timezone) {
       skipped.noTimezone++
+      decision.outcome = "noTimezone"
       continue
     }
 
@@ -99,8 +112,14 @@ export async function GET(request: Request) {
     const localDate = localDateInZone(now, profile.timezone)
     if (hour == null || localDate == null) {
       skipped.badTimezone++
+      decision.outcome = "badTimezone"
+      decision.tz = profile.timezone
       continue
     }
+    decision.tz = profile.timezone
+    decision.hour = hour
+    decision.localDate = localDate
+    decision.lastPushSentOn = profile.last_push_sent_on
 
     const built = await gatherContext(db, userId, profile.timezone, localDate, hour)
     if (contextErrors.length < 20) contextErrors.push(...built.errors)
@@ -112,23 +131,52 @@ export async function GET(request: Request) {
     })
     if (!notification) {
       skipped.notDue++
+      decision.outcome =
+        profile.last_push_sent_on === localDate ? "alreadySentToday" : "nothingDue"
       continue
     }
 
-    // Claim the day BEFORE sending. Recording it afterwards means a failed
-    // write leaves the guard unset and the hourly cron re-nudges all day —
-    // spamming is worse than the claim's downside (a send failure after a
-    // successful claim just costs that day's nudge). Skip the user rather
-    // than send if the claim itself fails.
-    const { error: claimErr } = await db
+    // Claim the day BEFORE sending, and only if it isn't already claimed.
+    //
+    // Two things this has to survive. A failed write must not leave the guard
+    // unset (the hourly cron would then re-nudge all day — spamming is worse
+    // than losing one day's nudge). And two overlapping invocations must not
+    // both send: the guard is read at the top of the loop, several queries
+    // before this write, so a plain unconditional update lets both win. The
+    // `neq` filter makes the claim the point of serialization, and reading the
+    // stored value back confirms it actually landed — an update that reports
+    // no error but doesn't stick is exactly what turns this job into an hourly
+    // repeat, and it can't be distinguished from success any other way.
+    const { data: claimed, error: claimErr } = await db
       .from("user_profiles")
       .update({ last_push_sent_on: localDate })
       .eq("id", userId)
+      .or(`last_push_sent_on.is.null,last_push_sent_on.neq.${localDate}`)
+      .select("last_push_sent_on")
     if (claimErr) {
       skipped.claimFailed++
+      decision.outcome = "claimFailed"
+      decision.error = claimErr.message
+      continue
+    }
+    if (!claimed || claimed.length === 0) {
+      // Someone else claimed today between our read and this write, or the
+      // write matched no row at all. Either way the day is spoken for.
+      skipped.claimLost++
+      decision.outcome = "claimLost"
+      continue
+    }
+    if (claimed[0].last_push_sent_on !== localDate) {
+      // The write returned a row but not our date. Don't send: an unstuck
+      // guard means every later run this day would send again.
+      skipped.claimFailed++
+      decision.outcome = "claimFailed"
+      decision.error = `claim did not stick (stored ${claimed[0].last_push_sent_on})`
       continue
     }
 
+    decision.outcome = "sent"
+    decision.body = notification.body
     for (const sub of userSubs ?? []) {
       try {
         await webpush.sendNotification(
@@ -136,24 +184,61 @@ export async function GET(request: Request) {
           JSON.stringify(notification)
         )
         sent++
+        decision.delivered = (decision.delivered ?? 0) + 1
       } catch (err) {
         const status = (err as { statusCode?: number }).statusCode
         if (status === 404 || status === 410) {
           await db.from("push_subscriptions").delete().eq("id", sub.id)
           pruned++
+          decision.delivered = decision.delivered ?? 0
+        } else if (sendErrors.length < 20) {
+          sendErrors.push(`${status ?? "?"}: ${(err as Error).message ?? "unknown"}`)
         }
       }
     }
   }
 
-  return NextResponse.json({
-    ok: true,
+  const summary = {
+    job: "cron/reminders",
+    at: now.toISOString(),
+    users: byUser.size,
     sent,
     pruned,
-    users: byUser.size,
     skipped,
     contextErrors,
-  })
+    sendErrors,
+    decisions,
+  }
+  // Vercel Cron throws the response body away, so the diagnostics below only
+  // exist if we write them to the log. Without this the job's behavior can
+  // only be inferred from whether a phone buzzed.
+  console.log(JSON.stringify(summary))
+
+  return NextResponse.json({ ok: true, ...summary })
+}
+
+/** What this run decided for one user, and the inputs behind that decision. */
+interface UserDecision {
+  /** Truncated user id — enough to correlate runs without logging it whole. */
+  user: string
+  subs: number
+  tz?: string
+  hour?: number
+  localDate?: string
+  lastPushSentOn?: string | null
+  outcome?:
+    | "noProfile"
+    | "noTimezone"
+    | "badTimezone"
+    | "alreadySentToday"
+    | "nothingDue"
+    | "claimFailed"
+    | "claimLost"
+    | "sent"
+  /** Subscriptions the push actually reached (only set when outcome is sent). */
+  delivered?: number
+  body?: string
+  error?: string
 }
 
 /**
