@@ -352,6 +352,15 @@ viewport readout — so neither needed server logs or a dashboard in the end.
       - One cola counted twice, from a plate row mentioning it in passing
         and the drink row logged at the same second. Same-drink doses inside
         the duplicate window now collapse.
+- [x] **The meal type is named from the clock.** Snap Meal used to open with
+      `mealType` pinned to `"meal"`, so a 10am egg had to be told it was
+      breakfast every single time. `src/lib/meal-type.ts` derives it from an
+      hour (breakfast <11, lunch <16, dinner <21, snack otherwise — with
+      00:00–04:00 also snack, since 1am eating is the tail of last night
+      rather than an early breakfast). Keyed on the logged-at value, not
+      `now`, so last night's dinner logged this morning still says dinner;
+      changing the time re-names the meal, and an explicit pick from the
+      select outranks the clock from then on.
 
 ## Energy & recovery
 - [x] Energy Check-In (v1): subjective 1-5 log + a felt-vs-expected read.

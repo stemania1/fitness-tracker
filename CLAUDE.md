@@ -83,6 +83,7 @@ fitness-tracker/
 │   │   ├── glycemic-load.ts         # Glycemic-load classification for meals
 │   │   ├── meal-portion.ts          # Rescale a logged meal to the portion eaten
 │   │   ├── meal-time.ts             # In-place time edit for meal/caffeine entries
+│   │   ├── meal-type.ts             # Meal type (breakfast/lunch/…) from the clock
 │   │   ├── image-resize.ts          # Browser image downscale for vision upload
 │   │   ├── caffeine.ts              # Caffeine alertness/crash + late-dose flag
 │   │   ├── caffeine-personal.ts     # Personal half-life learned from check-ins

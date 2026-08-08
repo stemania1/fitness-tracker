@@ -24,14 +24,15 @@ import {
 } from "@/lib/food-estimate"
 import { resolveCaffeineMg } from "@/lib/caffeine-foods"
 import { classifyMealGl, GL_WALK_TIP } from "@/lib/glycemic-load"
+import {
+  MEAL_TYPES,
+  mealTypeForLocalDatetime,
+  type MealType,
+} from "@/lib/meal-type"
 import { BackdateChips, nowLocalDatetimeString } from "./BackdateChips"
 import { getAuthUserId } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
-
-type MealType = "breakfast" | "lunch" | "dinner" | "snack" | "meal"
-
-const MEAL_TYPES: MealType[] = ["breakfast", "lunch", "dinner", "snack", "meal"]
 
 /** uuid without pulling in a dep — crypto.randomUUID is in all target browsers. */
 function uuid(): string {
@@ -44,7 +45,12 @@ export function QuickLogFood() {
   const [error, setError] = useState<string | null>(null)
   const [estimate, setEstimate] = useState<FoodEstimate | null>(null)
   const [original, setOriginal] = useState<FoodEstimate | null>(null)
-  const [mealType, setMealType] = useState<MealType>("meal")
+  // Named from the clock so a morning egg opens as breakfast. Overridable —
+  // `mealTypeEdited` stops a later time change from undoing the user's pick.
+  const [mealType, setMealType] = useState<MealType>(() =>
+    mealTypeForLocalDatetime(nowLocalDatetimeString())
+  )
+  const [mealTypeEdited, setMealTypeEdited] = useState(false)
   const [image, setImage] = useState<ProcessedImage | null>(null)
   const [manualText, setManualText] = useState("")
   const [factor, setFactor] = useState(1)
@@ -76,7 +82,6 @@ export function QuickLogFood() {
     setOriginal(null)
     setImage(null)
     setManualText("")
-    setMealType("meal")
     setFactor(1)
     setCaffeineBase(0)
     setCaffeineMg(0)
@@ -84,7 +89,21 @@ export function QuickLogFood() {
     setLogCaffeine(false)
     setCaffeineEdited(false)
     setReestimateError(null)
-    setLoggedAt(nowLocalDatetimeString())
+    // Re-derive both from the current clock: the dialog stays mounted between
+    // openings, so a reset at lunchtime shouldn't leave this morning's values.
+    const now = nowLocalDatetimeString()
+    setLoggedAt(now)
+    setMealType(mealTypeForLocalDatetime(now))
+    setMealTypeEdited(false)
+  }
+
+  /**
+   * Changing when the meal was eaten re-names it, unless the user has already
+   * said what it is — an explicit pick outranks the clock.
+   */
+  function changeLoggedAt(value: string) {
+    setLoggedAt(value)
+    if (!mealTypeEdited) setMealType(mealTypeForLocalDatetime(value))
   }
 
   /**
@@ -645,7 +664,10 @@ export function QuickLogFood() {
               <select
                 id="qlf-meal"
                 value={mealType}
-                onChange={(e) => setMealType(e.target.value as MealType)}
+                onChange={(e) => {
+                  setMealType(e.target.value as MealType)
+                  setMealTypeEdited(true)
+                }}
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm capitalize"
               >
                 {MEAL_TYPES.map((m) => (
@@ -658,7 +680,7 @@ export function QuickLogFood() {
 
             <div className="space-y-2">
               <Label>When</Label>
-              <BackdateChips value={loggedAt} onChange={setLoggedAt} />
+              <BackdateChips value={loggedAt} onChange={changeLoggedAt} />
             </div>
 
             {saveMutation.isError && (
