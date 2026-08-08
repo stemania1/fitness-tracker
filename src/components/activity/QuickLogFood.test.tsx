@@ -590,4 +590,68 @@ describe("QuickLogFood", () => {
       warn.mockRestore()
     })
   })
+
+  describe("meal type", () => {
+    // `shouldAdvanceTime` keeps testing-library's async waits working while
+    // the clock is pinned — the component reads it on mount.
+    beforeEach(() => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    function mealTypeSelect() {
+      return screen.getByLabelText(/meal type/i) as HTMLSelectElement
+    }
+
+    it("opens named for the time of day rather than a flat 'meal'", async () => {
+      vi.setSystemTime(new Date(2026, 7, 8, 10, 3))
+      renderWithClient(<QuickLogFood />)
+      await openAndEstimate()
+
+      expect(mealTypeSelect().value).toBe("breakfast")
+
+      fireEvent.click(screen.getByRole("button", { name: /save meal/i }))
+      await waitFor(() => expect(mocks.insert).toHaveBeenCalled())
+      expect(mocks.insert.mock.calls[0][0].meal_type).toBe("breakfast")
+    })
+
+    it("re-names the meal when the time is corrected", async () => {
+      vi.setSystemTime(new Date(2026, 7, 8, 10, 3))
+      renderWithClient(<QuickLogFood />)
+      await openAndEstimate()
+      expect(mealTypeSelect().value).toBe("breakfast")
+
+      // Logging last night's dinner this morning: it's named for when it was
+      // eaten, not for when it was typed in.
+      fireEvent.change(screen.getByLabelText(/^time$/i), {
+        target: { value: "19:30" },
+      })
+      expect(mealTypeSelect().value).toBe("dinner")
+    })
+
+    it("keeps an explicit choice when the time changes afterwards", async () => {
+      vi.setSystemTime(new Date(2026, 7, 8, 10, 3))
+      renderWithClient(<QuickLogFood />)
+      await openAndEstimate()
+
+      fireEvent.change(mealTypeSelect(), { target: { value: "snack" } })
+      fireEvent.change(screen.getByLabelText(/^time$/i), {
+        target: { value: "19:30" },
+      })
+
+      expect(mealTypeSelect().value).toBe("snack")
+      fireEvent.click(screen.getByRole("button", { name: /save meal/i }))
+      await waitFor(() => expect(mocks.insert).toHaveBeenCalled())
+      expect(mocks.insert.mock.calls[0][0].meal_type).toBe("snack")
+    })
+
+    it("names a late-night meal a snack, not an early breakfast", async () => {
+      vi.setSystemTime(new Date(2026, 7, 8, 1, 15))
+      renderWithClient(<QuickLogFood />)
+      await openAndEstimate()
+      expect(mealTypeSelect().value).toBe("snack")
+    })
+  })
 })

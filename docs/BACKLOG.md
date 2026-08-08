@@ -352,16 +352,15 @@ viewport readout — so neither needed server logs or a dashboard in the end.
       - One cola counted twice, from a plate row mentioning it in passing
         and the drink row logged at the same second. Same-drink doses inside
         the duplicate window now collapse.
-- [ ] **Default the meal type from the time of day.** Snap Meal opens with
-      `mealType` hard-coded to `"meal"` (`QuickLogFood.tsx`), so a 10am egg
-      has to be told it's breakfast every single time. Derive the default
-      from the logged-at time instead — and from the backdating chips'
-      time input, not `now`, so a backdated meal classifies by when it was
-      eaten. Still a plain `<select>` the user can override; this only
-      changes what it starts on. Boundaries are the only real decision
-      (roughly breakfast <11, lunch <16, dinner <21, snack otherwise) —
-      worth a pure helper next to `meal-time.ts` so they're testable and
-      shared with anything else that needs to name a time of day.
+- [x] **The meal type is named from the clock.** Snap Meal used to open with
+      `mealType` pinned to `"meal"`, so a 10am egg had to be told it was
+      breakfast every single time. `src/lib/meal-type.ts` derives it from an
+      hour (breakfast <11, lunch <16, dinner <21, snack otherwise — with
+      00:00–04:00 also snack, since 1am eating is the tail of last night
+      rather than an early breakfast). Keyed on the logged-at value, not
+      `now`, so last night's dinner logged this morning still says dinner;
+      changing the time re-names the meal, and an explicit pick from the
+      select outranks the clock from then on.
 
 ## Energy & recovery
 - [x] Energy Check-In (v1): subjective 1-5 log + a felt-vs-expected read.
