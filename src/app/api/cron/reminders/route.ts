@@ -2,12 +2,12 @@ import { NextResponse } from "next/server"
 import webpush from "web-push"
 import { createServiceClient } from "@/lib/supabase/service"
 import { dueReminderPush } from "@/lib/push/due"
+import { localHourInZone, localDateInZone } from "@/lib/push/timezone"
 import {
-  localHourInZone,
-  localDateInZone,
-  daysBetweenLocalDates,
-} from "@/lib/push/timezone"
-import type { ReminderContext } from "@/lib/reminders"
+  buildReminderContext,
+  type BuiltReminderContext,
+  type Fallible,
+} from "@/lib/push/reminder-context"
 
 export const runtime = "nodejs"
 // Never cache — this is a scheduled side-effecting job.
@@ -65,7 +65,16 @@ export async function GET(request: Request) {
   // Why users were skipped. Returned in the response so hitting this endpoint
   // diagnoses "no notifications" instead of reporting a bare ok:true — a user
   // with no stored timezone is skipped permanently and silently otherwise.
-  const skipped = { noProfile: 0, noTimezone: 0, badTimezone: 0, notDue: 0 }
+  const skipped = {
+    noProfile: 0,
+    noTimezone: 0,
+    badTimezone: 0,
+    notDue: 0,
+    claimFailed: 0,
+  }
+  // Messages from failed context queries, so a run that fabricated-then-
+  // suppressed reminders is visible in the response (bounded to stay small).
+  const contextErrors: string[] = []
 
   for (const [userId, userSubs] of byUser) {
     const { data: profile } = await db
@@ -93,10 +102,11 @@ export async function GET(request: Request) {
       continue
     }
 
-    const ctx = await gatherContext(db, userId, profile.timezone, localDate, hour)
+    const built = await gatherContext(db, userId, profile.timezone, localDate, hour)
+    if (contextErrors.length < 20) contextErrors.push(...built.errors)
     const notification = dueReminderPush({
       reminderSettingsRaw: profile.reminder_settings,
-      ctx,
+      ctx: built.ctx,
       localDate,
       lastPushSentOn: profile.last_push_sent_on,
     })
@@ -105,14 +115,26 @@ export async function GET(request: Request) {
       continue
     }
 
-    let deliveredToUser = false
+    // Claim the day BEFORE sending. Recording it afterwards means a failed
+    // write leaves the guard unset and the hourly cron re-nudges all day —
+    // spamming is worse than the claim's downside (a send failure after a
+    // successful claim just costs that day's nudge). Skip the user rather
+    // than send if the claim itself fails.
+    const { error: claimErr } = await db
+      .from("user_profiles")
+      .update({ last_push_sent_on: localDate })
+      .eq("id", userId)
+    if (claimErr) {
+      skipped.claimFailed++
+      continue
+    }
+
     for (const sub of userSubs ?? []) {
       try {
         await webpush.sendNotification(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
           JSON.stringify(notification)
         )
-        deliveredToUser = true
         sent++
       } catch (err) {
         const status = (err as { statusCode?: number }).statusCode
@@ -122,60 +144,57 @@ export async function GET(request: Request) {
         }
       }
     }
-
-    // Record the send so the hourly cron won't nudge again today.
-    if (deliveredToUser) {
-      await db
-        .from("user_profiles")
-        .update({ last_push_sent_on: localDate })
-        .eq("id", userId)
-    }
   }
 
-  return NextResponse.json({ ok: true, sent, pruned, users: byUser.size, skipped })
+  return NextResponse.json({
+    ok: true,
+    sent,
+    pruned,
+    users: byUser.size,
+    skipped,
+    contextErrors,
+  })
 }
 
-/** Build the reminder context for a user, reasoning in their local day. */
+/**
+ * Build the reminder context for a user, reasoning in their local day. Each
+ * query's error is carried through `Fallible` into `buildReminderContext`,
+ * which suppresses the matching nudge instead of fabricating one.
+ */
 async function gatherContext(
   db: ReturnType<typeof createServiceClient>,
   userId: string,
   timezone: string,
   localDate: string,
   hour: number
-): Promise<ReminderContext> {
+): Promise<BuiltReminderContext> {
   const localDateOf = (iso: string) =>
     localDateInZone(new Date(iso), timezone)
 
+  const fallible = <T,>(
+    table: string,
+    error: { message: string } | null,
+    value: T
+  ): Fallible<T> => (error ? { error: `${table}: ${error.message}` } : { value })
+
   // Most recent workout.
-  const { data: lastWorkout } = await db
+  const lastWorkout = await db
     .from("workout_logs")
     .select("started_at")
     .eq("user_id", userId)
     .order("started_at", { ascending: false })
     .limit(1)
-  const lastWorkoutDate = lastWorkout?.[0]
-    ? localDateOf(lastWorkout[0].started_at)
-    : null
-  const daysSinceLastWorkout = lastWorkoutDate
-    ? daysBetweenLocalDates(lastWorkoutDate, localDate)
-    : null
 
   // Most recent weigh-in.
-  const { data: lastWeight } = await db
+  const lastWeight = await db
     .from("weight_logs")
     .select("logged_at")
     .eq("user_id", userId)
     .order("logged_at", { ascending: false })
     .limit(1)
-  const lastWeightDate = lastWeight?.[0]
-    ? localDateOf(lastWeight[0].logged_at)
-    : null
-  const daysSinceLastWeighIn = lastWeightDate
-    ? daysBetweenLocalDates(lastWeightDate, localDate)
-    : null
 
   // Energy check-in today (logged_on is already a local date).
-  const { data: energy } = await db
+  const energy = await db
     .from("energy_checkins")
     .select("id")
     .eq("user_id", userId)
@@ -184,30 +203,48 @@ async function gatherContext(
 
   // Meals today — pull a 48h window and count local-day matches.
   const since = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
-  const { data: meals } = await db
+  const meals = await db
     .from("food_logs")
     .select("logged_at")
     .eq("user_id", userId)
     .gte("logged_at", since)
-  const mealsLoggedToday = (meals ?? []).filter(
-    (m) => localDateOf(m.logged_at) === localDate
-  ).length
 
   // Creatine today (taken_on is already a local date).
-  const { data: creatine } = await db
+  const creatine = await db
     .from("creatine_logs")
     .select("id")
     .eq("user_id", userId)
     .eq("taken_on", localDate)
     .limit(1)
 
-  return {
+  return buildReminderContext({
     hour,
-    mealsLoggedToday,
-    workedOutToday: daysSinceLastWorkout === 0,
-    daysSinceLastWorkout,
-    energyCheckedInToday: (energy?.length ?? 0) > 0,
-    daysSinceLastWeighIn,
-    creatineTakenToday: (creatine?.length ?? 0) > 0,
-  }
+    localDate,
+    lastWorkoutDate: fallible(
+      "workout_logs",
+      lastWorkout.error,
+      lastWorkout.data?.[0] ? localDateOf(lastWorkout.data[0].started_at) : null
+    ),
+    lastWeighInDate: fallible(
+      "weight_logs",
+      lastWeight.error,
+      lastWeight.data?.[0] ? localDateOf(lastWeight.data[0].logged_at) : null
+    ),
+    mealsLoggedToday: fallible(
+      "food_logs",
+      meals.error,
+      (meals.data ?? []).filter((m) => localDateOf(m.logged_at) === localDate)
+        .length
+    ),
+    energyCheckedInToday: fallible(
+      "energy_checkins",
+      energy.error,
+      (energy.data?.length ?? 0) > 0
+    ),
+    creatineTakenToday: fallible(
+      "creatine_logs",
+      creatine.error,
+      (creatine.data?.length ?? 0) > 0
+    ),
+  })
 }
