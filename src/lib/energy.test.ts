@@ -6,6 +6,9 @@ import {
   assessEnergy,
   checkinPrompt,
   deriveFuelState,
+  energyLevelLabel,
+  energyLevelText,
+  ENERGY_LEVEL_LABELS,
   type EnergyInputs,
 } from "./energy"
 
@@ -286,6 +289,49 @@ describe("assessEnergy", () => {
     const { readout } = assessEnergy(base({ sleepScore: 80 }), 3)
     expect(readout).not.toBeNull()
     expect(readout?.felt).toBe(3)
+  })
+})
+
+describe("energy scale vocabulary", () => {
+  it("names a score with the word on the matching button", () => {
+    expect(energyLevelLabel(1)).toBe("Drained")
+    expect(energyLevelLabel(2)).toBe("Low")
+    expect(energyLevelLabel(3)).toBe("Okay")
+    expect(energyLevelLabel(4)).toBe("Good")
+    expect(energyLevelLabel(5)).toBe("Energized")
+  })
+
+  it("rounds a fractional expectation to the nearest scale point", () => {
+    // 3.6 used to read "High", which matched neither Good nor Energized.
+    expect(energyLevelLabel(3.6)).toBe("Good")
+    expect(energyLevelLabel(3.4)).toBe("Okay")
+    expect(energyLevelLabel(4.5)).toBe("Energized")
+  })
+
+  it("clamps a score that falls outside the scale", () => {
+    expect(energyLevelLabel(0.2)).toBe("Drained")
+    expect(energyLevelLabel(9)).toBe("Energized")
+  })
+
+  it("pairs the number with the word in prose", () => {
+    expect(energyLevelText(3.6)).toBe("4 (Good)")
+    expect(energyLevelText(1.2)).toBe("1 (Drained)")
+  })
+
+  it("covers every scale point with a label", () => {
+    for (const level of [1, 2, 3, 4, 5] as const) {
+      expect(ENERGY_LEVEL_LABELS[level]).toBeTruthy()
+      expect(energyLevelLabel(level)).toBe(ENERGY_LEVEL_LABELS[level])
+    }
+  })
+
+  // The readout and the badge have to speak one language, or the card
+  // contradicts itself the moment you answer it.
+  it("describes the expectation in scale words, not band words", () => {
+    const { readout } = assessEnergy(base({ sleepScore: 90, hour: 9 }), 2)
+    const detail = readout?.detail ?? ""
+    expect(detail).toContain(energyLevelText(readout!.expectation.score))
+    expect(detail).not.toMatch(/\b(moderate|high)-energy\b/)
   })
 })
 

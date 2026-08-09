@@ -14,7 +14,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Camera, Coffee, Loader2, RefreshCw } from "lucide-react"
+import { Camera, Coffee, Loader2, RefreshCw, Wine } from "lucide-react"
 import { fileToProcessedImage, type ProcessedImage } from "@/lib/image-resize"
 import {
   macroConsistency,
@@ -23,6 +23,11 @@ import {
   type FoodEstimate,
 } from "@/lib/food-estimate"
 import { resolveCaffeineMg } from "@/lib/caffeine-foods"
+import {
+  resolveAlcoholGrams,
+  standardDrinks,
+  MAX_ALCOHOL_G,
+} from "@/lib/alcohol-drinks"
 import { classifyMealGl, GL_WALK_TIP } from "@/lib/glycemic-load"
 import { MEAL_TYPES, defaultMealType, type MealType } from "@/lib/meal-type"
 import { BackdateChips, nowLocalDatetimeString } from "./BackdateChips"
@@ -33,6 +38,12 @@ const supabase = createClient()
 /** uuid without pulling in a dep — crypto.randomUUID is in all target browsers. */
 function uuid(): string {
   return crypto.randomUUID()
+}
+
+/** Ethanol is tracked to a tenth of a gram; whole grams are too coarse for a
+ *  half pour and decimals beyond that are false precision. */
+function round1(n: number): number {
+  return Math.round(n * 10) / 10
 }
 
 export function QuickLogFood() {
@@ -63,6 +74,15 @@ export function QuickLogFood() {
   // Set once the user types their own milligrams, which stops a later
   // description edit from overwriting the number they chose.
   const [caffeineEdited, setCaffeineEdited] = useState(false)
+
+  // Alcohol rides along the same way caffeine does, and for the same reason:
+  // its effects on sleep and next-day readiness are dose- and timing-driven,
+  // so it needs its own timestamped row rather than a label on the meal.
+  const [alcoholBase, setAlcoholBase] = useState(0)
+  const [alcoholG, setAlcoholG] = useState(0)
+  const [alcoholLabel, setAlcoholLabel] = useState<string | null>(null)
+  const [logAlcohol, setLogAlcohol] = useState(false)
+  const [alcoholEdited, setAlcoholEdited] = useState(false)
   const [reestimating, setReestimating] = useState(false)
   const [reestimateError, setReestimateError] = useState<string | null>(null)
   // When the meal was eaten. Defaults to now; the user can backdate a meal
@@ -84,6 +104,11 @@ export function QuickLogFood() {
     setCaffeineLabel(null)
     setLogCaffeine(false)
     setCaffeineEdited(false)
+    setAlcoholBase(0)
+    setAlcoholG(0)
+    setAlcoholLabel(null)
+    setLogAlcohol(false)
+    setAlcoholEdited(false)
     setReestimateError(null)
     // Re-derive both from the current clock: the dialog stays mounted between
     // openings, so a reset at lunchtime shouldn't leave this morning's values.
@@ -122,8 +147,14 @@ export function QuickLogFood() {
     setCaffeineMg(caffeine.mg)
     setCaffeineLabel(caffeine.label)
     setLogCaffeine(caffeine.mg > 0)
+    const alcohol = resolveAlcoholGrams(next)
+    setAlcoholBase(alcohol.grams)
+    setAlcoholG(alcohol.grams)
+    setAlcoholLabel(alcohol.label)
+    setLogAlcohol(alcohol.grams > 0)
     // A fresh estimate supersedes whatever the user typed for the last one.
     setCaffeineEdited(false)
+    setAlcoholEdited(false)
     // Now that we know *what* it is, not just when: a drink is never named
     // for the time of day. The caffeine table is drinks-only by design, so a
     // brand it recognizes settles it where the wording wouldn't.
@@ -145,6 +176,9 @@ export function QuickLogFood() {
     // Half the drink is half the dose. Scaled from the original suggestion,
     // not the current one, so tapping 2× then ½× lands back where it started.
     setCaffeineMg(Math.round(caffeineBase * f))
+    // Half the glass is half the ethanol — and unlike an espresso drink, that
+    // really is linear in the pour.
+    setAlcoholG(round1(alcoholBase * f))
   }
 
   /** Send a photo, a typed description, or both to the estimate API. Split
@@ -257,6 +291,9 @@ export function QuickLogFood() {
     if (field === "description" && !caffeineEdited) {
       resolveCaffeineFor(value)
     }
+    if (field === "description" && !alcoholEdited) {
+      resolveAlcoholFor(value)
+    }
   }
 
   /** Re-derive the suggested dose from a description, keeping the portion. */
@@ -269,6 +306,15 @@ export function QuickLogFood() {
     setCaffeineMg(Math.round(caffeine.mg * (factor > 0 ? factor : 1)))
     setCaffeineLabel(caffeine.label)
     setLogCaffeine(caffeine.mg > 0)
+  }
+
+  /** Re-derive the suggested alcohol from a description, keeping the portion. */
+  function resolveAlcoholFor(description: string) {
+    const alcohol = resolveAlcoholGrams({ description })
+    setAlcoholBase(alcohol.grams)
+    setAlcoholG(round1(alcohol.grams * (factor > 0 ? factor : 1)))
+    setAlcoholLabel(alcohol.label)
+    setLogAlcohol(alcohol.grams > 0)
   }
 
   const saveMutation = useMutation({
@@ -337,11 +383,27 @@ export function QuickLogFood() {
           console.warn("[QuickLogFood] caffeine log failed", caffErr)
         }
       }
+
+      // Same deal for alcohol, and the timing matters even more here: what it
+      // costs you is measured from the last drink to lights out.
+      if (logAlcohol && alcoholG > 0) {
+        const { error: alcErr } = await supabase.from("alcohol_logs").insert({
+          user_id: userId,
+          grams_ethanol: Math.min(alcoholG, MAX_ALCOHOL_G),
+          source: estimate.description.slice(0, 80),
+          source_food_log_id: foodLogId,
+          logged_at: when.toISOString(),
+        })
+        if (alcErr) {
+          console.warn("[QuickLogFood] alcohol log failed", alcErr)
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["food-logs-today"] })
       queryClient.invalidateQueries({ queryKey: ["weekly-calories"] })
       queryClient.invalidateQueries({ queryKey: ["caffeine-today"] })
+      queryClient.invalidateQueries({ queryKey: ["alcohol-today"] })
       setOpen(false)
       reset()
     },
@@ -669,6 +731,53 @@ export function QuickLogFood() {
                     : "Estimated from the photo — check it before saving."}{" "}
                   Logged at the meal&apos;s time, so it counts toward
                   tonight&apos;s sleep warning.
+                </p>
+              </div>
+            )}
+
+            {/* Alcohol, same shape as caffeine and for the same reason: what
+                it costs is measured in dose and in hours before bed, neither
+                of which a line on the meal could carry. */}
+            {alcoholG > 0 && (
+              <div className="space-y-2 rounded-lg bg-purple-50 p-3">
+                <label className="flex items-center gap-2 text-sm text-purple-900">
+                  <input
+                    type="checkbox"
+                    checked={logAlcohol}
+                    onChange={(e) => setLogAlcohol(e.target.checked)}
+                    className="h-4 w-4 rounded border-purple-300 text-purple-600 focus:ring-purple-500"
+                  />
+                  <Wine className="h-4 w-4 shrink-0 text-purple-600" aria-hidden="true" />
+                  <span>Also log the alcohol</span>
+                </label>
+                <div className="flex items-center gap-2 pl-6">
+                  <Input
+                    id="qlf-alcohol"
+                    type="number"
+                    min={0}
+                    max={MAX_ALCOHOL_G}
+                    step={0.1}
+                    aria-label="Alcohol (g)"
+                    disabled={!logAlcohol}
+                    value={alcoholG === 0 ? "" : alcoholG}
+                    onFocus={(e) => e.currentTarget.select()}
+                    onChange={(e) => {
+                      setAlcoholG(round1(Math.max(0, Number(e.target.value) || 0)))
+                      setAlcoholEdited(true)
+                    }}
+                    className="h-8 w-24 bg-white"
+                  />
+                  <span className="text-xs text-purple-800">
+                    g · {standardDrinks(alcoholG)}{" "}
+                    {standardDrinks(alcoholG) === 1 ? "drink" : "drinks"}
+                  </span>
+                </div>
+                <p className="pl-6 text-xs text-purple-700">
+                  {alcoholLabel
+                    ? `Typical for ${alcoholLabel} at this size.`
+                    : "Check it before saving."}{" "}
+                  Logged at the meal&apos;s time — how close it lands to bed is
+                  what decides tonight&apos;s sleep cost.
                 </p>
               </div>
             )}

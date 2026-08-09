@@ -9,6 +9,8 @@ import {
   assessEnergy,
   checkinPrompt,
   partOfDay,
+  energyLevelLabel,
+  ENERGY_LEVEL_LABELS,
   type EnergyLevel,
   type EnergyBand,
   type FuelState,
@@ -43,18 +45,20 @@ export interface EnergyCheckInCardProps {
   caffeineWarning?: string | null
 }
 
-const LEVELS: Array<{ value: EnergyLevel; label: string }> = [
-  { value: 1, label: "Drained" },
-  { value: 2, label: "Low" },
-  { value: 3, label: "Okay" },
-  { value: 4, label: "Good" },
-  { value: 5, label: "Energized" },
-]
+const LEVELS: Array<{ value: EnergyLevel; label: string }> = (
+  [1, 2, 3, 4, 5] as EnergyLevel[]
+).map((value) => ({ value, label: ENERGY_LEVEL_LABELS[value] }))
 
-const bandStyle: Record<EnergyBand, { chip: string; label: string }> = {
-  low: { chip: CHIP_TONES.attention, label: "Low" },
-  moderate: { chip: CHIP_TONES.neutral, label: "Moderate" },
-  high: { chip: CHIP_TONES.progress, label: "High" },
+/**
+ * The band survives only as the chip's color. Its name used to be the badge's
+ * text too, which put a three-word vocabulary next to the five-word one on the
+ * buttons — "Expected: High" matched neither Good nor Energized, and "Low"
+ * meant two different things on the same card.
+ */
+const bandChip: Record<EnergyBand, string> = {
+  low: CHIP_TONES.attention,
+  moderate: CHIP_TONES.neutral,
+  high: CHIP_TONES.progress,
 }
 
 const verdictStyle: Record<EnergyReadout["verdict"], string> = {
@@ -120,7 +124,9 @@ export function EnergyCheckInCard({
     },
     felt
   )
-  const band = bandStyle[expectation.band]
+  // Named on the same 1-5 scale as the buttons, so "expected" and "felt" are
+  // directly comparable — which is the entire point of the card.
+  const expectedLabel = energyLevelLabel(expectation.score)
 
   return (
     <InsightCard
@@ -128,10 +134,10 @@ export function EnergyCheckInCard({
       title="Energy Check-In"
       action={
         <span
-          className={`rounded-full px-2 py-0.5 text-xs font-medium ${band.chip}`}
-          title="Expected energy from today's signals"
+          className={`rounded-full px-2 py-0.5 text-xs font-medium ${bandChip[expectation.band]}`}
+          title="Expected energy from today's signals, on the same 1-5 scale"
         >
-          Expected: {band.label}
+          Expected: {expectedLabel}
         </span>
       }
     >

@@ -370,6 +370,40 @@ viewport readout — so neither needed server logs or a dashboard in the end.
       gives nothing away, the caffeine table settles it: it matches drinks by
       brand and is drinks-only by design, so a hit there is proof of one.
 
+- [x] **Alcohol tracking (capture + pre-bed flag).** Modelled on caffeine, not
+      on `meal_type`: what alcohol does to REM, HRV, and next-day readiness
+      depends on dose and on how close to bed it landed, none of which a
+      category label can carry. `alcohol_logs` (migration `00024`, apply
+      manually) stores grams of ethanol — the physical quantity — with
+      `source_food_log_id` so deleting a meal takes its drink with it.
+      `alcohol-drinks.ts` derives grams from volume × ABV × density rather
+      than tabulating servings, because unlike an espresso drink a pint really
+      is a third more than a can; a stated ABV beats the style's typical one.
+      Snap Meal offers the dose pre-checked and editable, exactly like
+      caffeine, and rescales it with the portion buttons.
+      Two deliberate omissions:
+      - **No BAC estimate.** Widmark is computable from the profile's weight
+        and sex, but the number swings with food and individual metabolism,
+        and the moment it's on screen someone uses it to decide whether to
+        drive. `alcohol.ts` says when the alcohol will have cleared instead.
+      - **Constant-rate clearance, not a half-life.** Caffeine decays
+        exponentially; alcohol is cleared at a roughly fixed grams/hour, so
+        twice as much takes twice as long. Reusing the caffeine curve would
+        have been wrong in a way that still looked plausible on a chart.
+- [ ] **Alcohol → sleep/HRV correlation.** The payoff: alcohol's REM
+      suppression is large and shows up clearly in ring data, so
+      `sleep-insights.ts` and `energy-correlations.ts` can make it personal
+      ("your REM is down 18% on nights you drink") rather than general.
+      Deliberately sequenced after capture — a correlation needs weeks of
+      logged drinks before it can say anything, so building it first would
+      only produce an empty card.
+- [ ] **`is_drink` on food logs.** Separate concern from alcohol: `meal_type`
+      answers *which occasion* (breakfast/lunch/dinner/snack) and "is it a
+      drink" answers *what the item is*. Merging them means a beer with dinner
+      has to pick one fact and lose the other — today it's forced to "snack".
+      A `form` (solid/liquid) column would let the nutrition list group drinks
+      while `meal_type` goes back to meaning the occasion.
+
 ## Energy & recovery
 - [x] Energy Check-In (v1): subjective 1-5 log + a felt-vs-expected read.
       `src/lib/energy.ts` blends sleep, recovery/HRV, training load, and

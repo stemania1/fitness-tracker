@@ -591,6 +591,123 @@ describe("QuickLogFood", () => {
     })
   })
 
+  describe("alcohol", () => {
+    function estimateDrink(description: string) {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ estimate: { ...ESTIMATE, description } }),
+      }) as unknown as typeof fetch
+    }
+
+    /** The alcohol_logs insert, or undefined if none was made. */
+    function alcoholRow() {
+      return mocks.insert.mock.calls.find((c) => c[1] === "alcohol_logs")?.[0]
+    }
+
+    it("offers the drink's alcohol pre-checked and logs it with the meal", async () => {
+      estimateDrink("12 oz IPA")
+      renderWithClient(<QuickLogFood />)
+      fireEvent.click(screen.getByRole("button", { name: /snap meal/i }))
+      await screen.findByRole("dialog")
+      selectPhoto()
+      await screen.findByDisplayValue("12 oz IPA")
+
+      const field = screen.getByLabelText(/alcohol \(g\)/i) as HTMLInputElement
+      expect(Number(field.value)).toBeGreaterThan(14) // an IPA beats a standard drink
+
+      fireEvent.click(screen.getByRole("button", { name: /save meal/i }))
+      await waitFor(() => expect(alcoholRow()).toBeDefined())
+
+      const row = alcoholRow()!
+      expect(row.grams_ethanol).toBeGreaterThan(0)
+      expect(row.source).toBe("12 oz IPA")
+      // Linked to the meal, so deleting one takes the other with it.
+      const foodRow = mocks.insert.mock.calls.find((c) => c[1] === "food_logs")![0]
+      expect(row.source_food_log_id).toBe(foodRow.id)
+      // Logged at the meal's own time — the whole sleep read is timing-driven.
+      expect(row.logged_at).toBe(foodRow.logged_at)
+    })
+
+    it("logs nothing extra when the alcohol is unchecked", async () => {
+      estimateDrink("glass of red wine")
+      renderWithClient(<QuickLogFood />)
+      fireEvent.click(screen.getByRole("button", { name: /snap meal/i }))
+      await screen.findByRole("dialog")
+      selectPhoto()
+      await screen.findByDisplayValue("glass of red wine")
+
+      fireEvent.click(screen.getByRole("checkbox", { name: /also log the alcohol/i }))
+      fireEvent.click(screen.getByRole("button", { name: /save meal/i }))
+      await waitFor(() => expect(mocks.insert).toHaveBeenCalled())
+      expect(alcoholRow()).toBeUndefined()
+    })
+
+    it("scales the pour with the portion multiplier", async () => {
+      estimateDrink("12 oz beer")
+      renderWithClient(<QuickLogFood />)
+      fireEvent.click(screen.getByRole("button", { name: /snap meal/i }))
+      await screen.findByRole("dialog")
+      selectPhoto()
+      await screen.findByDisplayValue("12 oz beer")
+
+      const field = () => screen.getByLabelText(/alcohol \(g\)/i) as HTMLInputElement
+      const full = Number(field().value)
+      fireEvent.click(screen.getByRole("button", { name: "0.5×" }))
+      expect(Number(field().value)).toBeCloseTo(full / 2, 1)
+    })
+
+    it("shows nothing for a meal with no alcohol", async () => {
+      renderWithClient(<QuickLogFood />)
+      await openAndEstimate() // "Chicken bowl"
+      expect(screen.queryByLabelText(/alcohol \(g\)/i)).toBeNull()
+    })
+
+    it("offers nothing for a drink that only sounds alcoholic", async () => {
+      estimateDrink("non-alcoholic beer")
+      renderWithClient(<QuickLogFood />)
+      fireEvent.click(screen.getByRole("button", { name: /snap meal/i }))
+      await screen.findByRole("dialog")
+      selectPhoto()
+      await screen.findByDisplayValue("non-alcoholic beer")
+      expect(screen.queryByLabelText(/alcohol \(g\)/i)).toBeNull()
+    })
+
+    it("re-resolves the pour when the description is corrected", async () => {
+      estimateDrink("12 oz beer")
+      renderWithClient(<QuickLogFood />)
+      fireEvent.click(screen.getByRole("button", { name: /snap meal/i }))
+      await screen.findByRole("dialog")
+      selectPhoto()
+      const desc = await screen.findByDisplayValue("12 oz beer")
+
+      const before = Number(
+        (screen.getByLabelText(/alcohol \(g\)/i) as HTMLInputElement).value
+      )
+      fireEvent.change(desc, { target: { value: "12 oz IPA" } })
+      const after = Number(
+        (screen.getByLabelText(/alcohol \(g\)/i) as HTMLInputElement).value
+      )
+      expect(after).toBeGreaterThan(before)
+    })
+
+    it("does not overwrite a pour the user typed themselves", async () => {
+      estimateDrink("12 oz beer")
+      renderWithClient(<QuickLogFood />)
+      fireEvent.click(screen.getByRole("button", { name: /snap meal/i }))
+      await screen.findByRole("dialog")
+      selectPhoto()
+      const desc = await screen.findByDisplayValue("12 oz beer")
+
+      fireEvent.change(screen.getByLabelText(/alcohol \(g\)/i), {
+        target: { value: "20" },
+      })
+      fireEvent.change(desc, { target: { value: "12 oz IPA" } })
+      expect(
+        (screen.getByLabelText(/alcohol \(g\)/i) as HTMLInputElement).value
+      ).toBe("20")
+    })
+  })
+
   describe("meal type", () => {
     // `shouldAdvanceTime` keeps testing-library's async waits working while
     // the clock is pinned — the component reads it on mount.

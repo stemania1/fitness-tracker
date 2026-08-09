@@ -133,10 +133,39 @@ function clamp(n: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, n))
 }
 
-const bandLabel: Record<EnergyBand, string> = {
-  low: "low",
-  moderate: "moderate",
-  high: "high",
+/**
+ * The 1-5 scale, in the user's words — the single vocabulary for both what
+ * they report and what we expect.
+ *
+ * The check-in used to speak two languages at once: five words on the buttons
+ * (Drained…Energized) and a three-way band on the badge (low/moderate/high).
+ * "Expected: High" matched no button — it spans Good, Energized, and the gap
+ * below them — and "Low" meant one thing as a button (exactly 2) and another
+ * as a band (anything under 2.5). The bands still drive the chip's color;
+ * they just aren't what anyone reads.
+ */
+export const ENERGY_LEVEL_LABELS: Record<EnergyLevel, string> = {
+  1: "Drained",
+  2: "Low",
+  3: "Okay",
+  4: "Good",
+  5: "Energized",
+}
+
+/** The nearest scale word to a (possibly fractional) expected score. */
+export function energyLevelLabel(score: number): string {
+  const level = clamp(Math.round(score), 1, 5) as EnergyLevel
+  return ENERGY_LEVEL_LABELS[level]
+}
+
+/**
+ * How the expectation is named in prose: "4 (Good)". The number carries the
+ * comparison — the buttons lead with numbers — and the word keeps it readable
+ * without inventing a second vocabulary.
+ */
+export function energyLevelText(score: number): string {
+  const level = clamp(Math.round(score), 1, 5)
+  return `${level} (${energyLevelLabel(score)})`
 }
 
 /**
@@ -278,7 +307,7 @@ export function reconcileEnergy(
   part: PartOfDay = "afternoon"
 ): EnergyReadout {
   const diff = felt - expectation.score
-  const expectedLabel = bandLabel[expectation.band]
+  const expectedLabel = energyLevelText(expectation.score)
   const softHedge =
     expectation.signalCount === 0
       ? " (based on time of day alone — log sleep or connect a ring for a sharper read)"
@@ -297,7 +326,7 @@ export function reconcileEnergy(
         : part === "evening"
           ? "Evenings run lower by design — let the wind-down do its job."
           : "Nothing here looks off — trust it and act accordingly."
-    detail = `What you're feeling lines up with a ${expectedLabel}-energy read${softHedge}. ${tail}`
+    detail = `What you're feeling lines up with the ${expectedLabel} read your signals point to${softHedge}. ${tail}`
   } else if (diff < 0) {
     verdict = "below"
     if (part === "morning") {

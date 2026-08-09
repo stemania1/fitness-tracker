@@ -57,6 +57,31 @@ describe("EnergyCheckInCard", () => {
     expect(await screen.findByText(/expected:/i)).toBeInTheDocument()
   })
 
+  /**
+   * The chip used to say "Expected: High", a three-way band sitting next to
+   * five differently-worded buttons. It matched neither Good nor Energized,
+   * and "Low" meant one thing as a band and another as a button.
+   */
+  it("names the expectation with a word that is on one of the buttons", async () => {
+    renderWithClient(<EnergyCheckInCard sleepScore={90} readinessScore={88} />)
+    // Wait for the selector — the chip renders before the check-in query lands.
+    await screen.findByRole("button", { name: /energized/i })
+    const chip = screen.getByText(/expected:/i)
+    const word = chip.textContent!.replace(/expected:\s*/i, "").trim()
+
+    expect(["Drained", "Low", "Okay", "Good", "Energized"]).toContain(word)
+    // And it's a button you can actually press, not a separate vocabulary.
+    expect(
+      screen.getByRole("button", { name: new RegExp(word, "i") })
+    ).toBeInTheDocument()
+  })
+
+  it("never labels the expectation with the old band words", async () => {
+    renderWithClient(<EnergyCheckInCard sleepScore={90} readinessScore={88} />)
+    const chip = await screen.findByText(/expected:/i)
+    expect(chip.textContent).not.toMatch(/moderate|high/i)
+  })
+
   it("shows the 1-5 selector when there is no check-in today", async () => {
     renderWithClient(<EnergyCheckInCard />)
     expect(await screen.findByText(/how are you starting the day|how's your energy (holding up|this evening)/i)).toBeInTheDocument()
