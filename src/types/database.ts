@@ -567,6 +567,41 @@ export interface Database {
         }
         Relationships: []
       }
+      alcohol_logs: {
+        Row: {
+          id: string
+          user_id: string
+          /** Ethanol in grams — the physical quantity; "drinks" is display. */
+          grams_ethanol: number
+          source: string | null
+          /** Set when this drink came from a logged meal; cascades on delete. */
+          source_food_log_id: string | null
+          logged_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          grams_ethanol: number
+          source?: string | null
+          source_food_log_id?: string | null
+          logged_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          grams_ethanol?: number
+          source?: string | null
+          source_food_log_id?: string | null
+          logged_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       caffeine_logs: {
         Row: {
           id: string

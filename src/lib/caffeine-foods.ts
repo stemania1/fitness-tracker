@@ -22,6 +22,12 @@
  * anyone titrating a dose.
  */
 
+import { parseVolumeOz, stripAsides } from "./drink-text"
+
+// Re-exported: the volume parser was public API here before it was shared
+// with the alcohol table.
+export { parseVolumeOz }
+
 /** A caffeine source whose dose scales with how much liquid you drank. */
 interface PerVolumeSource {
   kind: "per_oz"
@@ -117,29 +123,6 @@ const SOURCES: readonly CaffeineSource[] = [
   { kind: "per_oz", label: "Tea", match: /\btea\b|\bchai\b/i, mgPerOz: 47 / 8, defaultOz: 8 },
 ] as const
 
-const ML_PER_OZ = 29.5735
-
-/**
- * The drink volume a description states, in fluid ounces, or null when it
- * doesn't state one. Handles "32 oz", "16.9 fl oz", "500ml", "1.5 L", and the
- * bare "can" that means 12 oz to everyone who has held one.
- */
-export function parseVolumeOz(description: string): number | null {
-  const oz = description.match(/(\d+(?:\.\d+)?)\s*(?:fl\.?\s*)?(?:oz\b|ounce)/i)
-  if (oz) return Number(oz[1])
-
-  const ml = description.match(/(\d+(?:\.\d+)?)\s*ml\b/i)
-  if (ml) return Number(ml[1]) / ML_PER_OZ
-
-  // Require a digit before "L" so "Light beer" and similar can't read as litres.
-  const litres = description.match(/(\d+(?:\.\d+)?)\s*(?:l\b|liter|litre)/i)
-  if (litres) return Number(litres[1]) * (1000 / ML_PER_OZ)
-
-  if (/\bcan\b/i.test(description)) return 12
-
-  return null
-}
-
 export interface KnownCaffeine {
   /** Estimated caffeine for the described serving, in milligrams. */
   mg: number
@@ -171,21 +154,6 @@ export function lookupCaffeine(description: string): KnownCaffeine | null {
   return { mg: Math.round(source.mgPerOz * oz), label: source.label, oz }
 }
 
-/**
- * Drop parenthetical asides before matching a drink name.
- *
- * A vision model hedges inside parentheses, and the hedge names things that
- * aren't on the plate: "Glass of milk (or milky beverage like chai latte)" is
- * milk, but the aside says "latte" and a naive match reads it as 128mg of
- * espresso. The food is what's outside the parentheses; what's inside is a
- * clarification, an example, or a guess.
- *
- * Found by a backfill dry run over real history, which is the only reason
- * that milk didn't get 128mg written against it.
- */
-function stripAsides(description: string): string {
-  return description.replace(/\([^)]*\)/g, " ")
-}
 
 /**
  * The caffeine to suggest for a meal: the table when it recognizes the drink,

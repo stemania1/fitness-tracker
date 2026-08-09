@@ -86,6 +86,9 @@ fitness-tracker/
 │   │   ├── meal-type.ts             # Meal type (breakfast/lunch/…) from the clock
 │   │   ├── image-resize.ts          # Browser image downscale for vision upload
 │   │   ├── caffeine.ts              # Caffeine alertness/crash + late-dose flag
+│   │   ├── alcohol.ts               # Alcohol clearance + pre-bed sleep flag
+│   │   ├── alcohol-drinks.ts        # Ethanol per drink, by name and volume
+│   │   ├── drink-text.ts            # Shared drink-description parsing (volume, asides)
 │   │   ├── caffeine-personal.ts     # Personal half-life learned from check-ins
 │   │   ├── creatine-streak.ts       # Daily creatine streak + multi-dose progress
 │   │   ├── energy.ts                # Fuse sleep/HRV/fuel/caffeine into an energy read
