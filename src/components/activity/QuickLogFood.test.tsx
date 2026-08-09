@@ -653,5 +653,50 @@ describe("QuickLogFood", () => {
       await openAndEstimate()
       expect(mealTypeSelect().value).toBe("snack")
     })
+
+    // An 8am latte is not breakfast, however much it stands in for one.
+    it("does not call a morning drink breakfast", async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          estimate: {
+            ...ESTIMATE,
+            description: "Cappuccino/latte with milk foam in a mug",
+            calories: 95,
+          },
+        }),
+      }) as unknown as typeof fetch
+
+      vi.setSystemTime(new Date(2026, 7, 8, 8, 1))
+      renderWithClient(<QuickLogFood />)
+      fireEvent.click(screen.getByRole("button", { name: /snap meal/i }))
+      await screen.findByRole("dialog")
+      selectPhoto()
+      await screen.findByDisplayValue(/cappuccino\/latte/i)
+
+      expect(mealTypeSelect().value).toBe("snack")
+
+      fireEvent.click(screen.getByRole("button", { name: /save meal/i }))
+      await waitFor(() => expect(mocks.insert).toHaveBeenCalled())
+      expect(mocks.insert.mock.calls[0][0].meal_type).toBe("snack")
+    })
+
+    it("still calls a morning plate of food breakfast", async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          estimate: { ...ESTIMATE, description: "Fried egg on toast" },
+        }),
+      }) as unknown as typeof fetch
+
+      vi.setSystemTime(new Date(2026, 7, 8, 8, 1))
+      renderWithClient(<QuickLogFood />)
+      fireEvent.click(screen.getByRole("button", { name: /snap meal/i }))
+      await screen.findByRole("dialog")
+      selectPhoto()
+      await screen.findByDisplayValue("Fried egg on toast")
+
+      expect(mealTypeSelect().value).toBe("breakfast")
+    })
   })
 })
