@@ -20,6 +20,9 @@ self.addEventListener("activate", (event) =>
   )
 )
 
+/** A reminder older than this describes a day that has moved on. */
+const MAX_REMINDER_AGE_MS = 2 * 60 * 60 * 1000
+
 self.addEventListener("push", (event) => {
   let data = {}
   try {
@@ -27,6 +30,19 @@ self.addEventListener("push", (event) => {
   } catch {
     data = {}
   }
+  // A reminder's text is a statement about right now — "it's been 3 days
+  // since your last workout" — computed when the push was built. iOS holds
+  // pushes for a device that is asleep, in Low Power Mode, or off the network,
+  // and delivers them later; the text does not update in flight. Showing one
+  // hours late means asserting something that has since stopped being true.
+  //
+  // Only reminders carry builtAt, so anything without it (a test push, or a
+  // sender that isn't the reminder cron) is shown as before.
+  if (data.builtAt) {
+    const ageMs = Date.now() - Date.parse(data.builtAt)
+    if (Number.isFinite(ageMs) && ageMs > MAX_REMINDER_AGE_MS) return
+  }
+
   const title = data.title || "CraigFitness"
   const options = {
     body: data.body || "",

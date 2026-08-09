@@ -37,7 +37,8 @@ export function isDigestTime(
  * digest whose only action is that filler sends nothing.
  */
 export function weeklyDigestNotification(
-  digest: WeeklyDigest
+  digest: WeeklyDigest,
+  builtAt: Date = new Date()
 ): PushNotification | null {
   const [top] = digest.actions
   if (!top) return null
@@ -51,5 +52,10 @@ export function weeklyDigestNotification(
     title: "Your week in review",
     body,
     url: "/dashboard",
+    // The digest summarizes a week that has already ended, so it doesn't go
+    // stale the way a reminder does — but it carries the stamp anyway, so a
+    // push arriving WITHOUT one can be read as "not from this code".
+    builtAt: builtAt.toISOString(),
+    tag: "craigfitness-weekly-digest",
   }
 }

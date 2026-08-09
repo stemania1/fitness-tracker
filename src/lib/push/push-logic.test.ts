@@ -29,6 +29,14 @@ describe("reminderNotification", () => {
     expect(n?.url).toBe("/dashboard")
   })
 
+  // A notification's text is frozen when it's built, so the payload has to
+  // carry its own age for the service worker to judge it later.
+  it("stamps when the payload was built", () => {
+    const at = new Date("2026-08-09T22:01:00Z")
+    const n = reminderNotification([R("log_meal", 65, "No meals logged yet today")], at)
+    expect(n?.builtAt).toBe("2026-08-09T22:01:00.000Z")
+  })
+
   it("lists each reminder on its own line when several are due", () => {
     const n = reminderNotification([
       R("log_workout", 80, "It's been 4 days since your last workout"),
