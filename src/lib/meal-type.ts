@@ -42,11 +42,52 @@ export function mealTypeForHour(hour: number): MealType {
 }
 
 /**
- * The meal type for a `datetime-local` value ("YYYY-MM-DDTHH:mm") — the shape
- * the backdating chips hand around. Falls back to "meal" if it can't be read.
+ * Drinks, by the words that name one. Not exhaustive and never will be — it
+ * only has to beat "whatever the clock says", which for an 8am latte was
+ * "breakfast".
  */
-export function mealTypeForLocalDatetime(value: string): MealType {
-  const m = value.match(/^\d{4}-\d{2}-\d{2}T(\d{2}):\d{2}/)
+const DRINK_WORDS =
+  /\b(coffee|latte|cappuccino|espresso|americano|macchiato|mocha|cortado|flat white|frappuccino|frapp[eé]|cold brew|tea|chai|matcha|juice|smoothie|milkshake|shake|soda|cola|coke|pepsi|lemonade|kombucha|seltzer|sparkling water|water|beer|wine|cider|cocktail|margarita|hot chocolate|cocoa|energy drink|red bull|monster|celsius|gatorade|kool[\s-]?aid)\b/i
+
+/**
+ * The head of a description — everything before the first "with"/","/"(" and
+ * friends. "Pancakes with orange juice" is a breakfast that happens to
+ * mention a drink; "Cappuccino/latte with milk foam in a mug" is a drink. The
+ * difference is which one the description leads with.
+ */
+function head(description: string): string {
+  return description.split(/\bwith\b|[,;+(]/i)[0]
+}
+
+/**
+ * Does this description name a drink rather than something eaten?
+ *
+ * Deliberately shallow: it reads the head of the description only, so a meal
+ * that mentions a beverage in passing stays a meal. A drink listed after the
+ * food it came with ("Eggs and a coffee") reads as the food, which is the
+ * right way round to be wrong — the label is a starting point, not a verdict.
+ */
+export function looksLikeDrink(description: string | null | undefined): boolean {
+  if (!description) return false
+  return DRINK_WORDS.test(head(description))
+}
+
+/**
+ * What the meal-type select should open on for a meal logged at `loggedAt`
+ * (a `datetime-local` "YYYY-MM-DDTHH:mm", the shape the backdating chips hand
+ * around).
+ *
+ * A drink is never named for the time of day — an 8am latte is not breakfast,
+ * however much it may be standing in for one. `knownDrink` lets a caller pass
+ * a stronger signal than the wording, e.g. that the caffeine table (which is
+ * drinks-only by design) recognized the item by brand name.
+ */
+export function defaultMealType(
+  loggedAt: string,
+  opts: { description?: string | null; knownDrink?: boolean } = {}
+): MealType {
+  if (opts.knownDrink || looksLikeDrink(opts.description)) return "snack"
+  const m = loggedAt.match(/^\d{4}-\d{2}-\d{2}T(\d{2}):\d{2}/)
   if (!m) return "meal"
   return mealTypeForHour(Number(m[1]))
 }

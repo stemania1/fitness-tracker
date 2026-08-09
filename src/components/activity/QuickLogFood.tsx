@@ -24,11 +24,7 @@ import {
 } from "@/lib/food-estimate"
 import { resolveCaffeineMg } from "@/lib/caffeine-foods"
 import { classifyMealGl, GL_WALK_TIP } from "@/lib/glycemic-load"
-import {
-  MEAL_TYPES,
-  mealTypeForLocalDatetime,
-  type MealType,
-} from "@/lib/meal-type"
+import { MEAL_TYPES, defaultMealType, type MealType } from "@/lib/meal-type"
 import { BackdateChips, nowLocalDatetimeString } from "./BackdateChips"
 import { getAuthUserId } from "@/lib/supabase/user-query"
 
@@ -48,7 +44,7 @@ export function QuickLogFood() {
   // Named from the clock so a morning egg opens as breakfast. Overridable —
   // `mealTypeEdited` stops a later time change from undoing the user's pick.
   const [mealType, setMealType] = useState<MealType>(() =>
-    mealTypeForLocalDatetime(nowLocalDatetimeString())
+    defaultMealType(nowLocalDatetimeString())
   )
   const [mealTypeEdited, setMealTypeEdited] = useState(false)
   const [image, setImage] = useState<ProcessedImage | null>(null)
@@ -93,7 +89,7 @@ export function QuickLogFood() {
     // openings, so a reset at lunchtime shouldn't leave this morning's values.
     const now = nowLocalDatetimeString()
     setLoggedAt(now)
-    setMealType(mealTypeForLocalDatetime(now))
+    setMealType(defaultMealType(now))
     setMealTypeEdited(false)
   }
 
@@ -103,7 +99,14 @@ export function QuickLogFood() {
    */
   function changeLoggedAt(value: string) {
     setLoggedAt(value)
-    if (!mealTypeEdited) setMealType(mealTypeForLocalDatetime(value))
+    if (!mealTypeEdited) {
+      setMealType(
+        defaultMealType(value, {
+          description: estimate?.description,
+          knownDrink: caffeineLabel !== null,
+        })
+      )
+    }
   }
 
   /**
@@ -121,6 +124,17 @@ export function QuickLogFood() {
     setLogCaffeine(caffeine.mg > 0)
     // A fresh estimate supersedes whatever the user typed for the last one.
     setCaffeineEdited(false)
+    // Now that we know *what* it is, not just when: a drink is never named
+    // for the time of day. The caffeine table is drinks-only by design, so a
+    // brand it recognizes settles it where the wording wouldn't.
+    if (!mealTypeEdited) {
+      setMealType(
+        defaultMealType(loggedAt, {
+          description: next.description,
+          knownDrink: caffeine.label !== null,
+        })
+      )
+    }
   }
 
   /** Scale the original estimate by a portion multiplier. */

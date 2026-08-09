@@ -362,6 +362,14 @@ viewport readout — so neither needed server logs or a dashboard in the end.
       changing the time re-names the meal, and an explicit pick from the
       select outranks the clock from then on.
 
+      A drink is never named for the time of day — an 8am latte came back as
+      "breakfast" on the first pass, which is the clock being right about the
+      hour and wrong about the item. `looksLikeDrink` reads the *head* of the
+      description only, so "Pancakes with orange juice" stays a breakfast
+      while "Cappuccino/latte with milk foam" is a snack. Where the wording
+      gives nothing away, the caffeine table settles it: it matches drinks by
+      brand and is drinks-only by design, so a hit there is proof of one.
+
 ## Energy & recovery
 - [x] Energy Check-In (v1): subjective 1-5 log + a felt-vs-expected read.
       `src/lib/energy.ts` blends sleep, recovery/HRV, training load, and
