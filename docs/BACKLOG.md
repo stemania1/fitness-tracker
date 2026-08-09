@@ -405,6 +405,28 @@ viewport readout — so neither needed server logs or a dashboard in the end.
       while `meal_type` goes back to meaning the occasion.
 
 ## Energy & recovery
+- [x] **Felt vs Expected chart** (Insights → Energy & sleep). The check-in card
+      answers this for today and forgets it; the pattern is what's actually
+      informative, since one rough morning is noise and six weeks of feeling
+      below prediction is not. `energy-history.ts` is pure; the card fetches.
+      The expectation is *recomputed* from stored signals rather than read
+      back — `energy_checkins` never saved it — which is what lets the chart
+      cover history already logged instead of starting empty. The cost is that
+      it reflects today's model: a day whose ring data landed late reads
+      differently than it did at the time, and changing the scoring rewrites
+      history. The card says so rather than hiding it.
+      Two judgement calls worth keeping:
+      - A verdict needs 7 days. Below that the chart still draws — three
+        points are worth seeing — but calling three days a trend is how a card
+        tells someone their life is falling apart because they slept badly.
+      - "Tracking" needs a majority of days inside the match band, not just a
+        mean near zero. Opposite-signed misses average out, so a fortnight of
+        wild swings would otherwise report as calibrated.
+- [ ] **Store the expectation on the check-in.** Would make the chart exact
+      instead of reconstructed, and make model changes visible as a change in
+      the model rather than a silent rewrite of the past. Needs a column and
+      only helps from the day it ships, which is why the reconstruction came
+      first.
 - [x] Energy Check-In (v1): subjective 1-5 log + a felt-vs-expected read.
       `src/lib/energy.ts` blends sleep, recovery/HRV, training load, and
       circadian time of day into an expected energy band, then reconciles

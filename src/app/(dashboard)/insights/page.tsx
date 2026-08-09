@@ -37,6 +37,10 @@ const VolumeTrendCard = dynamic(
   () => import("@/components/activity/VolumeTrendCard").then((m) => m.VolumeTrendCard),
   { ssr: false, loading: () => <Skeleton className="h-48 w-full" /> }
 )
+const EnergyTrendCard = dynamic(
+  () => import("@/components/activity/EnergyTrendCard").then((m) => m.EnergyTrendCard),
+  { ssr: false }
+)
 const Vo2MaxTrendCard = dynamic(
   () => import("@/components/activity/Vo2MaxTrendCard").then((m) => m.Vo2MaxTrendCard),
   { ssr: false, loading: () => <Skeleton className="h-48 w-full" /> }
@@ -74,6 +78,7 @@ export default function InsightsPage() {
         title="Energy & sleep"
         subtitle="What actually moves your energy, and how you've been sleeping"
       >
+        <EnergyTrendCard />
         <EnergyDriversCard />
         <SleepTrendCard />
         <RemInsightsCard />
