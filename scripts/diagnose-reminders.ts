@@ -127,7 +127,7 @@ for (const sub of subs ?? []) {
   // The exact query the cron uses for the workout-gap nudge.
   const { data: lastWorkout, error: wErr } = await db
     .from("workout_logs")
-    .select("id, name, started_at, finished_at")
+    .select("id, name, started_at, finished_at, created_at")
     .eq("user_id", sub.user_id)
     .order("started_at", { ascending: false })
     .limit(3)
@@ -144,9 +144,13 @@ for (const sub of subs ?? []) {
   console.log("  newest workout_logs rows for this user_id:")
   for (const w of lastWorkout) {
     const day = localDateInZone(new Date(w.started_at), profile.timezone)
+    // created_at matters as much as started_at here: a session saved a day
+    // late is invisible to every cron run before the save, which looks
+    // identical to the cron reading the wrong rows.
     console.log(
-      `    ${w.started_at}  (local ${day})  finished=${w.finished_at ? "yes" : "NO"}  ${w.name ?? "(unnamed)"}`
+      `    started ${w.started_at}  (local ${day})  finished=${w.finished_at ? "yes" : "NO"}  ${w.name ?? "(unnamed)"}`
     )
+    console.log(`      saved  ${w.created_at}`)
   }
 
   const newestDay = localDateInZone(
