@@ -93,6 +93,7 @@ fitness-tracker/
 │   │   ├── creatine-streak.ts       # Daily creatine streak + multi-dose progress
 │   │   ├── energy.ts                # Fuse sleep/HRV/fuel/caffeine into an energy read
 │   │   ├── energy-correlations.ts   # Personal energy-driver correlation analysis
+│   │   ├── energy-history.ts        # Felt-vs-expected energy series + pattern
 │   │   ├── weekly-digest.ts         # Weekly coach digest across the three goals
 │   │   ├── reminders.ts             # Smart in-app reminder nudges from the day
 │   │   ├── reminder-settings.ts     # In-app reminder preferences
