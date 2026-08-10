@@ -130,6 +130,92 @@ const db = createClient(url, key, {
   auth: { persistSession: false, autoRefreshToken: false },
 })
 
+// ── Schema probe ─────────────────────────────────────────────────────────
+//
+// Every table this script reads is checked up front, because a missing one
+// is not a fact about the user — it is a fact about which database is on the
+// other end of the connection. Reported per-account it reads as "no profile
+// row, cron skips this account", which is a data condition with a completely
+// different meaning and no way to tell the two apart from the output.
+//
+// The distinction that matters: `user_profiles` is created by migration
+// 00001, `push_subscriptions` by 00015. A database that has the later table
+// but not the earlier one was not partially migrated — it is a different
+// database, almost always because .env.local points somewhere other than the
+// project the cron reads.
+
+/** PostgREST reports an absent table as PGRST205, not as an empty result. */
+function isMissingTable(err: { code?: string; message?: string }): boolean {
+  return err.code === "PGRST205" || /schema cache/i.test(err.message ?? "")
+}
+
+/** A rejected key, as opposed to a query that ran and found nothing. */
+function isAuthFailure(err: { code?: string; message?: string }): boolean {
+  return /invalid api key|jwt|unauthorized|invalid authentication/i.test(
+    err.message ?? ""
+  )
+}
+
+const REQUIRED_TABLES = [
+  "push_subscriptions",
+  "user_profiles",
+  "workout_logs",
+  "weight_logs",
+  "energy_checkins",
+  "food_logs",
+  "creatine_logs",
+]
+
+const missingTables: string[] = []
+for (const table of REQUIRED_TABLES) {
+  const { error } = await db.from(table).select("*", { head: true }).limit(1)
+  if (!error) continue
+  // A rejected key fails every table identically, so reporting it as seven
+  // missing tables would point at the schema when the problem is the
+  // credential. It also matters far beyond this script: the reminder cron
+  // builds its client from this exact pair (see createServiceClient), so a
+  // key the pair rejects means the cron cannot read anything either.
+  if (isAuthFailure(error)) {
+    console.error(
+      `\n  ✖  ${host} rejected SUPABASE_SERVICE_ROLE_KEY: ${error.message}\n\n` +
+        "     This is the same NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY\n" +
+        "     pair that src/lib/supabase/service.ts builds the reminder cron's\n" +
+        "     client from. If the deployed cron holds this pair, it cannot read\n" +
+        "     push_subscriptions and sends nothing at all.\n\n" +
+        "     Worth separating two cases:\n\n" +
+        "       • The key is wrong only HERE. Vercel cannot read back a variable\n" +
+        "         marked Sensitive, so `vercel env pull` need not round-trip it.\n" +
+        "         Take service_role straight from the Supabase dashboard for this\n" +
+        "         project and retry.\n\n" +
+        "       • The key is wrong in PRODUCTION too — it belongs to a different\n" +
+        "         project, or the project disabled legacy JWT keys. Then the cron\n" +
+        "         is dead and no reminder has been sent since it broke.\n"
+    )
+    process.exit(1)
+  }
+  if (isMissingTable(error)) missingTables.push(table)
+}
+
+if (missingTables.length > 0) {
+  console.error(
+    `\n  ✖  ${host} is missing ${missingTables.length} of the ${REQUIRED_TABLES.length} tables\n` +
+      "     this script reads:\n\n" +
+      missingTables.map((t) => `       ${t}`).join("\n") +
+      "\n\n" +
+      "     Going further would describe a database the app does not use, so\n" +
+      "     this stops here. Two things produce it:\n\n" +
+      "       • NEXT_PUBLIC_SUPABASE_URL points at a different Supabase project\n" +
+      "         than production. Confirm against the value the cron actually\n" +
+      "         runs with:\n\n" +
+      "           npx vercel link\n" +
+      "           npx vercel env pull .env.production.local --environment=production\n" +
+      "           grep NEXT_PUBLIC_SUPABASE_URL .env.production.local\n\n" +
+      "       • The migrations in supabase/migrations were never applied here.\n" +
+      "         They are applied by hand, not on deploy — see supabase/README.md.\n"
+  )
+  process.exit(1)
+}
+
 // ── Mirrored production logic ────────────────────────────────────────────
 //
 // This script runs under bare `node --experimental-strip-types`, which does

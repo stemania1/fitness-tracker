@@ -3,7 +3,7 @@
 // Bump on every meaningful change to this file. It doubles as a cache-buster
 // (changed bytes trigger the browser's SW update) and a diagnostic: the worker
 // broadcasts it on activate so a client can confirm which version is live.
-const SW_VERSION = 2
+const SW_VERSION = 3
 
 // Take over as soon as a new version is available. Without this the previous
 // worker keeps handling pushes until every tab closes, so notification fixes
@@ -23,6 +23,40 @@ self.addEventListener("activate", (event) =>
 /** A reminder older than this describes a day that has moved on. */
 const MAX_REMINDER_AGE_MS = 2 * 60 * 60 * 1000
 
+// Received-push log. Both constants are duplicated from
+// src/lib/push/received-log.ts, which this file cannot import — it is plain
+// JavaScript served as-is. Change them together: a mismatch detaches this
+// writer from the Diagnostics reader, which then shows nothing and looks
+// exactly like "no pushes have arrived".
+const RECEIVED_CACHE = "craigfitness-received-v1"
+const RECEIVED_URL = "/__push-received"
+const RECEIVED_MAX = 10
+
+/**
+ * Record a push exactly as it arrived, including one being dropped.
+ *
+ * A dropped push is the more interesting of the two: it is the evidence that
+ * something was delivered late, and dropping it silently destroys the only
+ * copy of that evidence. Never throws — a failure to journal must not cost
+ * the user the notification.
+ */
+async function recordReceived(entry) {
+  try {
+    const cache = await caches.open(RECEIVED_CACHE)
+    const previous = await cache.match(RECEIVED_URL)
+    const list = previous ? await previous.json() : []
+    const next = [entry, ...(Array.isArray(list) ? list : [])].slice(0, RECEIVED_MAX)
+    await cache.put(
+      RECEIVED_URL,
+      new Response(JSON.stringify(next), {
+        headers: { "Content-Type": "application/json" },
+      })
+    )
+  } catch {
+    // Diagnostics are worth less than delivery.
+  }
+}
+
 self.addEventListener("push", (event) => {
   let data = {}
   try {
@@ -38,9 +72,24 @@ self.addEventListener("push", (event) => {
   //
   // Only reminders carry builtAt, so anything without it (a test push, or a
   // sender that isn't the reminder cron) is shown as before.
+  let stale = false
   if (data.builtAt) {
     const ageMs = Date.now() - Date.parse(data.builtAt)
-    if (Number.isFinite(ageMs) && ageMs > MAX_REMINDER_AGE_MS) return
+    stale = Number.isFinite(ageMs) && ageMs > MAX_REMINDER_AGE_MS
+  }
+
+  const journal = recordReceived({
+    receivedAt: new Date().toISOString(),
+    builtAt: typeof data.builtAt === "string" ? data.builtAt : null,
+    source: typeof data.source === "string" ? data.source : null,
+    title: data.title || "",
+    body: data.body || "",
+    shown: !stale,
+  })
+
+  if (stale) {
+    event.waitUntil(journal)
+    return
   }
 
   const title = data.title || "CraigFitness"
@@ -56,10 +105,13 @@ self.addEventListener("push", (event) => {
     data: { url: data.url || "/dashboard" },
   }
   event.waitUntil(
-    self.registration.showNotification(title, options).catch(() =>
-      // Never let a bad icon/option swallow the notification entirely.
-      self.registration.showNotification(title, { body: options.body })
-    )
+    Promise.all([
+      journal,
+      self.registration.showNotification(title, options).catch(() =>
+        // Never let a bad icon/option swallow the notification entirely.
+        self.registration.showNotification(title, { body: options.body })
+      ),
+    ])
   )
 })
 

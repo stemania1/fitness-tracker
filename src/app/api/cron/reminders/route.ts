@@ -8,6 +8,7 @@ import {
   type BuiltReminderContext,
   type Fallible,
 } from "@/lib/push/reminder-context"
+import { payloadSource } from "@/lib/push/payload-source"
 
 export const runtime = "nodejs"
 // Never cache — this is a scheduled side-effecting job.
@@ -44,12 +45,27 @@ export async function GET(request: Request) {
 
   const db = createServiceClient()
   const now = new Date()
+  const source = payloadSource()
 
   // Everyone with at least one subscription.
   const { data: subs, error: subErr } = await db
     .from("push_subscriptions")
     .select("id, user_id, endpoint, p256dh, auth")
   if (subErr) {
+    // Log before returning. This is the single most consequential failure the
+    // job has — a rejected key or an unreachable database means NOBODY is
+    // reminded — and it used to return here without writing a line, while the
+    // success path logged in full. So the one outcome worth alerting on was
+    // the one that left no trace: Vercel discards the response body, and a
+    // job that reached no one looked exactly like a quiet day.
+    console.log(
+      JSON.stringify({
+        job: "cron/reminders",
+        at: now.toISOString(),
+        source,
+        fatal: `push_subscriptions: ${subErr.message}`,
+      })
+    )
     return NextResponse.json({ error: subErr.message }, { status: 500 })
   }
 
@@ -181,7 +197,7 @@ export async function GET(request: Request) {
       try {
         await webpush.sendNotification(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-          JSON.stringify(notification)
+          JSON.stringify({ ...notification, source })
         )
         sent++
         decision.delivered = (decision.delivered ?? 0) + 1
@@ -201,6 +217,9 @@ export async function GET(request: Request) {
   const summary = {
     job: "cron/reminders",
     at: now.toISOString(),
+    // Which database this run read, so a log line can be matched against the
+    // origin stamped into the payloads it sent.
+    source,
     users: byUser.size,
     sent,
     pruned,
