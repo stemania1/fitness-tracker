@@ -65,6 +65,20 @@ if (!url || !key) {
 // a malformed URL — and a value wrapped in stray quotes by an .env editor is
 // exactly the case that needs a message saying so.
 
+// A pasted-over scheme — https://https://<ref>.supabase.co — survives every
+// check that would plausibly catch it. supabase-js only asserts the string
+// STARTS WITH https://, and the URL parser reads the second scheme as the
+// hostname, so `new URL()` succeeds and hands back the host `https`. The
+// first sign of trouble is then a DNS failure on a name nobody typed, which
+// is a long way from the actual mistake.
+if (/^https?:\/\/https?:\/\//i.test(url)) {
+  console.error(
+    `NEXT_PUBLIC_SUPABASE_URL has the scheme twice:\n\n  ${url}\n\n` +
+      `It should be a single https:// — try:\n\n  ${url.replace(/^https?:\/\//i, "")}\n`
+  )
+  process.exit(1)
+}
+
 let host: string
 try {
   host = new URL(url).host
