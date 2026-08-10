@@ -132,10 +132,12 @@ const SUB: Sub = {
 }
 
 const TZ = "America/New_York"
-/** 2026-08-08T12:00:00Z = 08:00 EDT — the first hour a push may go out. */
+/** 2026-08-08T22:00:00Z = 18:00 EDT — the hour the day's push goes out. */
+const SIX_PM_ET = new Date("2026-08-08T22:00:00Z")
+/** 21:00 EDT, still the same LOCAL day despite being the next UTC one. */
+const NINE_PM_ET = new Date("2026-08-09T01:00:00Z")
+/** 08:00 EDT — overdue nudges are already true, but the day isn't knowable. */
 const EIGHT_AM_ET = new Date("2026-08-08T12:00:00Z")
-/** Same local day, three hours later. */
-const ELEVEN_AM_ET = new Date("2026-08-08T15:00:00Z")
 /** 00:30 EDT the same local day — due, but far too early to buzz a phone. */
 const HALF_PAST_MIDNIGHT_ET = new Date("2026-08-08T04:30:00Z")
 
@@ -189,13 +191,18 @@ describe("reminder cron", () => {
 
   it("sends the day's nudge and claims the local date", async () => {
     const run = makeRunner(overdueTables())
-    const body = await run.at(EIGHT_AM_ET)
+    const body = await run.at(SIX_PM_ET)
 
     expect(body).toMatchObject({ ok: true, sent: 1, pruned: 0, users: 1 })
     const payload = JSON.parse(sendNotification.mock.calls[0][1])
     expect(payload.title).toBe("CraigFitness")
     expect(payload.body).toContain("It's been 7 days since your last workout")
-    expect(payload.body).toContain("Log your first weigh-in")
+    // The weigh-in line is the lowest priority the engine emits, so once the
+    // push waits for 18:00 and the evening nudges become reachable, it is the
+    // one the cap of three drops. Before, a morning send meant it was always
+    // present and the evening lines never were.
+    expect(payload.body).toContain("How's your energy today?")
+    expect(payload.body).not.toContain("Log your first weigh-in")
 
     expect(run.rec.updates).toContainEqual({
       table: "user_profiles",
@@ -208,10 +215,10 @@ describe("reminder cron", () => {
   it("sends once per local day no matter how many times the hour ticks", async () => {
     const run = makeRunner(overdueTables())
 
-    const first = await run.at(EIGHT_AM_ET)
+    const first = await run.at(SIX_PM_ET)
     expect(first.sent).toBe(1)
 
-    const second = await run.at(ELEVEN_AM_ET)
+    const second = await run.at(NINE_PM_ET)
     expect(second.sent).toBe(0)
     expect(second.skipped.notDue).toBe(1)
     expect(second.decisions[0].outcome).toBe("alreadySentToday")
@@ -227,12 +234,12 @@ describe("reminder cron", () => {
     // update that errors silently leaves the guard open for every later run.
     const run = makeRunner(overdueTables(), false)
 
-    const first = await run.at(EIGHT_AM_ET)
+    const first = await run.at(SIX_PM_ET)
     expect(first.sent).toBe(0)
     expect(first.skipped.claimFailed).toBe(1)
     expect(first.decisions[0].error).toContain("did not stick")
 
-    const second = await run.at(ELEVEN_AM_ET)
+    const second = await run.at(NINE_PM_ET)
     expect(second.sent).toBe(0)
     expect(sendNotification).not.toHaveBeenCalled()
   })
@@ -245,7 +252,18 @@ describe("reminder cron", () => {
     expect(body.skipped.notDue).toBe(1)
     expect(body.decisions[0]).toMatchObject({ hour: 0, outcome: "nothingDue" })
     expect(sendNotification).not.toHaveBeenCalled()
-    // The day stays unclaimed, so the morning run can still nudge.
+    // The day stays unclaimed, so the evening run can still nudge.
+    expect(run.rec.updates).toHaveLength(0)
+  })
+
+  // The workout gap and the weigh-in are true from midnight, so a morning
+  // send would claim the day and the 18:00 nudges could never be reached.
+  it("does not spend the day's push in the morning", async () => {
+    const run = makeRunner(overdueTables())
+    const body = await run.at(EIGHT_AM_ET)
+
+    expect(body.sent).toBe(0)
+    expect(body.decisions[0]).toMatchObject({ hour: 8, outcome: "nothingDue" })
     expect(run.rec.updates).toHaveLength(0)
   })
 
@@ -254,7 +272,7 @@ describe("reminder cron", () => {
       push_subscriptions: [{ ...SUB }],
       user_profiles: [{ timezone: null, last_push_sent_on: null }],
     })
-    const body = await run.at(EIGHT_AM_ET)
+    const body = await run.at(SIX_PM_ET)
 
     expect(body.skipped.noTimezone).toBe(1)
     expect(body.decisions[0].outcome).toBe("noTimezone")
@@ -263,7 +281,7 @@ describe("reminder cron", () => {
 
   it("skips a user whose stored timezone is unusable", async () => {
     const run = makeRunner(overdueTables({ timezone: "Not/AZone" }))
-    const body = await run.at(EIGHT_AM_ET)
+    const body = await run.at(SIX_PM_ET)
 
     expect(body.skipped.badTimezone).toBe(1)
     expect(sendNotification).not.toHaveBeenCalled()
@@ -271,7 +289,7 @@ describe("reminder cron", () => {
 
   it("stays quiet when the user has switched reminders off", async () => {
     const run = makeRunner(overdueTables({ reminder_settings: { enabled: false } }))
-    const body = await run.at(EIGHT_AM_ET)
+    const body = await run.at(SIX_PM_ET)
 
     expect(body.sent).toBe(0)
     expect(body.decisions[0].outcome).toBe("nothingDue")
@@ -281,7 +299,7 @@ describe("reminder cron", () => {
   it("prunes a subscription the push service has expired", async () => {
     sendNotification.mockRejectedValue({ statusCode: 410 })
     const run = makeRunner(overdueTables())
-    const body = await run.at(EIGHT_AM_ET)
+    const body = await run.at(SIX_PM_ET)
 
     expect(body).toMatchObject({ sent: 0, pruned: 1 })
     expect(run.rec.deletes).toContainEqual({ table: "push_subscriptions", id: "sub-1" })
@@ -292,7 +310,7 @@ describe("reminder cron", () => {
       Object.assign(new Error("too many requests"), { statusCode: 429 })
     )
     const run = makeRunner(overdueTables())
-    const body = await run.at(EIGHT_AM_ET)
+    const body = await run.at(SIX_PM_ET)
 
     expect(body).toMatchObject({ sent: 0, pruned: 0 })
     expect(body.sendErrors[0]).toContain("429")
@@ -307,7 +325,7 @@ describe("reminder cron", () => {
       Object.assign(new Error("too many requests"), { statusCode: 429 })
     )
     const run = makeRunner(overdueTables())
-    const body = await run.at(EIGHT_AM_ET)
+    const body = await run.at(SIX_PM_ET)
 
     expect(body.decisions[0].outcome).toBe("sendFailed")
     expect(body.decisions[0].delivered).toBe(0)
@@ -319,7 +337,7 @@ describe("reminder cron", () => {
   it("distinguishes every subscription being dead from a failing push service", async () => {
     sendNotification.mockRejectedValue({ statusCode: 410 })
     const run = makeRunner(overdueTables())
-    const body = await run.at(EIGHT_AM_ET)
+    const body = await run.at(SIX_PM_ET)
 
     // Retrying fixes a 429; only re-subscribing fixes this, so it can't be
     // reported as the same condition.
@@ -330,7 +348,7 @@ describe("reminder cron", () => {
 
   it("still reports a real delivery as sent", async () => {
     const run = makeRunner(overdueTables())
-    const body = await run.at(EIGHT_AM_ET)
+    const body = await run.at(SIX_PM_ET)
 
     expect(body.decisions[0].outcome).toBe("sent")
     expect(body.decisions[0].delivered).toBe(1)
@@ -355,7 +373,7 @@ describe("reminder cron", () => {
         table === "creatine_logs" ? failing : db.from(table),
     }
     createServiceClient.mockReturnValue(wrapped)
-    vi.setSystemTime(EIGHT_AM_ET)
+    vi.setSystemTime(SIX_PM_ET)
     const body = await (await GET(new Request("https://app.test/api/cron/reminders"))).json()
 
     expect(body.contextErrors).toContain("creatine_logs: boom")
@@ -363,7 +381,7 @@ describe("reminder cron", () => {
 
   it("writes the run summary to the log, since the response goes nowhere", async () => {
     const run = makeRunner(overdueTables())
-    await run.at(EIGHT_AM_ET)
+    await run.at(SIX_PM_ET)
 
     const logged = (console.log as unknown as { mock: { calls: string[][] } }).mock.calls
     const summary = JSON.parse(logged[logged.length - 1][0])
@@ -371,7 +389,7 @@ describe("reminder cron", () => {
     expect(summary.decisions[0]).toMatchObject({
       user: "user-1",
       tz: TZ,
-      hour: 8,
+      hour: 18,
       localDate: "2026-08-08",
       outcome: "sent",
       delivered: 1,
