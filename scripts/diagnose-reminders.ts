@@ -149,6 +149,13 @@ function isMissingTable(err: { code?: string; message?: string }): boolean {
   return err.code === "PGRST205" || /schema cache/i.test(err.message ?? "")
 }
 
+/** A rejected key, as opposed to a query that ran and found nothing. */
+function isAuthFailure(err: { code?: string; message?: string }): boolean {
+  return /invalid api key|jwt|unauthorized|invalid authentication/i.test(
+    err.message ?? ""
+  )
+}
+
 const REQUIRED_TABLES = [
   "push_subscriptions",
   "user_profiles",
@@ -162,7 +169,31 @@ const REQUIRED_TABLES = [
 const missingTables: string[] = []
 for (const table of REQUIRED_TABLES) {
   const { error } = await db.from(table).select("*", { head: true }).limit(1)
-  if (error && isMissingTable(error)) missingTables.push(table)
+  if (!error) continue
+  // A rejected key fails every table identically, so reporting it as seven
+  // missing tables would point at the schema when the problem is the
+  // credential. It also matters far beyond this script: the reminder cron
+  // builds its client from this exact pair (see createServiceClient), so a
+  // key the pair rejects means the cron cannot read anything either.
+  if (isAuthFailure(error)) {
+    console.error(
+      `\n  ✖  ${host} rejected SUPABASE_SERVICE_ROLE_KEY: ${error.message}\n\n` +
+        "     This is the same NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY\n" +
+        "     pair that src/lib/supabase/service.ts builds the reminder cron's\n" +
+        "     client from. If the deployed cron holds this pair, it cannot read\n" +
+        "     push_subscriptions and sends nothing at all.\n\n" +
+        "     Worth separating two cases:\n\n" +
+        "       • The key is wrong only HERE. Vercel cannot read back a variable\n" +
+        "         marked Sensitive, so `vercel env pull` need not round-trip it.\n" +
+        "         Take service_role straight from the Supabase dashboard for this\n" +
+        "         project and retry.\n\n" +
+        "       • The key is wrong in PRODUCTION too — it belongs to a different\n" +
+        "         project, or the project disabled legacy JWT keys. Then the cron\n" +
+        "         is dead and no reminder has been sent since it broke.\n"
+    )
+    process.exit(1)
+  }
+  if (isMissingTable(error)) missingTables.push(table)
 }
 
 if (missingTables.length > 0) {
