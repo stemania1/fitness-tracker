@@ -299,6 +299,44 @@ describe("reminder cron", () => {
     expect(run.rec.deletes).toHaveLength(0)
   })
 
+  // The day is claimed before the send, deliberately — an unset guard would
+  // re-nudge all day. That makes an undelivered push cost the user the whole
+  // day, so the decision has to say it happened.
+  it("does not call a day 'sent' when every push failed", async () => {
+    sendNotification.mockRejectedValue(
+      Object.assign(new Error("too many requests"), { statusCode: 429 })
+    )
+    const run = makeRunner(overdueTables())
+    const body = await run.at(EIGHT_AM_ET)
+
+    expect(body.decisions[0].outcome).toBe("sendFailed")
+    expect(body.decisions[0].delivered).toBe(0)
+    expect(body.skipped.sendFailed).toBe(1)
+    // Still claimed: losing one day's nudge beats nudging every hour.
+    expect(run.rec.updates).toHaveLength(1)
+  })
+
+  it("distinguishes every subscription being dead from a failing push service", async () => {
+    sendNotification.mockRejectedValue({ statusCode: 410 })
+    const run = makeRunner(overdueTables())
+    const body = await run.at(EIGHT_AM_ET)
+
+    // Retrying fixes a 429; only re-subscribing fixes this, so it can't be
+    // reported as the same condition.
+    expect(body.decisions[0].outcome).toBe("subscriptionsGone")
+    expect(body.decisions[0].pruned).toBe(1)
+    expect(body.skipped.subscriptionsGone).toBe(1)
+  })
+
+  it("still reports a real delivery as sent", async () => {
+    const run = makeRunner(overdueTables())
+    const body = await run.at(EIGHT_AM_ET)
+
+    expect(body.decisions[0].outcome).toBe("sent")
+    expect(body.decisions[0].delivered).toBe(1)
+    expect(body.skipped.sendFailed).toBe(0)
+  })
+
   it("surfaces a failed context query instead of nudging on made-up data", async () => {
     const rec: Recorder = { updates: [], deletes: [] }
     const db = makeDb(overdueTables(), rec)
