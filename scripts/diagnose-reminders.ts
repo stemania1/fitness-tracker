@@ -47,6 +47,71 @@ if (!url || !key) {
   process.exit(1)
 }
 
+// ── Reachability pre-flight ──────────────────────────────────────────────
+//
+// supabase-js reports a transport failure as a bare "TypeError: fetch
+// failed" with the real reason buried in the Error's `cause`, which its
+// error object does not carry. That reads as "the query went wrong" when in
+// fact nothing was ever sent — a very different problem with very different
+// fixes. One raw fetch here, where the cause is still attached, turns it
+// into an actionable message before any query runs.
+//
+// The host is printed unconditionally, secret-free. Pointing at a local
+// Supabase stack instead of the project the cron actually reads is the
+// easiest way to get a confident, completely wrong answer out of this
+// script, and seeing the host makes that mistake self-evident.
+//
+// All of this runs BEFORE createClient, which throws its own terse error on
+// a malformed URL — and a value wrapped in stray quotes by an .env editor is
+// exactly the case that needs a message saying so.
+
+let host: string
+try {
+  host = new URL(url).host
+} catch {
+  console.error(
+    `NEXT_PUBLIC_SUPABASE_URL is not a valid URL: ${JSON.stringify(url)}\n` +
+      "It should look like https://<ref>.supabase.co — check for stray quotes\n" +
+      "or a missing https:// prefix."
+  )
+  process.exit(1)
+}
+
+console.log(`\nreading ${host}`)
+if (/^(localhost|127\.|\[?::1)/.test(host)) {
+  console.log(
+    "  ⚠  That is a LOCAL Supabase stack, not the project the reminder cron\n" +
+      "     reads. Every account will look empty and this script will tell you\n" +
+      "     nothing about the push you received."
+  )
+}
+
+try {
+  await fetch(`${url.replace(/\/$/, "")}/rest/v1/`, {
+    method: "HEAD",
+    headers: { apikey: key },
+  })
+} catch (err) {
+  const cause = (err as { cause?: { code?: string } }).cause
+  const code = cause?.code ?? "unknown"
+  console.error(`\nCannot reach ${host} (${code}).\n`)
+  const hint =
+    code === "ENOTFOUND"
+      ? "That hostname does not resolve. Check NEXT_PUBLIC_SUPABASE_URL for a\n" +
+        "typo, and confirm the project still exists in the Supabase dashboard."
+      : code === "ECONNREFUSED"
+        ? "Nothing is listening there. If this is a local stack, start it with\n" +
+          "`npx supabase start` — but you almost certainly want the hosted\n" +
+          "project instead, since that is what the cron reads."
+        : code === "CERT_HAS_EXPIRED" || code === "UNABLE_TO_VERIFY_LEAF_SIGNATURE"
+          ? "TLS verification failed. A proxy or VPN is likely intercepting the\n" +
+            "connection."
+          : "Most often this is a paused Supabase project (the dashboard will\n" +
+            "say so and offer to restore it), or no network route to the host."
+  console.error(hint + "\n")
+  process.exit(1)
+}
+
 const db = createClient(url, key, {
   auth: { persistSession: false, autoRefreshToken: false },
 })
