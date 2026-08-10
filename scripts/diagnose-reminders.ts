@@ -218,178 +218,22 @@ if (missingTables.length > 0) {
 
 // ── Mirrored production logic ────────────────────────────────────────────
 //
-// This script runs under bare `node --experimental-strip-types`, which does
-// not resolve the `@/` path alias, so it cannot import the real modules. The
-// values below are copies and MUST be kept in step with:
-//
-//   src/lib/reminders.ts          — the hour gates and priorities
-//   src/lib/reminder-settings.ts  — quiet hours
-//   src/lib/push/due.ts           — the start-hour floor
-//
-// A copy that has drifted makes this script lie in the most damaging way
-// possible: confidently, about the thing it was written to settle. If a gate
-// below disagrees with the source file, the source file wins.
+// This script runs under bare `node --experimental-strip-types`, which
+// resolves neither the `@/` alias nor the extensionless relative imports the
+// real modules use internally, so it cannot import the reminder engine. The
+// copy lives in ./reminder-mirror.ts, and reminder-mirror.test.ts asserts the
+// copy and the real thing agree across every hour, context and setting — so
+// drift fails CI rather than surfacing as a confident wrong answer here.
 
-/** src/lib/reminders.ts — hour after which a missing-meal nudge makes sense. */
-const AFTERNOON = 14
-/** src/lib/reminders.ts — hour after which evening nudges make sense. */
-const EVENING = 18
-/** src/lib/reminders.ts — a workout gap of this many days is worth a nudge. */
-const WORKOUT_GAP_DAYS = 3
-/** src/lib/reminders.ts — weigh-in cadence. */
-const WEIGH_IN_DAYS = 7
-/** src/lib/push/due.ts — earliest local hour a push may go out. */
-const DEFAULT_PUSH_START_HOUR = 8
-/** src/lib/reminders.ts — the digest is capped at this many lines. */
-const MAX_REMINDERS = 3
-
-type ReminderType =
-  | "log_workout"
-  | "log_meal"
-  | "energy_checkin"
-  | "log_weight"
-  | "log_creatine"
-
-interface ReminderSettings {
-  enabled: boolean
-  types: Record<ReminderType, boolean>
-  quietStartHour: number | null
-  quietEndHour: number | null
-}
-
-const REMINDER_TYPES: ReminderType[] = [
-  "log_workout",
-  "log_meal",
-  "energy_checkin",
-  "log_weight",
-  "log_creatine",
-]
-
-function defaultReminderSettings(): ReminderSettings {
-  return {
-    enabled: true,
-    types: {
-      log_workout: true,
-      log_meal: true,
-      energy_checkin: true,
-      log_weight: true,
-      log_creatine: true,
-    },
-    quietStartHour: null,
-    quietEndHour: null,
-  }
-}
-
-function validHour(v: unknown): number | null {
-  return typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= 23
-    ? v
-    : null
-}
-
-/** Mirror of normalizeReminderSettings in src/lib/reminder-settings.ts. */
-function normalizeReminderSettings(raw: unknown): ReminderSettings {
-  const d = defaultReminderSettings()
-  if (!raw || typeof raw !== "object") return d
-  const r = raw as Record<string, unknown>
-
-  const types = { ...d.types }
-  if (r.types && typeof r.types === "object") {
-    const rt = r.types as Record<string, unknown>
-    for (const k of REMINDER_TYPES) {
-      if (typeof rt[k] === "boolean") types[k] = rt[k] as boolean
-    }
-  }
-
-  return {
-    enabled: typeof r.enabled === "boolean" ? r.enabled : d.enabled,
-    types,
-    quietStartHour: validHour(r.quietStartHour),
-    quietEndHour: validHour(r.quietEndHour),
-  }
-}
-
-/** Mirror of isQuietHour in src/lib/reminder-settings.ts. */
-function isQuietHour(
-  hour: number,
-  start: number | null,
-  end: number | null
-): boolean {
-  if (start == null || end == null || start === end) return false
-  return start < end ? hour >= start && hour < end : hour >= start || hour < end
-}
-
-interface ReminderContext {
-  hour: number
-  mealsLoggedToday: number
-  workedOutToday: boolean
-  daysSinceLastWorkout: number | null
-  energyCheckedInToday: boolean
-  daysSinceLastWeighIn: number | null
-  creatineTakenToday: boolean
-}
-
-/** Mirror of computeReminders in src/lib/reminders.ts — titles included. */
-function computeReminders(
-  ctx: ReminderContext,
-  settings: ReminderSettings
-): { type: ReminderType; priority: number; title: string }[] {
-  if (!settings.enabled) return []
-  if (isQuietHour(ctx.hour, settings.quietStartHour, settings.quietEndHour)) {
-    return []
-  }
-
-  const out: { type: ReminderType; priority: number; title: string }[] = []
-
-  if (
-    !ctx.workedOutToday &&
-    ctx.daysSinceLastWorkout != null &&
-    ctx.daysSinceLastWorkout >= WORKOUT_GAP_DAYS
-  ) {
-    out.push({
-      type: "log_workout",
-      priority: 80,
-      title: `It's been ${ctx.daysSinceLastWorkout} days since your last workout`,
-    })
-  }
-
-  if (ctx.hour >= AFTERNOON && ctx.mealsLoggedToday === 0) {
-    out.push({ type: "log_meal", priority: 65, title: "No meals logged yet today" })
-  } else if (ctx.hour >= EVENING + 2 && ctx.mealsLoggedToday < 2) {
-    out.push({ type: "log_meal", priority: 55, title: "Log your dinner before bed" })
-  }
-
-  if (!ctx.energyCheckedInToday && ctx.hour >= EVENING) {
-    out.push({
-      type: "energy_checkin",
-      priority: 40,
-      title: "How's your energy today?",
-    })
-  }
-
-  if (!ctx.creatineTakenToday && ctx.hour >= EVENING) {
-    out.push({
-      type: "log_creatine",
-      priority: 35,
-      title: "Haven't logged creatine today",
-    })
-  }
-
-  if (ctx.daysSinceLastWeighIn == null || ctx.daysSinceLastWeighIn >= WEIGH_IN_DAYS) {
-    out.push({
-      type: "log_weight",
-      priority: 30,
-      title:
-        ctx.daysSinceLastWeighIn == null
-          ? "Log your first weigh-in"
-          : "Time for a weekly weigh-in",
-    })
-  }
-
-  return out
-    .filter((r) => settings.types[r.type] !== false)
-    .sort((a, b) => b.priority - a.priority)
-    .slice(0, MAX_REMINDERS)
-}
+import {
+  EVENING,
+  MAX_REMINDERS,
+  REMINDER_TYPES,
+  computeReminders,
+  normalizeReminderSettings,
+  pushStartHour,
+  type ReminderContext,
+} from "./reminder-mirror.ts"
 
 // ── Time helpers (mirror src/lib/push/timezone.ts) ───────────────────────
 
@@ -512,7 +356,7 @@ for (const [userId, userSubs] of byUser) {
   }
 
   const settings = normalizeReminderSettings(profile.reminder_settings)
-  const startHour = settings.quietEndHour ?? DEFAULT_PUSH_START_HOUR
+  const startHour = pushStartHour(settings.quietEndHour)
 
   console.log(`  local now     ${localDate} ${String(hour).padStart(2, "0")}:xx`)
   console.log(
@@ -526,7 +370,7 @@ for (const [userId, userSubs] of byUser) {
   console.log(
     `  settings      enabled=${settings.enabled}` +
       `  quiet=${settings.quietStartHour ?? "–"}→${settings.quietEndHour ?? "–"}` +
-      `  earliest push hour=${startHour}`
+      `  daily push hour=${startHour}`
   )
   const offTypes = REMINDER_TYPES.filter((t) => settings.types[t] === false)
   if (offTypes.length > 0) console.log(`  muted types   ${offTypes.join(", ")}`)
@@ -665,7 +509,7 @@ for (const [userId, userSubs] of byUser) {
   }
 
   const render = (h: number): string => {
-    if (h < startHour) return `(held — before the ${startHour}:00 start hour)`
+    if (h < startHour) return `(held — the day's push goes out at ${startHour}:00)`
     const rs = computeReminders({ ...ctxBase, hour: h }, settings)
     if (rs.length === 0) return "(nothing due — no push)"
     return "\n" + rs.map((r) => `                  ${r.title}`).join("\n")
@@ -673,11 +517,13 @@ for (const [userId, userSubs] of byUser) {
 
   console.log("\n  what the cron would send")
   console.log(`    right now (${String(hour).padStart(2, "0")}:00)  ${render(hour)}`)
-  // The evening hour matters on its own: the energy and creatine nudges are
-  // gated at 18:00, so they can only ever appear in a push built at or after
-  // that hour, whatever the clock says while this script runs.
-  if (hour !== EVENING) {
-    console.log(`    at 18:00            ${render(EVENING)}`)
+  // The send hour is worth showing on its own whenever the script runs at
+  // some other time: it is the only hour that produces a push at all, so it
+  // is the only one that describes what the user will actually receive.
+  if (hour !== startHour) {
+    console.log(
+      `    at ${String(startHour).padStart(2, "0")}:00 (the day's send hour)  ${render(startHour)}`
+    )
   }
 }
 
