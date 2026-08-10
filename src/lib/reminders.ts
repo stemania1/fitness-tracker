@@ -52,8 +52,14 @@ export interface Reminder {
 
 /** Hour after which a missing-meal nudge makes sense (past lunch). */
 const AFTERNOON = 14
-/** Hour after which evening nudges (dinner, energy) make sense. */
-const EVENING = 18
+/**
+ * Hour after which evening nudges (dinner, energy) make sense.
+ *
+ * Exported because it is the latest gate any reminder has, which makes it the
+ * earliest hour at which the whole day's set is knowable — the push sender
+ * needs that to decide when to compose its one notification.
+ */
+export const EVENING = 18
 /** A workout gap of this many days is worth a nudge. */
 const WORKOUT_GAP_DAYS = 3
 /** Weigh-in cadence. */

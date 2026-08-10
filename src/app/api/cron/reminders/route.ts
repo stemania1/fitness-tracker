@@ -88,6 +88,10 @@ export async function GET(request: Request) {
     notDue: 0,
     claimFailed: 0,
     claimLost: 0,
+    // Claimed the day and then reached nobody — the user gets nothing until
+    // tomorrow, so these must not be counted as sends.
+    sendFailed: 0,
+    subscriptionsGone: 0,
   }
   // Messages from failed context queries, so a run that fabricated-then-
   // suppressed reminders is visible in the response (bounded to stay small).
@@ -191,8 +195,10 @@ export async function GET(request: Request) {
       continue
     }
 
-    decision.outcome = "sent"
     decision.body = notification.body
+    let deliveredHere = 0
+    let prunedHere = 0
+    let failedHere = 0
     for (const sub of userSubs ?? []) {
       try {
         await webpush.sendNotification(
@@ -200,17 +206,42 @@ export async function GET(request: Request) {
           JSON.stringify({ ...notification, source })
         )
         sent++
-        decision.delivered = (decision.delivered ?? 0) + 1
+        deliveredHere++
       } catch (err) {
         const status = (err as { statusCode?: number }).statusCode
         if (status === 404 || status === 410) {
           await db.from("push_subscriptions").delete().eq("id", sub.id)
           pruned++
-          decision.delivered = decision.delivered ?? 0
-        } else if (sendErrors.length < 20) {
-          sendErrors.push(`${status ?? "?"}: ${(err as Error).message ?? "unknown"}`)
+          prunedHere++
+        } else {
+          failedHere++
+          if (sendErrors.length < 20) {
+            sendErrors.push(`${status ?? "?"}: ${(err as Error).message ?? "unknown"}`)
+          }
         }
       }
+    }
+    decision.delivered = deliveredHere
+    decision.pruned = prunedHere
+
+    // A day that reached nobody is not a day that was sent. The outcome used
+    // to be written before this loop ran, so a user whose every push failed
+    // was recorded as "sent" — and the guard above is already claimed, so
+    // they get nothing until tomorrow. The one line in the log that says what
+    // happened to this user asserted the opposite of what happened.
+    //
+    // The two ways it reaches nobody need different responses, so they get
+    // different outcomes: a push service that errored is worth retrying and
+    // probably transient, while every subscription being gone means the
+    // device must re-subscribe and no amount of retrying will help.
+    if (deliveredHere > 0) {
+      decision.outcome = "sent"
+    } else if (failedHere === 0 && prunedHere > 0) {
+      skipped.subscriptionsGone++
+      decision.outcome = "subscriptionsGone"
+    } else {
+      skipped.sendFailed++
+      decision.outcome = "sendFailed"
     }
   }
 
@@ -254,8 +285,12 @@ interface UserDecision {
     | "claimFailed"
     | "claimLost"
     | "sent"
-  /** Subscriptions the push actually reached (only set when outcome is sent). */
+    | "sendFailed"
+    | "subscriptionsGone"
+  /** Subscriptions the push actually reached. */
   delivered?: number
+  /** Subscriptions the push service reported dead, and we deleted. */
+  pruned?: number
   body?: string
   error?: string
 }

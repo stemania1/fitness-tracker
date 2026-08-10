@@ -6,7 +6,7 @@ import {
   daysBetweenLocalDates,
   localWeekdayInZone,
 } from "./timezone"
-import { dueReminderPush, pushStartHour, DEFAULT_PUSH_START_HOUR } from "./due"
+import { dueReminderPush, pushStartHour, DAILY_PUSH_HOUR } from "./due"
 import type { Reminder } from "@/lib/reminders"
 import type { ReminderContext } from "@/lib/reminders"
 
@@ -147,7 +147,7 @@ describe("dueReminderPush", () => {
     expect(
       dueReminderPush({
         reminderSettingsRaw: {},
-        ctx: { ...overdueCtx, hour: DEFAULT_PUSH_START_HOUR - 1 },
+        ctx: { ...overdueCtx, hour: DAILY_PUSH_HOUR - 1 },
         localDate: "2026-01-15",
         lastPushSentOn: null,
       })
@@ -155,33 +155,68 @@ describe("dueReminderPush", () => {
     expect(
       dueReminderPush({
         reminderSettingsRaw: {},
-        ctx: { ...overdueCtx, hour: DEFAULT_PUSH_START_HOUR },
+        ctx: { ...overdueCtx, hour: DAILY_PUSH_HOUR },
         localDate: "2026-01-15",
         lastPushSentOn: null,
       })
     ).not.toBeNull()
   })
 
-  it("starts at the user's quiet-hours end when they've set one", () => {
-    // Quiet 22:00–06:00 → the day's push may go out from 6am, not 8am.
-    const settings = { quietStartHour: 22, quietEndHour: 6 }
-    expect(pushStartHour(6)).toBe(6)
+  // The whole reason the push waits: the workout gap is true from midnight
+  // and would otherwise claim the day before either evening nudge existed.
+  it("carries the evening nudges the morning would have suppressed", () => {
+    const skippedEverything: ReminderContext = {
+      ...overdueCtx,
+      hour: DAILY_PUSH_HOUR,
+      // Meals logged, so the meal nudge doesn't fire and the digest's cap of
+      // three leaves room for both evening lines. This is the exact shape of
+      // the real notification that started the investigation.
+      mealsLoggedToday: 3,
+      energyCheckedInToday: false,
+      creatineTakenToday: false,
+    }
+    const n = dueReminderPush({
+      reminderSettingsRaw: {},
+      ctx: skippedEverything,
+      localDate: "2026-01-15",
+      lastPushSentOn: null,
+    })
+    expect(n?.body).toContain("How's your energy today?")
+    expect(n?.body).toContain("Haven't logged creatine today")
+  })
+
+  it("lets quiet hours delay the push but never bring it forward", () => {
+    // Quiet 22:00–06:00. The window ending at 6am is permission to disturb,
+    // not a reason to send before the day is knowable.
+    expect(pushStartHour(6)).toBe(DAILY_PUSH_HOUR)
     expect(
       dueReminderPush({
-        reminderSettingsRaw: settings,
+        reminderSettingsRaw: { quietStartHour: 22, quietEndHour: 6 },
         ctx: { ...overdueCtx, hour: 6 },
         localDate: "2026-01-15",
         lastPushSentOn: null,
       })
-    ).not.toBeNull()
+    ).toBeNull()
+
+    // Quiet 09:00–20:00 pushes it later, and that must be honored.
+    const lateSettings = { quietStartHour: 9, quietEndHour: 20 }
+    expect(pushStartHour(20)).toBe(20)
     expect(
       dueReminderPush({
-        reminderSettingsRaw: settings,
-        ctx: { ...overdueCtx, hour: 5 },
+        reminderSettingsRaw: lateSettings,
+        ctx: { ...overdueCtx, hour: DAILY_PUSH_HOUR },
         localDate: "2026-01-15",
         lastPushSentOn: null,
       })
     ).toBeNull()
+    expect(
+      dueReminderPush({
+        reminderSettingsRaw: lateSettings,
+        ctx: { ...overdueCtx, hour: 20 },
+        localDate: "2026-01-15",
+        lastPushSentOn: null,
+      })
+    ).not.toBeNull()
   })
 })
 
