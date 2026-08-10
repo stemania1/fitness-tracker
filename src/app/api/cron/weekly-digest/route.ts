@@ -11,6 +11,7 @@ import {
   localDateInZone,
   localWeekdayInZone,
 } from "@/lib/push/timezone"
+import { payloadSource } from "@/lib/push/payload-source"
 import {
   estimateAdaptiveTdee,
   recommendedRate,
@@ -131,7 +132,11 @@ export async function GET(request: Request) {
       try {
         await webpush.sendNotification(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-          JSON.stringify({ ...notification, tag: "craigfitness-weekly-digest" })
+          JSON.stringify({
+            ...notification,
+            source: payloadSource(),
+            tag: "craigfitness-weekly-digest",
+          })
         )
         delivered = true
         sent++

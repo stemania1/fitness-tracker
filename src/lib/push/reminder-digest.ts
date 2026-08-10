@@ -16,6 +16,19 @@ export interface PushNotification {
    */
   builtAt: string
   /**
+   * Which database and build produced this payload, as `<ref>@<commit>`.
+   *
+   * `builtAt` distinguishes a fresh notification from a replayed one but says
+   * nothing about WHO sent it. A reminder whose contents match no row in the
+   * database being inspected is either computed from a different database or
+   * sent by something that isn't this deployment — indistinguishable on a
+   * lock screen, and the question that has taken the longest to answer here.
+   *
+   * Attached by the sending route rather than the builders, so the pure
+   * digest functions stay free of environment lookups.
+   */
+  source?: string
+  /**
    * Notification tag. Omitted by reminders, which share the service worker's
    * default so a newer one replaces the last instead of stacking.
    */

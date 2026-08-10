@@ -4,6 +4,12 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Bug, CheckCircle2, AlertTriangle } from "lucide-react"
 import { isViewportDebugOn, setViewportDebug } from "@/lib/viewport-debug-flag"
+import {
+  readReceivedPushes,
+  deliveryLagMs,
+  formatLag,
+  type ReceivedPush,
+} from "@/lib/push/received-log"
 
 /** Device-side facts the server can't see. */
 interface DeviceState {
@@ -11,6 +17,8 @@ interface DeviceState {
   controlled: boolean
   updatePending: boolean
   standalone: boolean
+  /** Tail of this browser's push endpoint, or null if it isn't subscribed. */
+  endpointTail: string | null
 }
 
 async function readDeviceState(): Promise<DeviceState> {
@@ -22,16 +30,23 @@ async function readDeviceState(): Promise<DeviceState> {
 
   let controlled = false
   let updatePending = false
+  let endpointTail: string | null = null
   if ("serviceWorker" in navigator) {
     controlled = !!navigator.serviceWorker.controller
     try {
       const reg = await navigator.serviceWorker.getRegistration()
       updatePending = !!reg?.waiting
+      // The endpoint is a capability URL, so only the tail is shown — enough
+      // to check this browser against the rows stored server-side. A device
+      // receiving pushes addressed to an endpoint it no longer holds is the
+      // shape of a second, forgotten subscription.
+      const sub = await reg?.pushManager.getSubscription()
+      if (sub) endpointTail = sub.endpoint.slice(-8)
     } catch {
       // Leave the defaults; the panel must not throw.
     }
   }
-  return { permission, controlled, updatePending, standalone }
+  return { permission, controlled, updatePending, standalone, endpointTail }
 }
 
 interface PushStatus {
@@ -59,6 +74,7 @@ export function DiagnosticsCard() {
   const [on, setOn] = useState(false)
   const [push, setPush] = useState<PushStatus | null>(null)
   const [device, setDevice] = useState<DeviceState | null>(null)
+  const [received, setReceived] = useState<ReceivedPush[]>([])
 
   // Read after mount: localStorage isn't available during SSR.
   useEffect(() => {
@@ -69,6 +85,9 @@ export function DiagnosticsCard() {
     let cancelled = false
     void readDeviceState().then((d) => {
       if (!cancelled) setDevice(d)
+    })
+    void readReceivedPushes().then((r) => {
+      if (!cancelled) setReceived(r)
     })
     fetch("/api/push/status")
       .then((r) => (r.ok ? r.json() : null))
@@ -136,11 +155,47 @@ export function DiagnosticsCard() {
                 ? "Running as an installed app."
                 : "Running in a browser tab — iOS only delivers push to the installed app."}
             </p>
+            {device.endpointTail && (
+              <p className="mt-0.5 font-mono opacity-75">
+                endpoint …{device.endpointTail}
+              </p>
+            )}
             {/* iOS gives the web no way to see Focus / Do Not Disturb, and it
                 silences banners for a push that was delivered successfully. */}
             <p className="mt-1 opacity-75">
               If everything here looks right but nothing arrives, check
               Settings → Focus and Settings → Notifications → CraigFitness.
+            </p>
+          </div>
+        )}
+
+        {/* The payload is the only artifact that survives a wrong
+            notification, and until now it was read once off a lock screen and
+            gone. Every entry here answers the two questions that took longest:
+            how late it arrived, and which database produced it. */}
+        {received.length > 0 && (
+          <div className="rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600">
+            <p className="font-medium text-gray-900">Notifications received</p>
+            <ul className="mt-1 space-y-2">
+              {received.map((r) => (
+                <li key={r.receivedAt} className="border-l-2 border-gray-200 pl-2">
+                  <p className="whitespace-pre-line text-gray-900">
+                    {r.body || "(no body)"}
+                  </p>
+                  <p className="mt-0.5 opacity-75">
+                    {new Date(r.receivedAt).toLocaleString()}
+                    {r.shown ? "" : " · dropped as stale"}
+                  </p>
+                  <p className="font-mono opacity-75">
+                    built {r.builtAt ? formatLag(deliveryLagMs(r)) + " earlier" : "unstamped"}
+                    {r.source ? ` · ${r.source}` : " · no source"}
+                  </p>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 opacity-75">
+              An unstamped payload, or one whose source names a database you
+              don&apos;t recognise, did not come from this app&apos;s cron.
             </p>
           </div>
         )}
