@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import webpush from "web-push"
+import { payloadSource } from "@/lib/push/payload-source"
 
 export const runtime = "nodejs"
 
@@ -50,6 +51,15 @@ export async function POST() {
     title: "CraigFitness",
     body: "Test notification — push is working! 🎉",
     url: "/dashboard",
+    // Stamped so "no source" keeps meaning "not sent by this code". Without
+    // it a test push and a foreign sender look identical in the received-push
+    // journal, which is the one distinction that journal exists to draw.
+    //
+    // No builtAt, deliberately: that field is what makes the service worker
+    // drop a stale payload, and a test push is a statement about delivery
+    // rather than about the day. Suppressing the banner someone just asked
+    // for would misreport the thing they were testing.
+    source: payloadSource(),
     // Distinct tag per test so a repeat tap always shows a fresh banner
     // instead of silently replacing the previous one.
     tag: `craigfitness-test-${Date.now()}`,
