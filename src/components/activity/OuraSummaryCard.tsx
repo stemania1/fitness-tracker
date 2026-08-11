@@ -27,6 +27,7 @@ import {
 import type { OuraSummary } from "@/lib/oura"
 import { formatSleepDuration } from "@/lib/oura"
 import { zoneRange, classifyHeartRate } from "@/lib/heart-rate"
+import { formatHourTick, hourlyTicks } from "@/lib/chart-ticks"
 import { RingBatteryIndicator } from "@/components/activity/RingBatteryIndicator"
 import { localToday } from "@/lib/dates"
 import { useProfile } from "@/hooks/useProfile"
@@ -56,6 +57,22 @@ export function OuraSummaryCard() {
 
   // Zone 2-3 band for the heart-rate chart (moderate-effort target).
   const moderateZone = useMemo(() => zoneRange(age ?? null, 2, 3), [age])
+
+  const heartRateData = useMemo(
+    () =>
+      (ouraSummary?.heartRateReadings ?? []).map((hr) => ({
+        t: new Date(hr.timestamp).getTime(),
+        bpm: hr.bpm,
+      })),
+    [ouraSummary]
+  )
+
+  // Explicit clock-aligned ticks — Recharts' automatic placement snaps to
+  // the irregular sample times otherwise.
+  const heartRateTicks = useMemo(() => {
+    const times = heartRateData.map((d) => d.t)
+    return hourlyTicks(Math.min(...times), Math.max(...times))
+  }, [heartRateData])
 
   if (ouraLoading || !ouraConnected) return null
 
@@ -239,12 +256,7 @@ export function OuraSummaryCard() {
               )}
             </p>
             <ResponsiveContainer width="100%" height={120}>
-              <LineChart
-                data={ouraSummary.heartRateReadings.map((hr) => ({
-                  t: new Date(hr.timestamp).getTime(),
-                  bpm: hr.bpm,
-                }))}
-              >
+              <LineChart data={heartRateData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 {moderateZone && (
                   <ReferenceArea
@@ -260,17 +272,11 @@ export function OuraSummaryCard() {
                   type="number"
                   scale="time"
                   domain={["dataMin", "dataMax"]}
-                  tickFormatter={(t) =>
-                    new Date(t).toLocaleTimeString("en-US", {
-                      hour: "numeric",
-                      minute: "2-digit",
-                      hour12: true,
-                    })
-                  }
+                  ticks={heartRateTicks}
+                  tickFormatter={formatHourTick}
                   tick={{ fontSize: 10 }}
                   stroke="#9ca3af"
-                  interval="preserveStartEnd"
-                  minTickGap={40}
+                  interval={0}
                 />
                 <YAxis
                   tick={{ fontSize: 10 }}

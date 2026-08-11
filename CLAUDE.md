@@ -68,6 +68,7 @@ fitness-tracker/
 │   │   ├── recovery.ts              # HRV overreaching / Recovery Watch
 │   │   ├── sleep-insights.ts        # REM-sleep insights + correlations
 │   │   ├── heart-rate.ts            # HR zones from age
+│   │   ├── chart-ticks.ts           # Clock-aligned time ticks for chart axes
 │   │   ├── bedtime.ts               # Sleep-anchored bedtime + caffeine cutoff
 │   │   ├── limitations.ts           # Non-diagnostic "when to seek care" data
 │   │   ├── weight-projection.ts     # Goal-date linear regression
