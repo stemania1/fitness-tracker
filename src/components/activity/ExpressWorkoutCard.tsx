@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
 import { ensureExercisesExist } from "@/lib/supabase/exercises"
-import { Zap } from "lucide-react"
+import { ChevronDown, Zap } from "lucide-react"
 import {
   generateWorkout,
   type GeneratedWorkout,
@@ -13,10 +13,14 @@ import {
 import { useProfile } from "@/hooks/useProfile"
 import { getAuthUserId } from "@/lib/supabase/user-query"
 import { InsightCard } from "@/components/ui/insight-card"
+import { ExerciseInfoBody } from "@/components/activity/ExerciseInfo"
 
 const supabase = createClient()
 
 const MINUTE_OPTIONS = [15, 20, 30]
+
+/** What happens after the circuit is persisted as a template. */
+type SaveIntent = "save" | "start"
 
 /**
  * "I have N minutes" → a full-body, high-ROI circuit sized to fit, so a packed
@@ -28,11 +32,16 @@ export function ExpressWorkoutCard() {
   const queryClient = useQueryClient()
   const [minutes, setMinutes] = useState<number | null>(null)
   const [workout, setWorkout] = useState<GeneratedWorkout | null>(null)
+  /** Which circuit row has its "how do I do this" panel open, if any. */
+  const [openExerciseId, setOpenExerciseId] = useState<string | null>(null)
 
   const { data: profile } = useProfile()
 
   function pick(mins: number) {
     setMinutes(mins)
+    // A reshuffle renders a different list; leaving a row id open would expand
+    // whichever exercise happened to reuse it.
+    setOpenExerciseId(null)
     const [w] = generateWorkout({
       goal: profile?.primary_goal ?? "general_fitness",
       fitnessLevel: profile?.fitness_level ?? "beginner",
@@ -46,7 +55,7 @@ export function ExpressWorkoutCard() {
   }
 
   const save = useMutation({
-    mutationFn: async (w: GeneratedWorkout) => {
+    mutationFn: async ({ w }: { w: GeneratedWorkout; intent: SaveIntent }) => {
       const userId = await getAuthUserId()
       const idMap = await ensureExercisesExist(
         supabase,
@@ -85,12 +94,20 @@ export function ExpressWorkoutCard() {
           .insert(rows as unknown as never[])
         if (exErr) throw exErr
       }
+      return template.id as string
     },
-    onSuccess: () => {
+    onSuccess: (templateId, { intent }) => {
       queryClient.invalidateQueries({ queryKey: ["workout-templates"] })
-      router.push("/workouts")
+      // "Start" goes straight into the logger preloaded with the circuit, so
+      // finishing it writes a dated workout log — the same history, PRs and
+      // weekly volume every other workout feeds.
+      router.push(
+        intent === "start" ? `/activity/log?template=${templateId}` : "/workouts"
+      )
     },
   })
+
+  const pendingIntent = save.isPending ? save.variables?.intent : undefined
 
   return (
     <InsightCard
@@ -129,36 +146,74 @@ export function ExpressWorkoutCard() {
         ~{workout.estimatedMins} min
           </span>
         </div>
+        {/* Each row opens the same "how do I do this" panel the logger shows —
+            an express circuit is the most likely place to meet a machine you
+            have never used, so the explanation has to be here too. */}
         <ul className="space-y-1">
-          {workout.exercises.map((ex) => (
-        <li
-          key={ex.exerciseId}
-          className="flex items-center justify-between rounded-md bg-gray-50 px-3 py-1.5 text-sm"
-        >
-          <span className="text-gray-800">{ex.name}</span>
-          <span className="shrink-0 text-xs text-gray-500">
-            {ex.restSeconds > 0
-              ? `${ex.sets} × ${ex.reps}`
-              : ex.reps}
-          </span>
-        </li>
-          ))}
+          {workout.exercises.map((ex) => {
+        const open = openExerciseId === ex.exerciseId
+        return (
+          <li key={ex.exerciseId} className="rounded-md bg-gray-50">
+            <button
+              type="button"
+              onClick={() =>
+                setOpenExerciseId(open ? null : ex.exerciseId)
+              }
+              aria-expanded={open}
+              className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm"
+            >
+              <span className="flex min-w-0 items-center gap-1.5">
+                <ChevronDown
+                  className={`h-3.5 w-3.5 shrink-0 text-gray-400 transition-transform ${
+                    open ? "rotate-180" : ""
+                  }`}
+                />
+                <span className="truncate text-gray-800">{ex.name}</span>
+              </span>
+              <span className="shrink-0 text-xs text-gray-500">
+                {ex.restSeconds > 0
+                  ? `${ex.sets} × ${ex.reps}`
+                  : ex.reps}
+              </span>
+            </button>
+            {open && (
+              <ExerciseInfoBody
+                exerciseId={ex.exerciseId}
+                muscleGroups={ex.muscleGroups}
+                restSeconds={ex.restSeconds}
+                className="rounded-b-md border-t border-gray-100 bg-white px-3 pb-3 pt-3"
+              />
+            )}
+          </li>
+        )
+          })}
         </ul>
+        {/* Starting is the primary action: an express circuit is something you
+            do now, and it only lands in your history if it gets logged. */}
+        <button
+          type="button"
+          onClick={() => save.mutate({ w: workout, intent: "start" })}
+          disabled={save.isPending}
+          className="w-full rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600 disabled:opacity-50"
+        >
+          {pendingIntent === "start" ? "Starting…" : "Start & log this workout"}
+        </button>
         <div className="flex gap-2">
           <button
         type="button"
         onClick={() => pick(minutes!)}
-        className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        disabled={save.isPending}
+        className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
           >
         Reshuffle
           </button>
           <button
         type="button"
-        onClick={() => save.mutate(workout)}
+        onClick={() => save.mutate({ w: workout, intent: "save" })}
         disabled={save.isPending}
-        className="flex-1 rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600 disabled:opacity-50"
+        className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
           >
-        {save.isPending ? "Saving…" : "Save to my workouts"}
+        {pendingIntent === "save" ? "Saving…" : "Save to my workouts"}
           </button>
         </div>
         {save.isError && (
