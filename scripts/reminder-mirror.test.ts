@@ -35,6 +35,8 @@ const CONTEXTS: Omit<ReminderContext, "hour">[] = [
     energyCheckedInToday: false,
     daysSinceLastWeighIn: 10,
     creatineTakenToday: false,
+    stepsToday: 1200,
+    stepGoal: 8000,
   },
   {
     mealsLoggedToday: 3,
@@ -43,6 +45,8 @@ const CONTEXTS: Omit<ReminderContext, "hour">[] = [
     energyCheckedInToday: true,
     daysSinceLastWeighIn: 1,
     creatineTakenToday: true,
+    stepsToday: 9000,
+    stepGoal: 8000,
   },
   {
     mealsLoggedToday: 1,
@@ -51,6 +55,8 @@ const CONTEXTS: Omit<ReminderContext, "hour">[] = [
     energyCheckedInToday: false,
     daysSinceLastWeighIn: 7,
     creatineTakenToday: false,
+    stepsToday: null,
+    stepGoal: 8000,
   },
   {
     mealsLoggedToday: 0,
@@ -59,6 +65,8 @@ const CONTEXTS: Omit<ReminderContext, "hour">[] = [
     energyCheckedInToday: false,
     daysSinceLastWeighIn: null,
     creatineTakenToday: false,
+    stepsToday: 4000,
+    stepGoal: 8000,
   },
   {
     mealsLoggedToday: 2,
@@ -67,6 +75,8 @@ const CONTEXTS: Omit<ReminderContext, "hour">[] = [
     energyCheckedInToday: true,
     daysSinceLastWeighIn: 6,
     creatineTakenToday: true,
+    stepsToday: 300,
+    stepGoal: 12000,
   },
 ]
 

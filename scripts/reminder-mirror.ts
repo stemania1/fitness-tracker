@@ -21,6 +21,7 @@
  *   src/lib/reminders.ts          — gates, priorities, titles, the cap
  *   src/lib/reminder-settings.ts  — settings normalization, quiet hours
  *   src/lib/push/due.ts           — the hour the day's push is composed
+ *   src/lib/daily-movement.ts     — the step-pace maths behind the step nudge
  */
 
 /** src/lib/reminders.ts — hour after which a missing-meal nudge makes sense. */
@@ -31,6 +32,15 @@ export const EVENING = 18
 export const WORKOUT_GAP_DAYS = 3
 /** src/lib/reminders.ts — weigh-in cadence. */
 export const WEIGH_IN_DAYS = 7
+/** src/lib/reminders.ts — earliest hour for the step nudge. */
+export const STEP_NUDGE_HOUR = 15
+/** src/lib/daily-movement.ts — the window steps accumulate across. */
+export const ACTIVE_DAY_START_HOUR = 7
+export const ACTIVE_DAY_END_HOUR = 22
+/** src/lib/daily-movement.ts — off-schedule tolerance before "behind". */
+export const PACE_TOLERANCE = 0.1
+/** src/lib/daily-movement.ts — fallback when no goal is stored. */
+export const DEFAULT_STEP_GOAL = 8000
 /** src/lib/reminders.ts — the digest is capped at this many lines. */
 export const MAX_REMINDERS = 3
 /** src/lib/push/due.ts — the hour the day's one push is composed. */
@@ -42,6 +52,7 @@ export type ReminderType =
   | "energy_checkin"
   | "log_weight"
   | "log_creatine"
+  | "step_goal"
 
 export interface ReminderSettings {
   enabled: boolean
@@ -56,6 +67,7 @@ export const REMINDER_TYPES: ReminderType[] = [
   "energy_checkin",
   "log_weight",
   "log_creatine",
+  "step_goal",
 ]
 
 export function defaultReminderSettings(): ReminderSettings {
@@ -67,6 +79,7 @@ export function defaultReminderSettings(): ReminderSettings {
       energy_checkin: true,
       log_weight: true,
       log_creatine: true,
+      step_goal: true,
     },
     quietStartHour: null,
     quietEndHour: null,
@@ -129,6 +142,39 @@ export interface ReminderContext {
   energyCheckedInToday: boolean
   daysSinceLastWeighIn: number | null
   creatineTakenToday: boolean
+  stepsToday: number | null
+  stepGoal: number
+}
+
+/** Mirror of activeDayFraction in src/lib/daily-movement.ts. */
+export function activeDayFraction(hour: number, minute = 0): number {
+  const now = hour * 60 + minute
+  const start = ACTIVE_DAY_START_HOUR * 60
+  const end = ACTIVE_DAY_END_HOUR * 60
+  if (now <= start) return 0
+  if (now >= end) return 1
+  return (now - start) / (end - start)
+}
+
+/**
+ * Mirror of the "behind" branch of stepPace in src/lib/daily-movement.ts,
+ * plus the remaining-steps figure the nudge's title prints.
+ */
+export function stepShortfall(
+  steps: number,
+  goal: number,
+  hour: number
+): { behind: boolean; remaining: number } {
+  const safeGoal = goal > 0 ? goal : DEFAULT_STEP_GOAL
+  const fraction = activeDayFraction(hour)
+  const delta = steps - Math.round(safeGoal * fraction)
+  return {
+    behind:
+      steps < safeGoal &&
+      fraction !== 0 &&
+      delta <= -safeGoal * PACE_TOLERANCE,
+    remaining: Math.max(0, safeGoal - steps),
+  }
 }
 
 export interface MirroredReminder {
@@ -165,6 +211,21 @@ export function computeReminders(
     out.push({ type: "log_meal", priority: 65, title: "No meals logged yet today" })
   } else if (ctx.hour >= EVENING + 2 && ctx.mealsLoggedToday < 2) {
     out.push({ type: "log_meal", priority: 55, title: "Log your dinner before bed" })
+  }
+
+  if (
+    ctx.stepsToday != null &&
+    ctx.hour >= STEP_NUDGE_HOUR &&
+    ctx.hour < ACTIVE_DAY_END_HOUR
+  ) {
+    const shortfall = stepShortfall(ctx.stepsToday, ctx.stepGoal, ctx.hour)
+    if (shortfall.behind) {
+      out.push({
+        type: "step_goal",
+        priority: 50,
+        title: `${shortfall.remaining.toLocaleString()} steps short of your goal`,
+      })
+    }
   }
 
   if (!ctx.energyCheckedInToday && ctx.hour >= EVENING) {

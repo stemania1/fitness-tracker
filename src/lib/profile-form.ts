@@ -11,6 +11,7 @@
 import type { UserProfileUpdate } from "@/types/database"
 import { DEFAULT_SLEEP_GOAL_HOURS } from "./bedtime"
 import { DEFAULT_CREATINE_TARGET_G } from "./creatine-streak"
+import { DEFAULT_STEP_GOAL } from "./daily-movement"
 
 /** Raw form values, all strings as they come out of the inputs. */
 export interface ProfileFormValues {
@@ -30,6 +31,7 @@ export interface ProfileFormValues {
   weekdayMinutes: string
   weekendMinutes: string
   creatineTargetG: string
+  dailyStepGoal: string
 }
 
 /** The stored values the form is compared against. */
@@ -49,6 +51,7 @@ export interface StoredProfile {
   weekday_workout_minutes: number | null
   weekend_workout_minutes: number | null
   creatine_target_g: number | null
+  daily_step_goal: number | null
 }
 
 /**
@@ -141,6 +144,11 @@ export function buildProfileUpdates(
     "creatine_target_g",
     num(form.creatineTargetG, parseFloat) ?? DEFAULT_CREATINE_TARGET_G,
     profile.creatine_target_g
+  )
+  set(
+    "daily_step_goal",
+    num(form.dailyStepGoal, (s) => parseInt(s, 10)) ?? DEFAULT_STEP_GOAL,
+    profile.daily_step_goal
   )
 
   return updates

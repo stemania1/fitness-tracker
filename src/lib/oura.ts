@@ -45,6 +45,16 @@ export interface OuraDailyActivity {
   high_activity_time: number // seconds
   medium_activity_time: number // seconds
   low_activity_time: number // seconds
+  /**
+   * One digit per five-minute block of the activity day, from `timestamp`:
+   * 0 non-wear, 1 rest, 2 inactive, 3 low, 4 medium, 5 high. The only
+   * intraday movement signal Oura publishes — there is no per-hour step
+   * series — so the Daily Movement chart is built from this. Optional
+   * because older tokens and the trimmed history query don't return it.
+   */
+  class_5_min?: string | null
+  /** Local start of `class_5_min`, with the user's UTC offset attached. */
+  timestamp?: string | null
 }
 
 export interface OuraDailyReadiness {
@@ -452,7 +462,7 @@ export function formatSleepDuration(seconds: number): string {
 
 /**
  * One calendar day of stored Oura history — the durable slice we persist so
- * sleep/readiness can join the energy correlations and long-term trends
+ * sleep/readiness/steps can join the energy correlations and long-term trends
  * (the rest of the summary is fetched live and not stored). `day` is the
  * Oura wake-up day, which lines up with that day's energy check-ins.
  */
@@ -463,16 +473,26 @@ export interface OuraDailyRecord {
   sleepMinutes: number | null
   readinessScore: number | null
   averageHrv: number | null
+  /**
+   * Step total for the day. Partial for the current day — the sync re-upserts
+   * it as the ring reports more, so a mid-afternoon value is "so far", not a
+   * finished total.
+   */
+  steps: number | null
+  activeCalories: number | null
+  activityScore: number | null
 }
 
 /**
- * Merge the daily-sleep, sleep-period, and daily-readiness documents into one
- * record per day. Pure so it's unit-tested. Drops days with no useful metric.
+ * Merge the daily-sleep, sleep-period, daily-readiness, and daily-activity
+ * documents into one record per day. Pure so it's unit-tested. Drops days
+ * with no useful metric.
  */
 export function mergeOuraDaily(
   sleeps: OuraDailySleep[],
   periods: OuraSleepPeriod[],
-  readiness: OuraDailyReadiness[]
+  readiness: OuraDailyReadiness[],
+  activity: OuraDailyActivity[] = []
 ): OuraDailyRecord[] {
   const byDay = new Map<string, OuraDailyRecord>()
   const ensure = (day: string): OuraDailyRecord => {
@@ -484,6 +504,9 @@ export function mergeOuraDaily(
         sleepMinutes: null,
         readinessScore: null,
         averageHrv: null,
+        steps: null,
+        activeCalories: null,
+        activityScore: null,
       }
       byDay.set(day, r)
     }
@@ -520,26 +543,35 @@ export function mergeOuraDaily(
     if (rd.day) ensure(rd.day).readinessScore = rd.score
   }
 
+  for (const a of activity) {
+    if (!a.day) continue
+    const r = ensure(a.day)
+    r.steps = a.steps ?? null
+    r.activeCalories = a.active_calories ?? null
+    r.activityScore = a.score
+  }
+
   return [...byDay.values()]
     .filter(
       (r) =>
         r.sleepScore != null ||
         r.sleepMinutes != null ||
-        r.readinessScore != null
+        r.readinessScore != null ||
+        r.steps != null
     )
     .sort((a, b) => a.day.localeCompare(b.day))
 }
 
 /**
- * Fetch a date range of daily sleep + readiness history (for backfilling the
- * stored `oura_daily` table).
+ * Fetch a date range of daily sleep + readiness + activity history (for
+ * backfilling the stored `oura_daily` table).
  */
 export async function getOuraDailyHistory(
   accessToken: string,
   startDate: string,
   endDate: string
 ): Promise<OuraDailyRecord[]> {
-  const [sleeps, periods, readiness] = await Promise.all([
+  const [sleeps, periods, readiness, activity] = await Promise.all([
     ouraFetchAll<OuraDailySleep>("daily_sleep", accessToken, {
       start_date: startDate,
       end_date: endDate,
@@ -552,6 +584,10 @@ export async function getOuraDailyHistory(
       start_date: startDate,
       end_date: endDate,
     }),
+    ouraFetchAll<OuraDailyActivity>("daily_activity", accessToken, {
+      start_date: startDate,
+      end_date: endDate,
+    }),
   ])
-  return mergeOuraDaily(sleeps, periods, readiness)
+  return mergeOuraDaily(sleeps, periods, readiness, activity)
 }

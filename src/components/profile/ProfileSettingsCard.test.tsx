@@ -51,6 +51,7 @@ const profileRow = {
   weekday_workout_minutes: 25,
   weekend_workout_minutes: 60,
   creatine_target_g: 5,
+  daily_step_goal: 8000,
 }
 
 beforeEach(() => {
