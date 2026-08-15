@@ -7,6 +7,7 @@ import { caffeineStatus, lateCaffeineFlag } from "@/lib/caffeine"
 import { computeReminders, type Reminder } from "@/lib/reminders"
 import { normalizeReminderSettings } from "@/lib/reminder-settings"
 import { macroTargets } from "@/lib/macro-targets"
+import { DEFAULT_STEP_GOAL } from "@/lib/daily-movement"
 import { localToday, localDateOf } from "@/lib/dates"
 import { useProfile } from "@/hooks/useProfile"
 import { useBedtimePlan } from "@/hooks/useBedtimePlan"
@@ -160,6 +161,11 @@ export function useTodaysSignals(
           creatineData === undefined
             ? true
             : creatineData.logs.some((l) => l.taken_on === today),
+        // Null whenever there's no ring or no activity document yet, which
+        // suppresses the nudge rather than reading an absent ring as a
+        // sedentary day.
+        stepsToday: ouraSummary?.activity?.steps ?? null,
+        stepGoal: profile?.daily_step_goal ?? DEFAULT_STEP_GOAL,
       },
       normalizeReminderSettings(profile?.reminder_settings)
     )
@@ -171,6 +177,8 @@ export function useTodaysSignals(
     energyLevel,
     creatineData,
     today,
+    ouraSummary?.activity?.steps,
+    profile?.daily_step_goal,
     profile?.reminder_settings,
   ])
 

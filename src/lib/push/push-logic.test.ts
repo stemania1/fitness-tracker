@@ -90,6 +90,8 @@ describe("dueReminderPush", () => {
     energyCheckedInToday: false,
     daysSinceLastWeighIn: 10,
     creatineTakenToday: true,
+    stepsToday: null,
+    stepGoal: 8000,
   }
 
   it("sends when reminders are due and none sent today", () => {

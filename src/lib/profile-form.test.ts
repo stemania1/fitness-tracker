@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest"
 import { DEFAULT_SLEEP_GOAL_HOURS } from "./bedtime"
 import { DEFAULT_CREATINE_TARGET_G } from "./creatine-streak"
+import { DEFAULT_STEP_GOAL } from "./daily-movement"
 import {
   buildProfileUpdates,
   totalHeightInches,
@@ -24,6 +25,7 @@ const stored: StoredProfile = {
   weekday_workout_minutes: 25,
   weekend_workout_minutes: 60,
   creatine_target_g: DEFAULT_CREATINE_TARGET_G,
+  daily_step_goal: DEFAULT_STEP_GOAL,
 }
 
 /** A form that exactly matches `stored` — the "nothing changed" baseline. */
@@ -45,6 +47,7 @@ function form(over: Partial<ProfileFormValues> = {}): ProfileFormValues {
     weekdayMinutes: "25",
     weekendMinutes: "60",
     creatineTargetG: String(DEFAULT_CREATINE_TARGET_G),
+    dailyStepGoal: String(DEFAULT_STEP_GOAL),
     ...over,
   }
 }
@@ -98,15 +101,23 @@ describe("buildProfileUpdates", () => {
   it("falls back to defaults for the fields that have them", () => {
     expect(
       buildProfileUpdates(
-        form({ sleepGoalHours: "", weekdayMinutes: "", weekendMinutes: "", creatineTargetG: "" }),
-        { ...stored, sleep_goal_hours: 9, weekday_workout_minutes: 40, weekend_workout_minutes: 90, creatine_target_g: 10 }
+        form({ sleepGoalHours: "", weekdayMinutes: "", weekendMinutes: "", creatineTargetG: "", dailyStepGoal: "" }),
+        { ...stored, sleep_goal_hours: 9, weekday_workout_minutes: 40, weekend_workout_minutes: 90, creatine_target_g: 10, daily_step_goal: 12000 }
       )
     ).toEqual({
       sleep_goal_hours: DEFAULT_SLEEP_GOAL_HOURS,
       weekday_workout_minutes: 25,
       weekend_workout_minutes: 60,
       creatine_target_g: DEFAULT_CREATINE_TARGET_G,
+      daily_step_goal: DEFAULT_STEP_GOAL,
     })
+  })
+
+  it("sends a changed step goal, and nothing when it is unchanged", () => {
+    expect(
+      buildProfileUpdates(form({ dailyStepGoal: "12000" }), stored)
+    ).toEqual({ daily_step_goal: 12000 })
+    expect(buildProfileUpdates(form(), stored)).toEqual({})
   })
 
   // NaN never equals the stored value, so an unparseable field would look

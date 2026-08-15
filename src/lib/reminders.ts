@@ -17,6 +17,7 @@ import {
   isQuietHour,
   type ReminderSettings,
 } from "./reminder-settings"
+import { stepPace, ACTIVE_DAY_END_HOUR } from "./daily-movement"
 
 export type ReminderType =
   | "log_workout"
@@ -24,6 +25,7 @@ export type ReminderType =
   | "energy_checkin"
   | "log_weight"
   | "log_creatine"
+  | "step_goal"
 
 export interface ReminderContext {
   /** Local hour of day, 0-23. */
@@ -40,6 +42,15 @@ export interface ReminderContext {
   daysSinceLastWeighIn: number | null
   /** Has creatine been logged today? */
   creatineTakenToday: boolean
+  /**
+   * Steps so far today, or null when we don't know — no ring connected, or
+   * the day's activity hasn't been read yet. Null suppresses the nudge:
+   * "you've walked 0 steps" is a very different claim from "we have no step
+   * data", and only one of them is worth a notification.
+   */
+  stepsToday: number | null
+  /** The user's daily step target. */
+  stepGoal: number
 }
 
 export interface Reminder {
@@ -62,6 +73,16 @@ const AFTERNOON = 14
 export const EVENING = 18
 /** A workout gap of this many days is worth a nudge. */
 const WORKOUT_GAP_DAYS = 3
+/**
+ * Earliest hour for the step nudge.
+ *
+ * Deliberately later than the pace maths alone would allow. Being behind at
+ * 09:00 means almost nothing — a single walk erases it — so a nudge that
+ * early is noise, and a category that nags without cause is the one users
+ * switch off. Mid-afternoon is the first point at which "behind" is likely
+ * to still be true at bedtime.
+ */
+const STEP_NUDGE_HOUR = 15
 /** Weigh-in cadence. */
 const WEIGH_IN_DAYS = 7
 
@@ -114,6 +135,28 @@ export function computeReminders(
       title: "Log your dinner before bed",
       detail: "Catch tonight's meal while you still remember what it was.",
     })
+  }
+
+  // Steps behind pace, while there is still daylight to fix it.
+  //
+  // Bounded at both ends: nothing before mid-afternoon (see STEP_NUDGE_HOUR),
+  // and nothing once the moving day is over — at 22:30 "you're 4,000 steps
+  // short" is a verdict, not a nudge, and there is nothing the user can do
+  // with it except feel bad.
+  if (
+    ctx.stepsToday != null &&
+    ctx.hour >= STEP_NUDGE_HOUR &&
+    ctx.hour < ACTIVE_DAY_END_HOUR
+  ) {
+    const pace = stepPace(ctx.stepsToday, ctx.stepGoal, ctx.hour)
+    if (pace.status === "behind") {
+      out.push({
+        type: "step_goal",
+        priority: 50,
+        title: `${pace.remaining.toLocaleString()} steps short of your goal`,
+        detail: `${pace.steps.toLocaleString()} so far today — a 15-minute walk closes most of the gap.`,
+      })
+    }
   }
 
   // Evening energy check-in.

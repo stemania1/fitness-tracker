@@ -56,16 +56,24 @@ import { useUserQuery } from "@/lib/supabase/user-query"
 
 const supabase = createClient()
 
-// The only Recharts consumer on the dashboard. Loaded after first paint so
-// the chart library stays out of the page's first-load bundle; the card
-// fetches its own data and shows a skeleton anyway, so nothing visible
-// changes except a lighter initial load.
+// The dashboard's two Recharts consumers. Loaded after first paint so the
+// chart library stays out of the page's first-load bundle; both cards fetch
+// their own data and show a skeleton anyway, so nothing visible changes
+// except a lighter initial load.
 const OuraSummaryCard = dynamic(
   () =>
     import("@/components/activity/OuraSummaryCard").then(
       (m) => m.OuraSummaryCard
     ),
   { ssr: false, loading: () => <Skeleton className="h-40 w-full" /> }
+)
+
+const DailyMovementCard = dynamic(
+  () =>
+    import("@/components/activity/DailyMovementCard").then(
+      (m) => m.DailyMovementCard
+    ),
+  { ssr: false, loading: () => <Skeleton className="h-56 w-full" /> }
 )
 
 const insightIconMap: Record<OuraInsight["icon"], typeof Heart> = {
@@ -271,6 +279,20 @@ export default function DashboardPage() {
         {/* The time-boxed fallback, for when the prescribed session won't fit */}
         <ExpressWorkoutCard />
       </CardStack>
+
+      {/* Movement sits above Recovery because it is the one card here you can
+          still change today: steps are actionable until bedtime, while last
+          night's sleep is settled.
+
+          Gated on the same condition the card hides itself on. The card
+          returning null is not enough — Section renders its heading
+          regardless, so a member without a ring would get a "MOVEMENT"
+          label above empty space. */}
+      {ouraSummary?.activity && (
+        <Section title="Movement">
+          <DailyMovementCard />
+        </Section>
+      )}
 
       <Section title="Recovery">
         <EnergyCheckInCard

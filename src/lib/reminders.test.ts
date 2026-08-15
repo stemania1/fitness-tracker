@@ -12,6 +12,8 @@ function allOverdue(): ReminderContext {
     energyCheckedInToday: false,
     daysSinceLastWeighIn: 10,
     creatineTakenToday: false,
+    stepsToday: 500,
+    stepGoal: 8000,
   }
 }
 
@@ -25,6 +27,10 @@ function base(overrides: Partial<ReminderContext> = {}): ReminderContext {
     energyCheckedInToday: true,
     daysSinceLastWeighIn: 1,
     creatineTakenToday: true,
+    // Unknown by default: the step nudge stays out of every other test's way
+    // unless that test opts into a step count.
+    stepsToday: null,
+    stepGoal: 8000,
     ...overrides,
   }
 }
@@ -120,6 +126,66 @@ describe("computeReminders — daily creatine", () => {
   it("stays quiet once creatine is logged", () => {
     const r = computeReminders(base({ hour: 21, creatineTakenToday: true }))
     expect(r.some((x) => x.type === "log_creatine")).toBe(false)
+  })
+})
+
+describe("computeReminders — step goal", () => {
+  it("nudges mid-afternoon when steps are well behind pace", () => {
+    const r = computeReminders(base({ hour: 16, stepsToday: 1500 }))
+    const step = r.find((x) => x.type === "step_goal")
+    expect(step?.title).toBe("6,500 steps short of your goal")
+    expect(step?.detail).toContain("1,500 so far today")
+  })
+
+  it("stays quiet before mid-afternoon, when a single walk still fixes it", () => {
+    expect(
+      computeReminders(base({ hour: 11, stepsToday: 200 })).some(
+        (x) => x.type === "step_goal"
+      )
+    ).toBe(false)
+  })
+
+  it("stays quiet once the moving day is over", () => {
+    // 22:00 onward there is nothing useful to do with the information.
+    expect(
+      computeReminders(base({ hour: 22, stepsToday: 500 })).some(
+        (x) => x.type === "step_goal"
+      )
+    ).toBe(false)
+  })
+
+  it("stays quiet when the step total is on pace", () => {
+    // 16:00 is 60% through the moving day → ~4,800 expected of 8,000.
+    expect(
+      computeReminders(base({ hour: 16, stepsToday: 5000 })).some(
+        (x) => x.type === "step_goal"
+      )
+    ).toBe(false)
+  })
+
+  it("stays quiet once the goal is met", () => {
+    expect(
+      computeReminders(base({ hour: 17, stepsToday: 8200 })).some(
+        (x) => x.type === "step_goal"
+      )
+    ).toBe(false)
+  })
+
+  it("says nothing when we have no step data at all", () => {
+    // No ring, or nothing synced today. Silence beats asserting zero steps.
+    expect(
+      computeReminders(base({ hour: 17, stepsToday: null })).some(
+        (x) => x.type === "step_goal"
+      )
+    ).toBe(false)
+  })
+
+  it("paces against the user's own goal", () => {
+    // 5,000 steps at 16:00 is on pace for 8,000 but behind for 15,000.
+    const r = computeReminders(
+      base({ hour: 16, stepsToday: 5000, stepGoal: 15000 })
+    )
+    expect(r.some((x) => x.type === "step_goal")).toBe(true)
   })
 })
 

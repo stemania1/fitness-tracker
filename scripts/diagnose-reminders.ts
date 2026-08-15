@@ -331,7 +331,9 @@ for (const [userId, userSubs] of byUser) {
 
   const { data: profile, error: profErr } = await db
     .from("user_profiles")
-    .select("display_name, timezone, last_push_sent_on, reminder_settings")
+    .select(
+      "display_name, timezone, last_push_sent_on, reminder_settings, daily_step_goal"
+    )
     .eq("id", userId)
     .single()
 
@@ -379,35 +381,43 @@ for (const [userId, userSubs] of byUser) {
   // A query that ERRORS is not the same as one that returns nothing: the cron
   // treats an error as "already done" and suppresses that nudge, so an error
   // here can never be the cause of a nudge firing.
-  const [lastWorkout, lastWeight, energy, meals, creatine] = await Promise.all([
-    db
-      .from("workout_logs")
-      .select("id, name, started_at, finished_at, created_at")
-      .eq("user_id", userId)
-      .order("started_at", { ascending: false })
-      .limit(3),
-    db
-      .from("weight_logs")
-      .select("logged_at, weight")
-      .eq("user_id", userId)
-      .order("logged_at", { ascending: false })
-      .limit(1),
-    db
-      .from("energy_checkins")
-      .select("id, level, logged_hour, logged_on, created_at")
-      .eq("user_id", userId)
-      .eq("logged_on", localDate),
-    db
-      .from("food_logs")
-      .select("logged_at")
-      .eq("user_id", userId)
-      .gte("logged_at", new Date(Date.now() - 48 * 3_600_000).toISOString()),
-    db
-      .from("creatine_logs")
-      .select("id, dose_g, taken_on, created_at")
-      .eq("user_id", userId)
-      .eq("taken_on", localDate),
-  ])
+  const [lastWorkout, lastWeight, energy, meals, creatine, ouraToday] =
+    await Promise.all([
+      db
+        .from("workout_logs")
+        .select("id, name, started_at, finished_at, created_at")
+        .eq("user_id", userId)
+        .order("started_at", { ascending: false })
+        .limit(3),
+      db
+        .from("weight_logs")
+        .select("logged_at, weight")
+        .eq("user_id", userId)
+        .order("logged_at", { ascending: false })
+        .limit(1),
+      db
+        .from("energy_checkins")
+        .select("id, level, logged_hour, logged_on, created_at")
+        .eq("user_id", userId)
+        .eq("logged_on", localDate),
+      db
+        .from("food_logs")
+        .select("logged_at")
+        .eq("user_id", userId)
+        .gte("logged_at", new Date(Date.now() - 48 * 3_600_000).toISOString()),
+      db
+        .from("creatine_logs")
+        .select("id, dose_g, taken_on, created_at")
+        .eq("user_id", userId)
+        .eq("taken_on", localDate),
+      // Steps come from the client's Oura sync, not a live read — the cron has
+      // no user token — so an absent row means "unknown", not "didn't walk".
+      db
+        .from("oura_daily")
+        .select("steps, updated_at")
+        .eq("user_id", userId)
+        .eq("day", localDate),
+    ])
 
   console.log("\n  signals the cron reads")
 
@@ -499,6 +509,24 @@ for (const [userId, userSubs] of byUser) {
   // happened today, which makes BOTH the gap and workedOutToday read as "did
   // it" — getting only one of the two right would print a body the cron would
   // never send.
+  const stepsToday = ouraToday.error
+    ? null
+    : (ouraToday.data?.[0]?.steps ?? null)
+  const stepGoal = profile.daily_step_goal ?? 8000
+  if (ouraToday.error) {
+    console.log(`    steps       QUERY FAILED: ${ouraToday.error.message} (nudge suppressed)`)
+  } else if (stepsToday == null) {
+    console.log(
+      `    steps       NO oura_daily row with day = ${localDate} ` +
+        "(nudge suppressed — the app hasn't synced today)"
+    )
+  } else {
+    console.log(
+      `    steps       ${stepsToday.toLocaleString()} of ${stepGoal.toLocaleString()} ` +
+        `(synced ${ouraToday.data![0].updated_at})`
+    )
+  }
+
   const ctxBase = {
     mealsLoggedToday,
     workedOutToday: lastWorkout.error ? true : daysSinceLastWorkout === 0,
@@ -506,6 +534,8 @@ for (const [userId, userSubs] of byUser) {
     energyCheckedInToday: energy.error ? true : energyToday!.length > 0,
     daysSinceLastWeighIn: lastWeight.error ? 0 : daysSinceLastWeighIn,
     creatineTakenToday: creatine.error ? true : creatineToday!.length > 0,
+    stepsToday,
+    stepGoal,
   }
 
   const render = (h: number): string => {

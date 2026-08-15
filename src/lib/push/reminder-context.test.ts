@@ -15,6 +15,8 @@ const base = (over: Partial<RawReminderContext> = {}): RawReminderContext => ({
   mealsLoggedToday: ok(2),
   energyCheckedInToday: ok(false),
   creatineTakenToday: ok(false),
+  stepsToday: ok<number | null>(6000),
+  stepGoal: 8000,
   ...over,
 })
 
@@ -30,6 +32,8 @@ describe("buildReminderContext", () => {
       energyCheckedInToday: false,
       daysSinceLastWeighIn: 10,
       creatineTakenToday: false,
+      stepsToday: 6000,
+      stepGoal: 8000,
     })
   })
 

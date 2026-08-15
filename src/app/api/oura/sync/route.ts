@@ -11,9 +11,14 @@ const BACKFILL_DAYS = 90
 
 /**
  * POST /api/oura/sync — backfill/refresh the caller's stored Oura daily
- * history (sleep + readiness) for the last ~90 days. Idempotent upsert on
- * (user_id, day); the client calls it about once a day. Returns quietly with
- * `synced: 0` when Oura isn't connected, so it's safe to fire-and-forget.
+ * history (sleep + readiness + steps) for the last ~90 days. Idempotent
+ * upsert on (user_id, day); the client calls it about once a day. Returns
+ * quietly with `synced: 0` when Oura isn't connected, so it's safe to
+ * fire-and-forget.
+ *
+ * Re-upserting the window rather than only new days is what keeps the current
+ * day's step count honest: today's row is written again on every sync, so a
+ * total captured at noon is replaced by the fuller one later.
  */
 export async function POST() {
   const supabase = await createServerSupabaseClient()
@@ -46,6 +51,9 @@ export async function POST() {
     sleep_minutes: r.sleepMinutes,
     readiness_score: r.readinessScore,
     average_hrv: r.averageHrv,
+    steps: r.steps,
+    active_calories: r.activeCalories,
+    activity_score: r.activityScore,
   }))
 
   const { error } = await supabase

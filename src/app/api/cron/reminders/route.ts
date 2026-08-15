@@ -9,6 +9,7 @@ import {
   type Fallible,
 } from "@/lib/push/reminder-context"
 import { payloadSource } from "@/lib/push/payload-source"
+import { DEFAULT_STEP_GOAL } from "@/lib/daily-movement"
 
 export const runtime = "nodejs"
 // Never cache — this is a scheduled side-effecting job.
@@ -108,7 +109,9 @@ export async function GET(request: Request) {
   for (const [userId, userSubs] of byUser) {
     const { data: profile } = await db
       .from("user_profiles")
-      .select("reminder_settings, timezone, last_push_sent_on")
+      .select(
+        "reminder_settings, timezone, last_push_sent_on, daily_step_goal"
+      )
       .eq("id", userId)
       .single()
     const decision: UserDecision = { user: userId.slice(0, 8), subs: userSubs?.length ?? 0 }
@@ -141,7 +144,14 @@ export async function GET(request: Request) {
     decision.localDate = localDate
     decision.lastPushSentOn = profile.last_push_sent_on
 
-    const built = await gatherContext(db, userId, profile.timezone, localDate, hour)
+    const built = await gatherContext(
+      db,
+      userId,
+      profile.timezone,
+      localDate,
+      hour,
+      profile.daily_step_goal ?? DEFAULT_STEP_GOAL
+    )
     if (contextErrors.length < 20) contextErrors.push(...built.errors)
     const notification = dueReminderPush({
       reminderSettingsRaw: profile.reminder_settings,
@@ -305,7 +315,8 @@ async function gatherContext(
   userId: string,
   timezone: string,
   localDate: string,
-  hour: number
+  hour: number,
+  stepGoal: number
 ): Promise<BuiltReminderContext> {
   const localDateOf = (iso: string) =>
     localDateInZone(new Date(iso), timezone)
@@ -356,6 +367,18 @@ async function gatherContext(
     .eq("taken_on", localDate)
     .limit(1)
 
+  // Steps today, from the synced Oura history (`day` is already a local
+  // date). This is the client's sync, not a live Oura read: the cron has no
+  // user token to refresh. A user who hasn't opened the app today simply has
+  // no row, which reads as "unknown" and suppresses the nudge — the right
+  // outcome, since we genuinely don't know how much they walked.
+  const steps = await db
+    .from("oura_daily")
+    .select("steps")
+    .eq("user_id", userId)
+    .eq("day", localDate)
+    .limit(1)
+
   return buildReminderContext({
     hour,
     localDate,
@@ -385,5 +408,11 @@ async function gatherContext(
       creatine.error,
       (creatine.data?.length ?? 0) > 0
     ),
+    stepsToday: fallible<number | null>(
+      "oura_daily",
+      steps.error,
+      steps.data?.[0]?.steps ?? null
+    ),
+    stepGoal,
   })
 }

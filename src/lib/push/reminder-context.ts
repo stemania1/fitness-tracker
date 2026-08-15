@@ -29,6 +29,10 @@ export interface RawReminderContext {
   mealsLoggedToday: Fallible<number>
   energyCheckedInToday: Fallible<boolean>
   creatineTakenToday: Fallible<boolean>
+  /** Stored steps for today, or null when the ring hasn't reported any. */
+  stepsToday: Fallible<number | null>
+  /** The user's step target, from their profile. */
+  stepGoal: number
 }
 
 export interface BuiltReminderContext {
@@ -69,6 +73,11 @@ export function buildReminderContext(
       ? daysBetweenLocalDates(lastWeighInDate, raw.localDate)
       : null,
     creatineTakenToday: unwrap(raw.creatineTakenToday, true, errors),
+    // On error, pretend we have no step data. Null is the value that
+    // suppresses the nudge — a failed read must not become a confident
+    // "you've barely moved today".
+    stepsToday: unwrap(raw.stepsToday, null, errors),
+    stepGoal: raw.stepGoal,
   }
 
   return { ctx, errors }

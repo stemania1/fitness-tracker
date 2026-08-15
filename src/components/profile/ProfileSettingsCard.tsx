@@ -14,6 +14,7 @@ import type { UserProfileUpdate } from "@/types/database"
 import { buildProfileUpdates } from "@/lib/profile-form"
 import { DEFAULT_SLEEP_GOAL_HOURS } from "@/lib/bedtime"
 import { DEFAULT_CREATINE_TARGET_G } from "@/lib/creatine-streak"
+import { DEFAULT_STEP_GOAL } from "@/lib/daily-movement"
 import { getAuthUserId } from "@/lib/supabase/user-query"
 import { useProfile } from "@/hooks/useProfile"
 import type { ProfileFeedback } from "./feedback"
@@ -55,6 +56,7 @@ export function ProfileSettingsCard({ onFeedback }: ProfileSettingsCardProps) {
   const [weekdayMinutes, setWeekdayMinutes] = useState("")
   const [weekendMinutes, setWeekendMinutes] = useState("")
   const [creatineTargetG, setCreatineTargetG] = useState("")
+  const [dailyStepGoal, setDailyStepGoal] = useState("")
 
   const populateForm = useCallback(() => {
     if (!profile) return
@@ -80,6 +82,7 @@ export function ProfileSettingsCard({ onFeedback }: ProfileSettingsCardProps) {
     setWeekdayMinutes(profile.weekday_workout_minutes?.toString() ?? "")
     setWeekendMinutes(profile.weekend_workout_minutes?.toString() ?? "")
     setCreatineTargetG(profile.creatine_target_g?.toString() ?? "")
+    setDailyStepGoal(profile.daily_step_goal?.toString() ?? "")
   }, [profile])
 
   useEffect(() => {
@@ -131,6 +134,7 @@ export function ProfileSettingsCard({ onFeedback }: ProfileSettingsCardProps) {
         weekdayMinutes,
         weekendMinutes,
         creatineTargetG,
+        dailyStepGoal,
       },
       profile
     )
@@ -382,6 +386,26 @@ export function ProfileSettingsCard({ onFeedback }: ProfileSettingsCardProps) {
             <p className="text-xs text-gray-400">
               5 g is the classic maintenance dose; some protocols use ~10 g,
               often split across the day. Doses add up toward this target.
+            </p>
+          </div>
+
+          {/* Daily step goal */}
+          <div className="space-y-1.5">
+            <Label htmlFor="dailyStepGoal">Daily step goal</Label>
+            <Input
+              id="dailyStepGoal"
+              type="number"
+              min="1000"
+              max="30000"
+              step="500"
+              placeholder={DEFAULT_STEP_GOAL.toString()}
+              value={dailyStepGoal}
+              onChange={(e) => setDailyStepGoal(e.target.value)}
+            />
+            <p className="text-xs text-gray-400">
+              What Daily Movement paces you against. 10,000 is a 1960s
+              pedometer slogan, not a finding — the health curve flattens
+              nearer 8,000, which is also a target you can hit on a workday.
             </p>
           </div>
 
