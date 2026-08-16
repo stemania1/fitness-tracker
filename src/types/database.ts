@@ -27,6 +27,7 @@ export interface Database {
           weekend_workout_minutes: number
           creatine_target_g: number
           daily_step_goal: number
+          daily_active_minutes_goal: number
           created_at: string
           updated_at: string
         }
@@ -53,6 +54,7 @@ export interface Database {
           weekend_workout_minutes?: number
           creatine_target_g?: number
           daily_step_goal?: number
+          daily_active_minutes_goal?: number
           created_at?: string
           updated_at?: string
         }
@@ -79,6 +81,7 @@ export interface Database {
           weekend_workout_minutes?: number
           creatine_target_g?: number
           daily_step_goal?: number
+          daily_active_minutes_goal?: number
           created_at?: string
           updated_at?: string
         }
@@ -678,6 +681,7 @@ export interface Database {
           steps: number | null
           active_calories: number | null
           activity_score: number | null
+          active_minutes: number | null
           created_at: string
           updated_at: string
         }
@@ -692,6 +696,7 @@ export interface Database {
           steps?: number | null
           active_calories?: number | null
           activity_score?: number | null
+          active_minutes?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -706,6 +711,7 @@ export interface Database {
           steps?: number | null
           active_calories?: number | null
           activity_score?: number | null
+          active_minutes?: number | null
           created_at?: string
           updated_at?: string
         }

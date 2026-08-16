@@ -5,6 +5,7 @@
  */
 
 import { shiftDateString as shiftDate } from "./dates"
+import { activeMinutesFrom } from "./daily-movement"
 
 const OURA_API_BASE = "https://api.ouraring.com/v2/usercollection"
 
@@ -481,6 +482,8 @@ export interface OuraDailyRecord {
   steps: number | null
   activeCalories: number | null
   activityScore: number | null
+  /** Moderate + high activity minutes. Excludes Oura's "low" band. */
+  activeMinutes: number | null
 }
 
 /**
@@ -507,6 +510,7 @@ export function mergeOuraDaily(
         steps: null,
         activeCalories: null,
         activityScore: null,
+        activeMinutes: null,
       }
       byDay.set(day, r)
     }
@@ -549,6 +553,7 @@ export function mergeOuraDaily(
     r.steps = a.steps ?? null
     r.activeCalories = a.active_calories ?? null
     r.activityScore = a.score
+    r.activeMinutes = activeMinutesFrom(a)
   }
 
   return [...byDay.values()]

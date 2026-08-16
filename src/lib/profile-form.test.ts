@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest"
 import { DEFAULT_SLEEP_GOAL_HOURS } from "./bedtime"
 import { DEFAULT_CREATINE_TARGET_G } from "./creatine-streak"
-import { DEFAULT_STEP_GOAL } from "./daily-movement"
+import {
+  DEFAULT_STEP_GOAL,
+  DEFAULT_ACTIVE_MINUTES_GOAL,
+} from "./daily-movement"
 import {
   buildProfileUpdates,
   totalHeightInches,
@@ -26,6 +29,7 @@ const stored: StoredProfile = {
   weekend_workout_minutes: 60,
   creatine_target_g: DEFAULT_CREATINE_TARGET_G,
   daily_step_goal: DEFAULT_STEP_GOAL,
+  daily_active_minutes_goal: DEFAULT_ACTIVE_MINUTES_GOAL,
 }
 
 /** A form that exactly matches `stored` — the "nothing changed" baseline. */
@@ -48,6 +52,7 @@ function form(over: Partial<ProfileFormValues> = {}): ProfileFormValues {
     weekendMinutes: "60",
     creatineTargetG: String(DEFAULT_CREATINE_TARGET_G),
     dailyStepGoal: String(DEFAULT_STEP_GOAL),
+    dailyActiveMinutesGoal: String(DEFAULT_ACTIVE_MINUTES_GOAL),
     ...over,
   }
 }
@@ -118,6 +123,12 @@ describe("buildProfileUpdates", () => {
       buildProfileUpdates(form({ dailyStepGoal: "12000" }), stored)
     ).toEqual({ daily_step_goal: 12000 })
     expect(buildProfileUpdates(form(), stored)).toEqual({})
+  })
+
+  it("sends a changed active-minutes goal independently of the step goal", () => {
+    expect(
+      buildProfileUpdates(form({ dailyActiveMinutesGoal: "45" }), stored)
+    ).toEqual({ daily_active_minutes_goal: 45 })
   })
 
   // NaN never equals the stored value, so an unparseable field would look

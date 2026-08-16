@@ -25,13 +25,18 @@ import {
   totalActiveMinutes,
   trailingIdleMinutes,
   stepPace,
+  activeMinutesPace,
+  activeMinutesFrom,
+  activeMinutesDetail,
   paceTone,
   paceLabel,
   paceDetail,
-  stepTrend,
+  dailyTrend,
   hourLabel,
   formatMinutes,
   DEFAULT_STEP_GOAL,
+  DEFAULT_ACTIVE_MINUTES_GOAL,
+  type DailyPace,
   type HourlyMovement,
 } from "@/lib/daily-movement"
 
@@ -73,20 +78,26 @@ export function DailyMovementCard() {
 
   const today = useMemo(() => localToday(), [])
   const goal = profile?.daily_step_goal ?? DEFAULT_STEP_GOAL
+  const minutesGoal =
+    profile?.daily_active_minutes_goal ?? DEFAULT_ACTIVE_MINUTES_GOAL
   const activity = ouraResult?.summary?.activity ?? null
 
-  // Stored history for the weekly average. Today is fetched too and then
-  // excluded by `stepTrend` — a partial total shouldn't drag the average.
+  // Stored history for the weekly averages. Today is fetched too and then
+  // excluded by `dailyTrend` — a partial total shouldn't drag the average.
   const { data: history } = useUserQuery(
-    ["step-history", TREND_DAYS],
+    ["movement-history", TREND_DAYS],
     async (userId: string) => {
       const { data, error } = await supabase
         .from("oura_daily")
-        .select("day, steps")
+        .select("day, steps, active_minutes")
         .eq("user_id", userId)
         .gte("day", daysAgoDateString(TREND_DAYS))
       if (error) throw error
-      return (data ?? []).map((r) => ({ day: r.day, steps: r.steps }))
+      return (data ?? []).map((r) => ({
+        day: r.day,
+        steps: r.steps,
+        activeMinutes: r.active_minutes,
+      }))
     }
   )
 
@@ -95,6 +106,20 @@ export function DailyMovementCard() {
     const now = new Date()
     return stepPace(activity.steps ?? 0, goal, now.getHours(), now.getMinutes())
   }, [activity, goal])
+
+  // Moderate + high only — see activeMinutesFrom. This is deliberately a
+  // different number from the chart's "moving" total below, which includes
+  // the low band.
+  const minutesPace: DailyPace | null = useMemo(() => {
+    if (!activity) return null
+    const now = new Date()
+    return activeMinutesPace(
+      activeMinutesFrom(activity),
+      minutesGoal,
+      now.getHours(),
+      now.getMinutes()
+    )
+  }, [activity, minutesGoal])
 
   const hours: HourlyMovement[] = useMemo(
     () => parseMovementClasses(activity?.class_5_min, activity?.timestamp),
@@ -107,8 +132,22 @@ export function DailyMovementCard() {
     [activity]
   )
   const trend = useMemo(
-    () => stepTrend(history ?? [], goal, today),
+    () =>
+      dailyTrend(
+        (history ?? []).map((r) => ({ day: r.day, value: r.steps })),
+        goal,
+        today
+      ),
     [history, goal, today]
+  )
+  const minutesTrend = useMemo(
+    () =>
+      dailyTrend(
+        (history ?? []).map((r) => ({ day: r.day, value: r.activeMinutes })),
+        minutesGoal,
+        today
+      ),
+    [history, minutesGoal, today]
   )
 
   // The ring isn't connected, or today has no activity document yet.
@@ -138,7 +177,7 @@ export function DailyMovementCard() {
           <div>
             <div className="flex items-baseline gap-2">
               <p className="text-3xl font-bold text-gray-900">
-                {pace.steps.toLocaleString()}
+                {pace.value.toLocaleString()}
               </p>
               <p className="text-sm text-gray-500">
                 / {pace.goal.toLocaleString()} steps
@@ -162,6 +201,47 @@ export function DailyMovementCard() {
             <p className="mt-1.5 text-xs text-gray-500">{paceDetail(pace)}</p>
           </div>
 
+          {/* Moderate+ minutes — the intensity half of the picture. Steps say
+              how much you moved; this says how hard, and a day can pass one
+              while failing the other. */}
+          {minutesPace && (
+            <div>
+              <div className="flex items-baseline justify-between gap-2">
+                <div className="flex items-baseline gap-2">
+                  <p className="text-xl font-bold text-gray-900">
+                    {minutesPace.value}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    / {minutesPace.goal} min moderate+
+                  </p>
+                </div>
+                {minutesPace.status === "goal-met" && (
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${CHIP_TONES.progress}`}
+                  >
+                    Met
+                  </span>
+                )}
+              </div>
+              <div
+                className="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-100"
+                role="progressbar"
+                aria-valuenow={minutesPace.percent}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Active minutes goal progress"
+              >
+                <div
+                  className="h-full rounded-full bg-emerald-500 transition-all"
+                  style={{ width: `${minutesPace.percent}%` }}
+                />
+              </div>
+              <p className="mt-1.5 text-xs text-gray-500">
+                {activeMinutesDetail(minutesPace)}
+              </p>
+            </div>
+          )}
+
           {/* When the movement actually happened */}
           {hours.length > 0 ? (
             <div>
@@ -169,8 +249,11 @@ export function DailyMovementCard() {
                 <p className="text-xs font-medium text-gray-600">
                   Movement by hour
                 </p>
+                {/* "moving", not "active": this total includes the low band,
+                    so calling it active would contradict the moderate+ goal
+                    a few lines above. */}
                 <p className="text-xs text-gray-400">
-                  {formatMinutes(activeMinutes)} active
+                  {formatMinutes(activeMinutes)} moving
                 </p>
               </div>
               <div className="mt-1 h-32 w-full">
@@ -248,6 +331,16 @@ export function DailyMovementCard() {
                   {trend.average.toLocaleString()}
                 </span>
                 {trend.days > 0 && ` · ${trend.daysAtGoal}/${trend.days} at goal`}
+              </span>
+            )}
+            {minutesTrend.average != null && (
+              <span>
+                Moderate+{" "}
+                <span className="font-medium text-gray-700">
+                  {minutesTrend.average} min/day
+                </span>
+                {minutesTrend.days > 0 &&
+                  ` · ${minutesTrend.daysAtGoal}/${minutesTrend.days} at goal`}
               </span>
             )}
             {sittingMinutes >= SITTING_NUDGE_MINUTES && (

@@ -54,6 +54,7 @@ export async function POST() {
     steps: r.steps,
     active_calories: r.activeCalories,
     activity_score: r.activityScore,
+    active_minutes: r.activeMinutes,
   }))
 
   const { error } = await supabase
