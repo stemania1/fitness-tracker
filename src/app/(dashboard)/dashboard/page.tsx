@@ -38,6 +38,10 @@ import { ouraSummaryQuery } from "@/lib/queries/oura"
 import { queryKeys } from "@/lib/queries/keys"
 import { useTodaysSignals } from "@/hooks/useTodaysSignals"
 import { useProfile } from "@/hooks/useProfile"
+import {
+  useMovementHistory,
+  hasMovementData,
+} from "@/hooks/useMovementHistory"
 import { EnergyCheckInCard } from "@/components/activity/EnergyCheckInCard"
 import { BedtimeCard } from "@/components/activity/BedtimeCard"
 import { WeeklyDigestCard } from "@/components/activity/WeeklyDigestCard"
@@ -46,6 +50,7 @@ import { ThisWeekCard } from "@/components/activity/ThisWeekCard"
 import { RemindersCard } from "@/components/activity/RemindersCard"
 import { QuickLogFood } from "@/components/activity/QuickLogFood"
 import { QuickLogCaffeine } from "@/components/activity/QuickLogCaffeine"
+import { QuickLogSteps } from "@/components/activity/QuickLogSteps"
 import { NutritionCard } from "@/components/activity/NutritionCard"
 import { CaffeineCard } from "@/components/activity/CaffeineCard"
 import { CreatineCard } from "@/components/activity/CreatineCard"
@@ -169,6 +174,12 @@ export default function DashboardPage() {
   const { data: ouraResult } = useQuery(ouraSummaryQuery())
 
   const ouraSummary = ouraResult?.summary ?? null
+  const ouraConnected = ouraResult?.connected ?? false
+
+  // Shared with DailyMovementCard under one key — this is only used to decide
+  // whether the Movement heading renders, so a hand-logged day on a ringless
+  // account still gets a section to live in.
+  const { data: movementHistory } = useMovementHistory(7)
 
   // Missed-session catch-up suggestion for the Today's Plan card.
   const planCatchup = useMemo(
@@ -267,6 +278,7 @@ export default function DashboardPage() {
           <div className="flex gap-2">
             <QuickLogFood />
             <QuickLogCaffeine />
+            <QuickLogSteps />
           </div>
         </div>
 
@@ -284,11 +296,13 @@ export default function DashboardPage() {
           still change today: steps are actionable until bedtime, while last
           night's sleep is settled.
 
-          Gated on the same condition the card hides itself on. The card
-          returning null is not enough — Section renders its heading
-          regardless, so a member without a ring would get a "MOVEMENT"
-          label above empty space. */}
-      {ouraSummary?.activity && (
+          Gated on the ring being connected rather than on today's document
+          existing. The card now handles a dataless day itself, by asking for
+          the number — and a day off the charger silently deleting the whole
+          section is what this gate used to cause. Someone with no ring at all
+          still sees nothing here until they log a day, at which point the
+          card's own history check brings the section back. */}
+      {(ouraConnected || hasMovementData(movementHistory)) && (
         <Section title="Movement">
           <DailyMovementCard />
         </Section>

@@ -18,15 +18,21 @@ import { InsightCard } from "@/components/ui/insight-card"
 import { useUserQuery } from "@/lib/supabase/user-query"
 import { useProfile } from "@/hooks/useProfile"
 import { ouraSummaryQuery } from "@/lib/queries/oura"
-import { daysAgoDateString, localToday } from "@/lib/dates"
+import { localToday } from "@/lib/dates"
+import { queryKeys } from "@/lib/queries/keys"
+import {
+  useMovementHistory,
+  hasMovementData,
+} from "@/hooks/useMovementHistory"
 import { CHIP_TONES } from "@/lib/constants"
 import {
   movementHours,
   totalActiveMinutes,
   sittingMinutes,
+  resolveDailyMovement,
+  mergeMovementHistory,
   stepPace,
   activeMinutesPace,
-  activeMinutesFrom,
   activeMinutesDetail,
   paceTone,
   paceLabel,
@@ -88,44 +94,60 @@ export function DailyMovementCard() {
     profile?.daily_active_minutes_goal ?? DEFAULT_ACTIVE_MINUTES_GOAL
   const activity = ouraResult?.summary?.activity ?? null
 
-  // Stored history for the weekly averages. Today is fetched too and then
-  // excluded by `dailyTrend` — a partial total shouldn't drag the average.
-  const { data: history } = useUserQuery(
-    ["movement-history", TREND_DAYS],
+  // Stored history for the weekly averages, from both sources. Shared with
+  // the dashboard page under one key, so the section gate and the card agree.
+  // Today is fetched too and then excluded by `dailyTrend` — a partial total
+  // shouldn't drag the average.
+  const { data: history } = useMovementHistory(TREND_DAYS)
+
+  // Today's hand-entered figures, used only when the ring has nothing.
+  const { data: manualToday } = useUserQuery(
+    queryKeys.manualActivity(today),
     async (userId: string) => {
       const { data, error } = await supabase
-        .from("oura_daily")
-        .select("day, steps, active_minutes")
+        .from("manual_activity_logs")
+        .select("steps, active_minutes")
         .eq("user_id", userId)
-        .gte("day", daysAgoDateString(TREND_DAYS))
+        .eq("day", today)
+        .maybeSingle()
       if (error) throw error
-      return (data ?? []).map((r) => ({
-        day: r.day,
-        steps: r.steps,
-        activeMinutes: r.active_minutes,
-      }))
+      return data
     }
   )
 
+  const resolved = useMemo(
+    () =>
+      resolveDailyMovement(
+        activity,
+        manualToday
+          ? {
+              steps: manualToday.steps,
+              activeMinutes: manualToday.active_minutes,
+            }
+          : null
+      ),
+    [activity, manualToday]
+  )
+
   const pace = useMemo(() => {
-    if (!activity) return null
+    if (!resolved) return null
     const now = new Date()
-    return stepPace(activity.steps ?? 0, goal, now.getHours(), now.getMinutes())
-  }, [activity, goal])
+    return stepPace(resolved.steps, goal, now.getHours(), now.getMinutes())
+  }, [resolved, goal])
 
   // Moderate + high only — see activeMinutesFrom. This is deliberately a
   // different number from the chart's "moving" total below, which includes
   // the low band.
   const minutesPace: DailyPace | null = useMemo(() => {
-    if (!activity) return null
+    if (!resolved) return null
     const now = new Date()
     return activeMinutesPace(
-      activeMinutesFrom(activity),
+      resolved.activeMinutes,
       minutesGoal,
       now.getHours(),
       now.getMinutes()
     )
-  }, [activity, minutesGoal])
+  }, [resolved, minutesGoal])
 
   // Per-minute MET where Oura sends it, five-minute classes otherwise.
   const hours: HourlyMovement[] = useMemo(
@@ -141,7 +163,10 @@ export function DailyMovementCard() {
   const trend = useMemo(
     () =>
       dailyTrend(
-        (history ?? []).map((r) => ({ day: r.day, value: r.steps })),
+        mergeMovementHistory(
+          (history?.ring ?? []).map((r) => ({ day: r.day, value: r.steps })),
+          (history?.manual ?? []).map((r) => ({ day: r.day, value: r.steps }))
+        ),
         goal,
         today
       ),
@@ -150,22 +175,57 @@ export function DailyMovementCard() {
   const minutesTrend = useMemo(
     () =>
       dailyTrend(
-        (history ?? []).map((r) => ({ day: r.day, value: r.activeMinutes })),
+        mergeMovementHistory(
+          (history?.ring ?? []).map((r) => ({
+            day: r.day,
+            value: r.active_minutes,
+          })),
+          (history?.manual ?? []).map((r) => ({
+            day: r.day,
+            value: r.active_minutes,
+          }))
+        ),
         minutesGoal,
         today
       ),
     [history, minutesGoal, today]
   )
 
-  // The ring isn't connected, or today has no activity document yet.
-  if (!ouraLoading && (!ouraResult?.connected || !activity || !pace)) return null
+  // Hidden only for someone with no ring and no hand-entered day — for them
+  // there is nothing to show and nothing to fill in from.
+  //
+  // Notably NOT hidden when the ring is connected but today has no document
+  // yet. That was the old behavior and it was the wrong call: a day off the
+  // charger made the whole section disappear without a word, which reads as a
+  // bug rather than as missing data. Now it asks for the number instead.
+  if (
+    !ouraLoading &&
+    !ouraResult?.connected &&
+    !resolved &&
+    !hasMovementData(history)
+  ) {
+    return null
+  }
 
   return (
     <InsightCard
       icon={Footprints}
       title="Daily Movement"
-      isLoading={ouraLoading || !pace}
+      isLoading={ouraLoading}
       skeletonHeight="h-56"
+      isEmpty={!resolved}
+      empty={
+        <div className="space-y-2">
+          <p className="text-sm text-gray-500">
+            No movement data for today yet.
+          </p>
+          <p className="text-xs text-gray-400">
+            {ouraResult?.connected
+              ? "Your ring hasn't reported today. If it wasn't on, log the day by hand from Log Steps."
+              : "Log the day by hand from Log Steps, or connect your Oura ring in Profile."}
+          </p>
+        </div>
+      }
       action={
         pace && (
           <span
@@ -205,7 +265,12 @@ export function DailyMovementCard() {
                 style={{ width: `${pace.percent}%` }}
               />
             </div>
-            <p className="mt-1.5 text-xs text-gray-500">{paceDetail(pace)}</p>
+            <p className="mt-1.5 text-xs text-gray-500">
+              {paceDetail(pace)}
+              {resolved?.source === "manual" && (
+                <span className="text-gray-400"> · entered by hand</span>
+              )}
+            </p>
           </div>
 
           {/* Moderate+ minutes — the intensity half of the picture. Steps say

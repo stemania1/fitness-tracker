@@ -36,6 +36,16 @@ vi.mock("@/lib/supabase/user-query", () => ({
   getAuthUserId: vi.fn(),
 }))
 
+const { useMovementHistory } = vi.hoisted(() => ({
+  useMovementHistory: vi.fn(),
+}))
+vi.mock("@/hooks/useMovementHistory", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/hooks/useMovementHistory")
+  >("@/hooks/useMovementHistory")
+  return { ...actual, useMovementHistory }
+})
+
 vi.mock("@/lib/supabase/client", () => ({ createClient: () => ({}) }))
 
 import { DailyMovementCard } from "./DailyMovementCard"
@@ -93,7 +103,9 @@ beforeEach(() => {
   useProfile.mockReturnValue({
     data: { daily_step_goal: 8000, daily_active_minutes_goal: 30 },
   })
-  useUserQuery.mockReturnValue({ data: [] })
+  // The per-day manual-entry lookup; overridden where a test needs one.
+  useUserQuery.mockReturnValue({ data: null })
+  useMovementHistory.mockReturnValue({ data: { ring: [], manual: [] } })
 })
 
 afterEach(() => {
@@ -102,6 +114,7 @@ afterEach(() => {
   useQuery.mockReset()
   useProfile.mockReset()
   useUserQuery.mockReset()
+  useMovementHistory.mockReset()
 })
 
 describe("DailyMovementCard", () => {
@@ -111,10 +124,57 @@ describe("DailyMovementCard", () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it("renders nothing when the ring is connected but today has no activity", () => {
+  // The card used to return null here, so a day off the charger deleted the
+  // whole Movement section without a word — indistinguishable from a bug.
+  it("asks for a number when the ring is connected but reported nothing", () => {
     mockOura({ connected: true, activity: null })
-    const { container } = render(<DailyMovementCard />, { wrapper })
-    expect(container).toBeEmptyDOMElement()
+    render(<DailyMovementCard />, { wrapper })
+    expect(screen.getByText("Daily Movement")).toBeInTheDocument()
+    expect(screen.getByText("No movement data for today yet.")).toBeInTheDocument()
+    expect(screen.getByText(/log the day by hand/i)).toBeInTheDocument()
+  })
+
+  it("still renders for a ringless account that has logged by hand before", () => {
+    mockOura({ connected: false, activity: null })
+    useMovementHistory.mockReturnValue({
+      data: { ring: [], manual: [{ day: "2026-08-14", steps: 7000, active_minutes: 25 }] },
+    })
+    render(<DailyMovementCard />, { wrapper })
+    expect(screen.getByText("Daily Movement")).toBeInTheDocument()
+  })
+
+  it("falls back to a hand-entered day when the ring reported nothing", () => {
+    mockOura({ connected: true, activity: null })
+    useUserQuery.mockReturnValue({ data: { steps: 7500, active_minutes: 25 } })
+    render(<DailyMovementCard />, { wrapper })
+    expect(screen.getByText("7,500")).toBeInTheDocument()
+    expect(screen.getByText("/ 8,000 steps")).toBeInTheDocument()
+    expect(screen.getByText("25")).toBeInTheDocument()
+    // Provenance is shown — a typed figure shouldn't read as a measurement.
+    expect(screen.getByText(/entered by hand/)).toBeInTheDocument()
+  })
+
+  it("prefers the ring over a hand entry for the same day", () => {
+    // A measured quiet day must not be overwritten by an optimistic typo.
+    mockOura({ connected: true, activity: activity(400) })
+    useUserQuery.mockReturnValue({ data: { steps: 9000, active_minutes: 60 } })
+    render(<DailyMovementCard />, { wrapper })
+    expect(screen.getByText("400")).toBeInTheDocument()
+    expect(screen.queryByText("9,000")).toBeNull()
+    expect(screen.queryByText(/entered by hand/)).toBeNull()
+  })
+
+  it("counts hand-logged days in the weekly average", () => {
+    mockOura({ connected: true, activity: activity(4200) })
+    useMovementHistory.mockReturnValue({
+      data: {
+        ring: [{ day: "2026-08-14", steps: 4000, active_minutes: 40 }],
+        manual: [{ day: "2026-08-13", steps: 8000, active_minutes: 50 }],
+      },
+    })
+    render(<DailyMovementCard />, { wrapper })
+    // (4,000 + 8,000) / 2 — the hand-logged day is not silently dropped.
+    expect(screen.getByText("6,000")).toBeInTheDocument()
   })
 
   it("shows a skeleton while the summary loads", () => {
@@ -291,15 +351,18 @@ describe("DailyMovementCard", () => {
   })
 
   it("shows the stored weekly average, excluding today's partial total", () => {
-    useUserQuery.mockReturnValue({
-      data: [
-        // Minutes deliberately both above goal, so the "1/2 at goal" below
-        // can only be the step line.
-        { day: "2026-08-13", steps: 6000, activeMinutes: 40 },
-        { day: "2026-08-14", steps: 10000, activeMinutes: 50 },
-        // Today — partial, and must not drag the average to 5,400.
-        { day: "2026-08-15", steps: 200, activeMinutes: 2 },
-      ],
+    useMovementHistory.mockReturnValue({
+      data: {
+        ring: [
+          // Minutes deliberately both above goal, so the "1/2 at goal" below
+          // can only be the step line.
+          { day: "2026-08-13", steps: 6000, active_minutes: 40 },
+          { day: "2026-08-14", steps: 10000, active_minutes: 50 },
+          // Today — partial, and must not drag the average to 5,400.
+          { day: "2026-08-15", steps: 200, active_minutes: 2 },
+        ],
+        manual: [],
+      },
     })
     mockOura({ connected: true, activity: activity(200) })
     render(<DailyMovementCard />, { wrapper })
@@ -308,12 +371,15 @@ describe("DailyMovementCard", () => {
   })
 
   it("shows a separate weekly average for moderate+ minutes", () => {
-    useUserQuery.mockReturnValue({
-      data: [
-        { day: "2026-08-13", steps: 6000, activeMinutes: 20 },
-        { day: "2026-08-14", steps: 10000, activeMinutes: 40 },
-        { day: "2026-08-15", steps: 200, activeMinutes: 2 },
-      ],
+    useMovementHistory.mockReturnValue({
+      data: {
+        ring: [
+          { day: "2026-08-13", steps: 6000, active_minutes: 20 },
+          { day: "2026-08-14", steps: 10000, active_minutes: 40 },
+          { day: "2026-08-15", steps: 200, active_minutes: 2 },
+        ],
+        manual: [],
+      },
     })
     mockOura({ connected: true, activity: activity(200) })
     render(<DailyMovementCard />, { wrapper })
