@@ -265,6 +265,61 @@ describe("getOuraDailySummary — heart rate fallbacks", () => {
   })
 })
 
+describe("getOuraDailySummary — activity window", () => {
+  it("queries daily_activity with a padded window back one day", async () => {
+    const fn = mockFetch({})
+    await getOuraDailySummary("token", "2024-05-01")
+    const call = fn.mock.calls
+      .map((c) => new URL(c[0] as string))
+      .find((u) => u.pathname.endsWith("/daily_activity"))
+    expect(call?.searchParams.get("start_date")).toBe("2024-04-30")
+    expect(call?.searchParams.get("end_date")).toBe("2024-05-01")
+  })
+
+  it("pads correctly across month boundaries", async () => {
+    const fn = mockFetch({})
+    await getOuraDailySummary("token", "2024-06-01")
+    const call = fn.mock.calls
+      .map((c) => new URL(c[0] as string))
+      .find((u) => u.pathname.endsWith("/daily_activity"))
+    expect(call?.searchParams.get("start_date")).toBe("2024-05-31")
+    expect(call?.searchParams.get("end_date")).toBe("2024-06-01")
+  })
+
+  it("picks today's document out of the padded window", async () => {
+    mockFetch({
+      daily_activity: () => ({
+        data: [
+          { id: "stale", day: "2024-04-30", steps: 11111 },
+          { id: "fresh", day: "2024-05-01", steps: 4200 },
+        ],
+      }),
+    })
+    const summary = await getOuraDailySummary("token", "2024-05-01")
+    expect(summary.activity?.id).toBe("fresh")
+    expect(summary.activity?.steps).toBe(4200)
+  })
+
+  // The property that makes the padded window safe. Taking data[0] here
+  // would present yesterday's steps as today's — and a wrong number is worse
+  // than a missing one, because nothing about it looks wrong.
+  it("returns nothing rather than yesterday's when today has no document", async () => {
+    mockFetch({
+      daily_activity: () => ({
+        data: [{ id: "stale", day: "2024-04-30", steps: 11111 }],
+      }),
+    })
+    const summary = await getOuraDailySummary("token", "2024-05-01")
+    expect(summary.activity).toBeNull()
+  })
+
+  it("handles an empty activity response", async () => {
+    mockFetch({ daily_activity: () => ({ data: [] }) })
+    const summary = await getOuraDailySummary("token", "2024-05-01")
+    expect(summary.activity).toBeNull()
+  })
+})
+
 describe("getOuraDailySummary — sleep period window", () => {
   it("queries the sleep endpoint with a padded ±1 day window", async () => {
     const fn = mockFetch({})

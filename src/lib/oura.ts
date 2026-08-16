@@ -279,10 +279,17 @@ export async function getOuraDailySummary(
       start_date: shiftDate(today, -1),
       end_date: shiftDate(today, 1),
     }),
+    // Padded for the same reason as /sleep above: a single-day window
+    // (start_date === end_date) can come back empty even when the document
+    // exists. Observed in production — daily_sleep and daily_readiness
+    // returned today's documents while daily_activity returned 200 with an
+    // empty array all day, leaving the Daily Movement card with nothing to
+    // show at 14:00. Only the previous day is added, never the next: the
+    // point is to widen the window, not to reach for data that isn't there.
     ouraFetch<{ data: OuraDailyActivity[] }>(
       "daily_activity",
       accessToken,
-      { start_date: today, end_date: today }
+      { start_date: shiftDate(today, -1), end_date: today }
     ),
     ouraFetch<{ data: OuraDailyReadiness[] }>(
       "daily_readiness",
@@ -332,6 +339,9 @@ export async function getOuraDailySummary(
     )
   }
 
+  const todaysActivity =
+    (activityData?.data ?? []).find((a) => a.day === today) ?? null
+
   // Use the primary (long_sleep) period for detailed sleep data. Only
   // consider periods whose wake-up day is `today` — the padded query
   // window can also return yesterday's sleep, which would be stale.
@@ -343,7 +353,11 @@ export async function getOuraDailySummary(
   return {
     sleep: sleepData?.data?.[0] ?? null,
     sleepPeriod: primarySleep,
-    activity: activityData?.data?.[0] ?? null,
+    // Pick today's document explicitly. The padded window above can also
+    // return yesterday's, and taking `data[0]` would present it as today —
+    // stale steps shown as current is worse than showing nothing, because
+    // nothing is visibly missing while a wrong number is not.
+    activity: todaysActivity,
     readiness: readinessData?.data?.[0] ?? null,
     restingHeartRate,
     heartRateReadings: allReadings,
