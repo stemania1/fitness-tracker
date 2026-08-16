@@ -669,6 +669,36 @@ export interface Database {
         }
         Relationships: []
       }
+      manual_activity_logs: {
+        Row: {
+          id: string
+          user_id: string
+          day: string
+          steps: number | null
+          active_minutes: number | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          day: string
+          steps?: number | null
+          active_minutes?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          day?: string
+          steps?: number | null
+          active_minutes?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       oura_daily: {
         Row: {
           id: string

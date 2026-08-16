@@ -60,6 +60,12 @@ export const queryKeys = {
   ouraMetrics: (days: number) => ["oura-metrics", days] as const,
   ouraVo2History: ["oura-vo2-history"] as const,
 
+  // Movement. Keyed by window because the card and any future longer view
+  // read different spans of the same two tables.
+  movementHistory: (windowDays: number) =>
+    ["movement-history", windowDays] as const,
+  manualActivity: (day: string) => ["manual-activity", day] as const,
+
   // Derived / analytical
   weeklyDigest: ["weekly-digest"] as const,
   muscleBalance: (windowDays: number) => ["muscle-balance", windowDays] as const,

@@ -545,6 +545,95 @@ export function activeMinutesDetail(pace: DailyPace): string {
   return `${pace.remaining} min to go · ${formatMinutes(pace.value)} so far`
 }
 
+/** Where a day's movement figures came from. */
+export type MovementSource = "ring" | "manual"
+
+/** A day's movement, with the provenance the card needs to label it. */
+export interface ResolvedMovement {
+  steps: number
+  activeMinutes: number
+  source: MovementSource
+  /** True when intraday detail exists — the chart can only draw from a ring. */
+  hasIntraday: boolean
+}
+
+/** A hand-entered day. Either field may be absent. */
+export interface ManualActivity {
+  steps?: number | null
+  activeMinutes?: number | null
+}
+
+/**
+ * Reconcile the ring's activity document with a hand-entered fallback.
+ *
+ * The ring wins wherever it reported, and the rule is deliberately "did the
+ * ring report at all", not "is the ring's number bigger". A measured 400-step
+ * day is the truth about a day spent at a desk; letting a typed 8,000 beat it
+ * would turn the fallback into a way to overwrite reality, which is the one
+ * thing a tracker must not offer.
+ *
+ * So a manual entry only fills a genuine hole. Returns null when neither
+ * source has anything, which is the card's signal to ask for a number rather
+ * than to render zeros.
+ */
+export function resolveDailyMovement(
+  activity: {
+    steps?: number | null
+    met?: MetSamples | null
+    class_5_min?: string | null
+    timestamp?: string | null
+    medium_activity_time?: number | null
+    high_activity_time?: number | null
+  } | null,
+  manual: ManualActivity | null
+): ResolvedMovement | null {
+  if (activity) {
+    return {
+      steps: activity.steps ?? 0,
+      activeMinutes: activeMinutesFrom(activity),
+      source: "ring",
+      hasIntraday: movementHours(activity).length > 0,
+    }
+  }
+
+  if (manual && (manual.steps != null || manual.activeMinutes != null)) {
+    return {
+      steps: manual.steps ?? 0,
+      activeMinutes: manual.activeMinutes ?? 0,
+      source: "manual",
+      // A typed total says nothing about when it happened.
+      hasIntraday: false,
+    }
+  }
+
+  return null
+}
+
+/**
+ * Fold hand-entered days into stored ring history for the weekly averages.
+ *
+ * Same precedence as `resolveDailyMovement`: a ring row wins for its day, and
+ * a manual row fills a day the ring never covered. Without this the averages
+ * would quietly exclude every day the ring was off — the days the fallback
+ * exists to capture.
+ */
+export function mergeMovementHistory(
+  ringDays: { day: string; value: number | null }[],
+  manualDays: { day: string; value: number | null }[]
+): DailyTotal[] {
+  const byDay = new Map<string, number | null>()
+  for (const m of manualDays) byDay.set(m.day, m.value)
+  for (const r of ringDays) {
+    // Only override where the ring actually has a figure — a stored row with
+    // a null column is not a measurement.
+    if (r.value != null) byDay.set(r.day, r.value)
+    else if (!byDay.has(r.day)) byDay.set(r.day, null)
+  }
+  return [...byDay.entries()]
+    .map(([day, value]) => ({ day, value }))
+    .sort((a, b) => a.day.localeCompare(b.day))
+}
+
 /** One stored day of history — steps or moderate+ minutes. */
 export interface DailyTotal {
   day: string

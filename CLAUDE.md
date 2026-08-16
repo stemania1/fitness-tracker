@@ -53,7 +53,8 @@ fitness-tracker/
 │   │   ├── volume-trend.ts          # Weekly volume + deload heuristic
 │   │   ├── weekly-summary.ts        # Weekly strength volume + Zone 2 minutes
 │   │   ├── weekly-progress.ts       # "This Week" card: week label, streak, week start
-│   │   ├── daily-movement.ts        # Steps + active-minutes goals, pace, movement buckets
+│   │   ├── daily-movement.ts        # Steps + active-minutes goals, pace, movement buckets,
+│   │   │                            #   MET parsing, ring/manual resolution
 │   │   ├── muscle-balance.ts        # Push:pull / upper:lower balance + neglected
 │   │   ├── muscle-groups.ts         # Canonical muscle-group display labels
 │   │   ├── workout-generator.ts     # Auto-generate workouts from profile
