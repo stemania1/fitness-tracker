@@ -134,7 +134,10 @@ export function DailyMovementCard() {
   )
 
   const activeMinutes = useMemo(() => totalActiveMinutes(hours), [hours])
-  const sitting = useMemo(() => sittingMinutes(activity), [activity])
+  const sitting = useMemo(() => {
+    const now = new Date()
+    return sittingMinutes(activity, now.getHours(), now.getMinutes())
+  }, [activity])
   const trend = useMemo(
     () =>
       dailyTrend(

@@ -289,9 +289,40 @@ describe("trailingIdleFromMet / sittingMinutes", () => {
 
   it("prefers MET over classes, and falls back when it is absent", () => {
     const met = { interval: 60, items: [1.0, 1.0], timestamp: at("09:00") }
-    expect(sittingMinutes({ met, class_5_min: "22222222" })).toBe(2)
-    expect(sittingMinutes({ met: null, class_5_min: "22222222" })).toBe(40)
-    expect(sittingMinutes(null)).toBe(0)
+    expect(sittingMinutes({ met, class_5_min: "22222222" }, 15)).toBe(2)
+    expect(sittingMinutes({ met: null, class_5_min: "22222222" }, 15)).toBe(40)
+    expect(sittingMinutes(null, 15)).toBe(0)
+  })
+
+  // The bug this bound exists for: Oura's activity day starts around 04:00,
+  // and neither source can tell sleeping from sitting still, so the trailing
+  // run walked back into the night. Someone opening the app right after
+  // waking was told to get up.
+  it("does not count the night as sitting", () => {
+    // Eight hours of sleep, app opened at 07:30.
+    const asleep = { interval: 60, items: Array(480).fill(0.9), timestamp: at("04:00") }
+    expect(sittingMinutes({ met: asleep }, 7, 30)).toBe(30)
+    // Same night, same data, checked before the moving day starts.
+    expect(sittingMinutes({ met: asleep }, 6)).toBe(0)
+    expect(sittingMinutes({ met: asleep }, ACTIVE_DAY_START_HOUR)).toBe(0)
+  })
+
+  it("stays under the nudge threshold through the early morning", () => {
+    const asleep = { interval: 60, items: Array(480).fill(0.9), timestamp: at("04:00") }
+    // 90 minutes is the card's threshold — it must not be reachable until
+    // 08:30, by which point an hour and a half of the waking day has passed.
+    expect(sittingMinutes({ met: asleep }, 8, 0)).toBeLessThan(90)
+    expect(sittingMinutes({ met: asleep }, 8, 30)).toBe(90)
+  })
+
+  it("leaves a genuine afternoon sit alone", () => {
+    const sat = { interval: 60, items: Array(120).fill(1.0), timestamp: at("13:00") }
+    expect(sittingMinutes({ met: sat }, 15, 0)).toBe(120)
+  })
+
+  it("bounds the class-based run the same way", () => {
+    // Rest all the way back to 04:00 — sleep, under the old reading.
+    expect(sittingMinutes({ class_5_min: "1".repeat(48) }, 7, 15)).toBe(15)
   })
 })
 
