@@ -90,7 +90,9 @@ beforeEach(() => {
   // day, so "expected by now" is half the goal and pacing is predictable.
   vi.useFakeTimers()
   vi.setSystemTime(new Date("2026-08-15T14:30:00"))
-  useProfile.mockReturnValue({ data: { daily_step_goal: 8000 } })
+  useProfile.mockReturnValue({
+    data: { daily_step_goal: 8000, daily_active_minutes_goal: 30 },
+  })
   useUserQuery.mockReturnValue({ data: [] })
 })
 
@@ -154,10 +156,9 @@ describe("DailyMovementCard", () => {
   it("drives the progress bar from the percent, capped at 100", () => {
     mockOura({ connected: true, activity: activity(20000) })
     render(<DailyMovementCard />, { wrapper })
-    expect(screen.getByRole("progressbar")).toHaveAttribute(
-      "aria-valuenow",
-      "100"
-    )
+    expect(
+      screen.getByRole("progressbar", { name: /step goal progress/i })
+    ).toHaveAttribute("aria-valuenow", "100")
   })
 
   it("uses the default goal when the profile has none", () => {
@@ -168,18 +169,85 @@ describe("DailyMovementCard", () => {
   })
 
   it("honors a custom step goal", () => {
-    useProfile.mockReturnValue({ data: { daily_step_goal: 12000 } })
+    useProfile.mockReturnValue({
+      data: { daily_step_goal: 12000, daily_active_minutes_goal: 30 },
+    })
     mockOura({ connected: true, activity: activity(6000) })
     render(<DailyMovementCard />, { wrapper })
     expect(screen.getByText("/ 12,000 steps")).toBeInTheDocument()
+  })
+
+  it("shows moderate+ minutes against the activity goal", () => {
+    // 1200s medium + 0s high = 20 minutes of moderate-or-higher activity.
+    mockOura({ connected: true, activity: activity(4200) })
+    render(<DailyMovementCard />, { wrapper })
+    expect(screen.getByText("20")).toBeInTheDocument()
+    expect(screen.getByText("/ 30 min moderate+")).toBeInTheDocument()
+    expect(screen.getByText("10 min to go · 20m so far")).toBeInTheDocument()
+  })
+
+  it("excludes the low-intensity band from the activity goal", () => {
+    // Two hours of pottering and nothing else — the step count may look fine,
+    // but no minute of it counts toward a moderate-activity target.
+    mockOura({
+      connected: true,
+      activity: activity(6000, {
+        medium_activity_time: 0,
+        high_activity_time: 0,
+        low_activity_time: 7200,
+      }),
+    })
+    render(<DailyMovementCard />, { wrapper })
+    expect(
+      screen.getByText("No moderate activity logged yet · 30 min goal")
+    ).toBeInTheDocument()
+  })
+
+  it("marks the activity goal met once cleared", () => {
+    mockOura({
+      connected: true,
+      activity: activity(4200, {
+        medium_activity_time: 1800,
+        high_activity_time: 600,
+      }),
+    })
+    render(<DailyMovementCard />, { wrapper })
+    expect(screen.getByText("Met")).toBeInTheDocument()
+    expect(
+      screen.getByText("40 min of moderate+ activity — goal cleared.")
+    ).toBeInTheDocument()
+  })
+
+  it("honors a custom active-minutes goal", () => {
+    useProfile.mockReturnValue({
+      data: { daily_step_goal: 8000, daily_active_minutes_goal: 60 },
+    })
+    mockOura({ connected: true, activity: activity(4200) })
+    render(<DailyMovementCard />, { wrapper })
+    expect(screen.getByText("/ 60 min moderate+")).toBeInTheDocument()
+  })
+
+  it("tracks the two goals independently", () => {
+    // Steps behind, intensity cleared — the exact case a single metric hides.
+    mockOura({
+      connected: true,
+      activity: activity(800, {
+        medium_activity_time: 2400,
+        high_activity_time: 0,
+      }),
+    })
+    render(<DailyMovementCard />, { wrapper })
+    expect(screen.getByText("Behind pace")).toBeInTheDocument()
+    expect(screen.getByText("Met")).toBeInTheDocument()
   })
 
   it("shows the hourly movement chart with its intensity legend", () => {
     mockOura({ connected: true, activity: activity(4200) })
     render(<DailyMovementCard />, { wrapper })
     expect(screen.getByText("Movement by hour")).toBeInTheDocument()
-    // 12 low + 12 medium samples = 120 minutes of movement.
-    expect(screen.getByText("2h active")).toBeInTheDocument()
+    // 12 low + 12 medium samples = 120 minutes of movement. Labelled
+    // "moving", not "active" — it includes the low band.
+    expect(screen.getByText("2h moving")).toBeInTheDocument()
     expect(screen.getByText("Low")).toBeInTheDocument()
     expect(screen.getByText("Medium")).toBeInTheDocument()
     expect(screen.getByText("High")).toBeInTheDocument()
@@ -198,16 +266,32 @@ describe("DailyMovementCard", () => {
   it("shows the stored weekly average, excluding today's partial total", () => {
     useUserQuery.mockReturnValue({
       data: [
-        { day: "2026-08-13", steps: 6000 },
-        { day: "2026-08-14", steps: 10000 },
+        // Minutes deliberately both above goal, so the "1/2 at goal" below
+        // can only be the step line.
+        { day: "2026-08-13", steps: 6000, activeMinutes: 40 },
+        { day: "2026-08-14", steps: 10000, activeMinutes: 50 },
         // Today — partial, and must not drag the average to 5,400.
-        { day: "2026-08-15", steps: 200 },
+        { day: "2026-08-15", steps: 200, activeMinutes: 2 },
       ],
     })
     mockOura({ connected: true, activity: activity(200) })
     render(<DailyMovementCard />, { wrapper })
     expect(screen.getByText("8,000")).toBeInTheDocument()
     expect(screen.getByText(/1\/2 at goal/)).toBeInTheDocument()
+  })
+
+  it("shows a separate weekly average for moderate+ minutes", () => {
+    useUserQuery.mockReturnValue({
+      data: [
+        { day: "2026-08-13", steps: 6000, activeMinutes: 20 },
+        { day: "2026-08-14", steps: 10000, activeMinutes: 40 },
+        { day: "2026-08-15", steps: 200, activeMinutes: 2 },
+      ],
+    })
+    mockOura({ connected: true, activity: activity(200) })
+    render(<DailyMovementCard />, { wrapper })
+    // (20 + 40) / 2, today excluded — one of the two cleared the 30 goal.
+    expect(screen.getByText("30 min/day")).toBeInTheDocument()
   })
 
   it("omits the trend line when there is no stored history", () => {

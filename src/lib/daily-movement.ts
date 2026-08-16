@@ -50,6 +50,22 @@ export const SAMPLE_MINUTES = 5
  */
 export const DEFAULT_STEP_GOAL = 8000
 
+/**
+ * Default daily moderate-or-higher activity target, in minutes.
+ *
+ * The guideline everyone's is derived from is 150 minutes of moderate
+ * activity a week, which is ~22/day — but it's near-universally restated as
+ * "30 minutes a day", and a round, recognizable number is one people
+ * actually aim at. 30 also leaves room for the rest days that 150/week
+ * assumes.
+ *
+ * Counts Oura's *medium and high* activity only. Low activity — pottering,
+ * standing, a slow amble to the kitchen — is movement worth charting but it
+ * is not what the guideline means, and folding it in would let a sedentary
+ * day clear a health target.
+ */
+export const DEFAULT_ACTIVE_MINUTES_GOAL = 30
+
 /** One hour of the activity day, in minutes at each intensity. */
 export interface HourlyMovement {
   /** Local hour, 0-23. */
@@ -170,19 +186,20 @@ export function trailingIdleMinutes(
   return minutes
 }
 
-/** Where the day's step total sits against the goal and against the clock. */
+/** Where a day's running total sits against its goal and against the clock. */
 export type PaceStatus = "goal-met" | "ahead" | "on-track" | "behind"
 
-export interface StepPace {
-  steps: number
+export interface DailyPace {
+  /** The running total so far today — steps, or moderate+ minutes. */
+  value: number
   goal: number
-  /** Steps still to go; 0 once the goal is met. */
+  /** Still to go; 0 once the goal is met. */
   remaining: number
   /** Progress toward the goal, 0-100 (capped, for a progress bar). */
   percent: number
-  /** Steps you'd have by now to be exactly on schedule. */
+  /** What you'd have by now to be exactly on schedule. */
   expected: number
-  /** `steps - expected`. Negative means behind. */
+  /** `value - expected`. Negative means behind. */
   delta: number
   status: PaceStatus
   /** End-of-day total if the current rate holds; null before the day starts. */
@@ -212,20 +229,26 @@ export function activeDayFraction(hour: number, minute = 0): number {
 /** A step total is this far off schedule before we call it ahead or behind. */
 const PACE_TOLERANCE = 0.1
 
-export function stepPace(
-  steps: number,
+/**
+ * Pace a running daily total against a goal and the time of day. Shared by
+ * steps and moderate+ minutes — the two differ in their units and their
+ * wording, not in how "am I on track" is decided.
+ */
+export function dailyPace(
+  value: number,
   goal: number,
   hour: number,
-  minute = 0
-): StepPace {
-  const safeGoal = goal > 0 ? goal : DEFAULT_STEP_GOAL
+  minute: number,
+  fallbackGoal: number
+): DailyPace {
+  const safeGoal = goal > 0 ? goal : fallbackGoal
   const fraction = activeDayFraction(hour, minute)
   const expected = Math.round(safeGoal * fraction)
-  const delta = steps - expected
-  const percent = Math.min(100, Math.round((steps / safeGoal) * 100))
+  const delta = value - expected
+  const percent = Math.min(100, Math.round((value / safeGoal) * 100))
 
   let status: PaceStatus
-  if (steps >= safeGoal) status = "goal-met"
+  if (value >= safeGoal) status = "goal-met"
   // Before the moving day starts, every total is "ahead" of an expectation of
   // zero. Saying so at 6am is noise, not information.
   else if (fraction === 0) status = "on-track"
@@ -234,15 +257,61 @@ export function stepPace(
   else status = "on-track"
 
   return {
-    steps,
+    value,
     goal: safeGoal,
-    remaining: Math.max(0, safeGoal - steps),
+    remaining: Math.max(0, safeGoal - value),
     percent,
     expected,
     delta,
     status,
-    projected: fraction > 0 ? Math.round(steps / fraction) : null,
+    projected: fraction > 0 ? Math.round(value / fraction) : null,
   }
+}
+
+/** Today's step total against the step goal. */
+export function stepPace(
+  steps: number,
+  goal: number,
+  hour: number,
+  minute = 0
+): DailyPace {
+  return dailyPace(steps, goal, hour, minute, DEFAULT_STEP_GOAL)
+}
+
+/**
+ * Today's moderate-or-higher minutes against the activity goal.
+ *
+ * Paced on the same waking-day curve as steps. Minutes arrive lumpier than
+ * steps — a single class can clear the whole target — so "behind" here means
+ * rather less than it does for steps, and only the card's quiet progress row
+ * reads it, not a notification.
+ */
+export function activeMinutesPace(
+  minutes: number,
+  goal: number,
+  hour: number,
+  minute = 0
+): DailyPace {
+  return dailyPace(minutes, goal, hour, minute, DEFAULT_ACTIVE_MINUTES_GOAL)
+}
+
+/**
+ * Moderate-or-higher minutes from an Oura activity document.
+ *
+ * Deliberately excludes `low_activity_time`. Oura's "low" is standing and
+ * ambling; counting it would routinely put a desk day over a 30-minute
+ * health target, which is precisely the claim the target exists to make.
+ */
+export function activeMinutesFrom(
+  activity: {
+    medium_activity_time?: number | null
+    high_activity_time?: number | null
+  } | null
+): number {
+  if (!activity) return 0
+  const seconds =
+    (activity.medium_activity_time ?? 0) + (activity.high_activity_time ?? 0)
+  return Math.round(seconds / 60)
 }
 
 /** Chip tone for a pace status — keys of `CHIP_TONES`. */
@@ -269,9 +338,9 @@ export function paceLabel(status: PaceStatus): string {
 }
 
 /** A one-line read on the day's steps, for the card's subtitle. */
-export function paceDetail(pace: StepPace): string {
+export function paceDetail(pace: DailyPace): string {
   if (pace.status === "goal-met") {
-    return `${pace.steps.toLocaleString()} steps — goal cleared.`
+    return `${pace.value.toLocaleString()} steps — goal cleared.`
   }
   if (pace.status === "behind") {
     return `${Math.abs(pace.delta).toLocaleString()} behind schedule · ${pace.remaining.toLocaleString()} to go`
@@ -282,49 +351,67 @@ export function paceDetail(pace: StepPace): string {
   return `${pace.remaining.toLocaleString()} steps to go`
 }
 
-/** One stored day of step history. */
-export interface StepDay {
-  day: string
-  steps: number | null
+/**
+ * The same read for moderate+ minutes.
+ *
+ * Separate from `paceDetail` rather than parameterized by a unit string: the
+ * two read differently on purpose. Minutes are small enough that the exact
+ * shortfall is the useful number ("12 min to go"), where steps want the
+ * schedule comparison, and a shared template produced stilted lines for both.
+ */
+export function activeMinutesDetail(pace: DailyPace): string {
+  if (pace.status === "goal-met") {
+    return `${pace.value} min of moderate+ activity — goal cleared.`
+  }
+  if (pace.value === 0) {
+    return `No moderate activity logged yet · ${pace.goal} min goal`
+  }
+  return `${pace.remaining} min to go · ${formatMinutes(pace.value)} so far`
 }
 
-export interface StepTrend {
-  /** Mean steps across days that have data; null if none do. */
+/** One stored day of history — steps or moderate+ minutes. */
+export interface DailyTotal {
+  day: string
+  value: number | null
+}
+
+export interface DailyTrend {
+  /** Mean across days that have data; null if none do. */
   average: number | null
-  best: { day: string; steps: number } | null
+  best: { day: string; value: number } | null
   /** Days in the window that reached the goal. */
   daysAtGoal: number
-  /** Days that had step data at all. */
+  /** Days that had data at all. */
   days: number
 }
 
 /**
- * Summarize stored step history.
+ * Summarize stored daily history.
  *
  * `excludeDay` drops today, which is the point: a day measured at 2pm is a
  * partial total, and averaging it against completed days quietly drags the
  * average down every time the user looks at it before evening.
  */
-export function stepTrend(
-  rows: StepDay[],
+export function dailyTrend(
+  rows: DailyTotal[],
   goal: number,
   excludeDay?: string
-): StepTrend {
+): DailyTrend {
   const usable = rows.filter(
-    (r) => r.day !== excludeDay && r.steps != null && r.steps > 0
-  ) as { day: string; steps: number }[]
+    (r) => r.day !== excludeDay && r.value != null && r.value > 0
+  ) as { day: string; value: number }[]
 
   if (usable.length === 0) {
     return { average: null, best: null, daysAtGoal: 0, days: 0 }
   }
 
-  const total = usable.reduce((sum, r) => sum + r.steps, 0)
-  const best = usable.reduce((b, r) => (r.steps > b.steps ? r : b))
+  const total = usable.reduce((sum, r) => sum + r.value, 0)
+  const best = usable.reduce((b, r) => (r.value > b.value ? r : b))
 
   return {
     average: Math.round(total / usable.length),
-    best: { day: best.day, steps: best.steps },
-    daysAtGoal: usable.filter((r) => r.steps >= goal).length,
+    best: { day: best.day, value: best.value },
+    daysAtGoal: usable.filter((r) => r.value >= goal).length,
     days: usable.length,
   }
 }

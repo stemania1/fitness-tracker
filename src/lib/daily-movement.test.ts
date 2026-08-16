@@ -8,7 +8,11 @@ import {
   paceTone,
   paceLabel,
   paceDetail,
-  stepTrend,
+  dailyTrend,
+  activeMinutesPace,
+  activeMinutesFrom,
+  activeMinutesDetail,
+  DEFAULT_ACTIVE_MINUTES_GOAL,
   hourLabel,
   formatMinutes,
   DEFAULT_STEP_GOAL,
@@ -222,6 +226,94 @@ describe("stepPace", () => {
   })
 })
 
+describe("activeMinutesFrom", () => {
+  const activity = (medium: number, high: number, low = 7200) => ({
+    medium_activity_time: medium,
+    high_activity_time: high,
+    low_activity_time: low,
+  })
+
+  it("sums medium and high activity, in minutes", () => {
+    // 20 min medium + 10 min high.
+    expect(activeMinutesFrom(activity(1200, 600))).toBe(30)
+  })
+
+  it("excludes the low band entirely", () => {
+    // Two hours of pottering, no real effort — this must not read as active.
+    expect(activeMinutesFrom(activity(0, 0, 7200))).toBe(0)
+  })
+
+  it("treats missing fields as zero", () => {
+    expect(activeMinutesFrom({})).toBe(0)
+    expect(
+      activeMinutesFrom({ medium_activity_time: null, high_activity_time: 300 })
+    ).toBe(5)
+  })
+
+  it("is zero for no activity document", () => {
+    expect(activeMinutesFrom(null)).toBe(0)
+  })
+
+  it("rounds to the nearest minute", () => {
+    expect(activeMinutesFrom(activity(100, 0))).toBe(2) // 1m40s
+  })
+})
+
+describe("activeMinutesPace", () => {
+  it("reports the goal met once the target is reached", () => {
+    const p = activeMinutesPace(32, 30, 16)
+    expect(p.status).toBe("goal-met")
+    expect(p.remaining).toBe(0)
+  })
+
+  it("paces on the same waking-day curve as steps", () => {
+    // Midpoint of the moving day → 15 of a 30-minute goal is on time.
+    const p = activeMinutesPace(15, 30, 14, 30)
+    expect(p.expected).toBe(15)
+    expect(p.status).toBe("on-track")
+  })
+
+  it("flags a day with no real effort as behind", () => {
+    const p = activeMinutesPace(0, 30, 19)
+    expect(p.status).toBe("behind")
+    expect(p.remaining).toBe(30)
+  })
+
+  it("falls back to the default goal when none is stored", () => {
+    expect(activeMinutesPace(10, 0, 12).goal).toBe(DEFAULT_ACTIVE_MINUTES_GOAL)
+  })
+
+  it("does not call an early-morning total ahead of pace", () => {
+    expect(activeMinutesPace(5, 30, 6).status).toBe("on-track")
+  })
+})
+
+describe("activeMinutesDetail", () => {
+  it("celebrates a cleared goal", () => {
+    expect(activeMinutesDetail(activeMinutesPace(35, 30, 18))).toBe(
+      "35 min of moderate+ activity — goal cleared."
+    )
+  })
+
+  it("names the goal when nothing has been logged", () => {
+    expect(activeMinutesDetail(activeMinutesPace(0, 30, 15))).toBe(
+      "No moderate activity logged yet · 30 min goal"
+    )
+  })
+
+  it("reports the shortfall and what's banked so far", () => {
+    expect(activeMinutesDetail(activeMinutesPace(18, 30, 15))).toBe(
+      "12 min to go · 18m so far"
+    )
+  })
+
+  it("formats a long partial total in hours", () => {
+    expect(activeMinutesDetail(activeMinutesPace(75, 90, 15))).toContain(
+      "1h 15m so far"
+    )
+  })
+})
+
 describe("paceTone / paceLabel / paceDetail", () => {
   it("maps status to a chip tone", () => {
     expect(paceTone("goal-met")).toBe("progress")
@@ -258,43 +350,43 @@ describe("paceTone / paceLabel / paceDetail", () => {
   })
 })
 
-describe("stepTrend", () => {
+describe("dailyTrend", () => {
   const rows = [
-    { day: "2026-08-11", steps: 6000 },
-    { day: "2026-08-12", steps: 10000 },
-    { day: "2026-08-13", steps: 8000 },
-    { day: "2026-08-14", steps: 4000 },
+    { day: "2026-08-11", value: 6000 },
+    { day: "2026-08-12", value: 10000 },
+    { day: "2026-08-13", value: 8000 },
+    { day: "2026-08-14", value: 4000 },
   ]
 
   it("averages the days with data", () => {
-    expect(stepTrend(rows, 8000).average).toBe(7000)
-    expect(stepTrend(rows, 8000).days).toBe(4)
+    expect(dailyTrend(rows, 8000).average).toBe(7000)
+    expect(dailyTrend(rows, 8000).days).toBe(4)
   })
 
   it("finds the best day", () => {
-    expect(stepTrend(rows, 8000).best).toEqual({
+    expect(dailyTrend(rows, 8000).best).toEqual({
       day: "2026-08-12",
-      steps: 10000,
+      value: 10000,
     })
   })
 
   it("counts days that reached the goal", () => {
-    expect(stepTrend(rows, 8000).daysAtGoal).toBe(2)
-    expect(stepTrend(rows, 5000).daysAtGoal).toBe(3)
+    expect(dailyTrend(rows, 8000).daysAtGoal).toBe(2)
+    expect(dailyTrend(rows, 5000).daysAtGoal).toBe(3)
   })
 
   it("excludes today, whose total is still partial", () => {
-    const t = stepTrend(rows, 8000, "2026-08-14")
+    const t = dailyTrend(rows, 8000, "2026-08-14")
     expect(t.days).toBe(3)
     expect(t.average).toBe(8000)
   })
 
   it("skips days with null or zero steps", () => {
-    const t = stepTrend(
+    const t = dailyTrend(
       [
-        { day: "2026-08-11", steps: null },
-        { day: "2026-08-12", steps: 0 },
-        { day: "2026-08-13", steps: 9000 },
+        { day: "2026-08-11", value: null },
+        { day: "2026-08-12", value: 0 },
+        { day: "2026-08-13", value: 9000 },
       ],
       8000
     )
@@ -303,7 +395,7 @@ describe("stepTrend", () => {
   })
 
   it("returns an empty trend when nothing is usable", () => {
-    expect(stepTrend([], 8000)).toEqual({
+    expect(dailyTrend([], 8000)).toEqual({
       average: null,
       best: null,
       daysAtGoal: 0,

@@ -154,7 +154,7 @@ export function computeReminders(
         type: "step_goal",
         priority: 50,
         title: `${pace.remaining.toLocaleString()} steps short of your goal`,
-        detail: `${pace.steps.toLocaleString()} so far today — a 15-minute walk closes most of the gap.`,
+        detail: `${pace.value.toLocaleString()} so far today — a 15-minute walk closes most of the gap.`,
       })
     }
   }

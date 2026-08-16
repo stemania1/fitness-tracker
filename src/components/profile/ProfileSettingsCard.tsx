@@ -14,7 +14,10 @@ import type { UserProfileUpdate } from "@/types/database"
 import { buildProfileUpdates } from "@/lib/profile-form"
 import { DEFAULT_SLEEP_GOAL_HOURS } from "@/lib/bedtime"
 import { DEFAULT_CREATINE_TARGET_G } from "@/lib/creatine-streak"
-import { DEFAULT_STEP_GOAL } from "@/lib/daily-movement"
+import {
+  DEFAULT_STEP_GOAL,
+  DEFAULT_ACTIVE_MINUTES_GOAL,
+} from "@/lib/daily-movement"
 import { getAuthUserId } from "@/lib/supabase/user-query"
 import { useProfile } from "@/hooks/useProfile"
 import type { ProfileFeedback } from "./feedback"
@@ -57,6 +60,7 @@ export function ProfileSettingsCard({ onFeedback }: ProfileSettingsCardProps) {
   const [weekendMinutes, setWeekendMinutes] = useState("")
   const [creatineTargetG, setCreatineTargetG] = useState("")
   const [dailyStepGoal, setDailyStepGoal] = useState("")
+  const [dailyActiveMinutesGoal, setDailyActiveMinutesGoal] = useState("")
 
   const populateForm = useCallback(() => {
     if (!profile) return
@@ -83,6 +87,9 @@ export function ProfileSettingsCard({ onFeedback }: ProfileSettingsCardProps) {
     setWeekendMinutes(profile.weekend_workout_minutes?.toString() ?? "")
     setCreatineTargetG(profile.creatine_target_g?.toString() ?? "")
     setDailyStepGoal(profile.daily_step_goal?.toString() ?? "")
+    setDailyActiveMinutesGoal(
+      profile.daily_active_minutes_goal?.toString() ?? ""
+    )
   }, [profile])
 
   useEffect(() => {
@@ -135,6 +142,7 @@ export function ProfileSettingsCard({ onFeedback }: ProfileSettingsCardProps) {
         weekendMinutes,
         creatineTargetG,
         dailyStepGoal,
+        dailyActiveMinutesGoal,
       },
       profile
     )
@@ -406,6 +414,29 @@ export function ProfileSettingsCard({ onFeedback }: ProfileSettingsCardProps) {
               What Daily Movement paces you against. 10,000 is a 1960s
               pedometer slogan, not a finding — the health curve flattens
               nearer 8,000, which is also a target you can hit on a workday.
+            </p>
+          </div>
+
+          {/* Daily moderate+ activity goal */}
+          <div className="space-y-1.5">
+            <Label htmlFor="dailyActiveMinutesGoal">
+              Daily active minutes goal
+            </Label>
+            <Input
+              id="dailyActiveMinutesGoal"
+              type="number"
+              min="5"
+              max="240"
+              step="5"
+              placeholder={DEFAULT_ACTIVE_MINUTES_GOAL.toString()}
+              value={dailyActiveMinutesGoal}
+              onChange={(e) => setDailyActiveMinutesGoal(e.target.value)}
+            />
+            <p className="text-xs text-gray-400">
+              Minutes at moderate or higher intensity — Oura&apos;s medium and
+              high bands, not casual walking. The guideline is 150 min/week,
+              usually restated as 30 a day. Steps say how much you moved; this
+              says how hard.
             </p>
           </div>
 

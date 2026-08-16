@@ -88,6 +88,7 @@ describe("mergeOuraDaily", () => {
         steps: 9400,
         activeCalories: 520,
         activityScore: 88,
+        activeMinutes: 30,
       },
     ])
   })
@@ -98,6 +99,7 @@ describe("mergeOuraDaily", () => {
       steps: null,
       activeCalories: null,
       activityScore: null,
+      activeMinutes: null,
     })
   })
 
