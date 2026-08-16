@@ -1,8 +1,13 @@
 import { describe, it, expect } from "vitest"
 import {
   parseMovementClasses,
+  parseMetSamples,
+  movementHours,
   totalActiveMinutes,
+  moderatePlusMinutes,
   trailingIdleMinutes,
+  trailingIdleFromMet,
+  sittingMinutes,
   stepPace,
   activeDayFraction,
   paceTone,
@@ -107,6 +112,186 @@ describe("parseMovementClasses", () => {
     const pacific = parseMovementClasses("3", "2026-08-15T07:00:00-07:00")
     expect(utc[0].hour).toBe(14)
     expect(pacific[0].hour).toBe(7)
+  })
+})
+
+describe("parseMetSamples", () => {
+  const met = (items: (number | null)[], hhmm = "07:00", interval = 60) => ({
+    interval,
+    items,
+    timestamp: at(hhmm),
+  })
+
+  it("returns nothing for unusable input", () => {
+    expect(parseMetSamples(null)).toEqual([])
+    expect(parseMetSamples(undefined)).toEqual([])
+    expect(parseMetSamples(met([]))).toEqual([])
+    expect(parseMetSamples({ interval: 60, items: [3], timestamp: "" })).toEqual([])
+    // A non-positive interval would divide the day by zero.
+    expect(parseMetSamples(met([3], "07:00", 0))).toEqual([])
+  })
+
+  it("cuts samples at the standard MET thresholds", () => {
+    // sedentary, light, moderate, vigorous — one minute each.
+    const hours = parseMetSamples(met([1.0, 2.0, 4.0, 8.0]))
+    expect(hours[0]).toMatchObject({
+      hour: 7,
+      idleMinutes: 1,
+      lowMinutes: 1,
+      mediumMinutes: 1,
+      highMinutes: 1,
+      activeMinutes: 3,
+    })
+  })
+
+  it("puts the boundary values in the higher band", () => {
+    const hours = parseMetSamples(met([1.5, 3, 6]))
+    expect(hours[0]).toMatchObject({
+      idleMinutes: 0,
+      lowMinutes: 1,
+      mediumMinutes: 1,
+      highMinutes: 1,
+    })
+  })
+
+  it("counts a null sample as non-wear, not as sitting", () => {
+    const hours = parseMetSamples(met([null, null, 1.0]))
+    expect(hours[0]).toMatchObject({ idleMinutes: 1, activeMinutes: 0 })
+  })
+
+  it("ignores a non-finite sample", () => {
+    const hours = parseMetSamples(met([Number.NaN, 4.0]))
+    expect(hours[0].mediumMinutes).toBe(1)
+  })
+
+  it("spreads a minute-resolution series across the right hours", () => {
+    // 90 moderate minutes from 07:00 → 60 in hour 7, 30 in hour 8.
+    const hours = parseMetSamples(met(Array(90).fill(4.0)))
+    expect(hours.map((h) => [h.hour, h.mediumMinutes])).toEqual([
+      [7, 60],
+      [8, 30],
+    ])
+  })
+
+  it("honors a non-60-second interval", () => {
+    // 30-second samples: two of them make one minute.
+    const hours = parseMetSamples(met([4.0, 4.0], "07:00", 30))
+    expect(hours[0].mediumMinutes).toBe(1)
+  })
+
+  it("stops at midnight rather than wrapping", () => {
+    const hours = parseMetSamples(met(Array(30).fill(4.0), "23:45"))
+    expect(hours).toHaveLength(1)
+    expect(hours[0]).toMatchObject({ hour: 23, mediumMinutes: 15 })
+  })
+
+  it("reads the clock from the timestamp's own offset", () => {
+    const utc = parseMetSamples({
+      interval: 60,
+      items: [4],
+      timestamp: "2026-08-15T14:00:00+00:00",
+    })
+    expect(utc[0].hour).toBe(14)
+  })
+})
+
+describe("movementHours", () => {
+  const classes = "3".repeat(12)
+
+  it("prefers per-minute MET when it is present", () => {
+    const hours = movementHours({
+      met: { interval: 60, items: [8.0], timestamp: at("07:00") },
+      class_5_min: classes,
+      timestamp: at("07:00"),
+    })
+    // MET says one vigorous minute; the classes would have said 60 light.
+    expect(hours[0]).toMatchObject({ highMinutes: 1, lowMinutes: 0 })
+  })
+
+  it("falls back to five-minute classes when MET is missing", () => {
+    const hours = movementHours({
+      met: null,
+      class_5_min: classes,
+      timestamp: at("07:00"),
+    })
+    expect(hours[0].lowMinutes).toBe(60)
+  })
+
+  it("falls back when MET is present but unusable", () => {
+    const hours = movementHours({
+      met: { interval: 60, items: [], timestamp: at("07:00") },
+      class_5_min: classes,
+      timestamp: at("07:00"),
+    })
+    expect(hours[0].lowMinutes).toBe(60)
+  })
+
+  it("returns nothing when neither source is available", () => {
+    expect(movementHours({ met: null, class_5_min: null })).toEqual([])
+    expect(movementHours(null)).toEqual([])
+  })
+})
+
+describe("moderatePlusMinutes", () => {
+  it("counts only the top two bands", () => {
+    const hours = parseMetSamples({
+      interval: 60,
+      items: [1.0, 2.0, 4.0, 8.0],
+      timestamp: at("07:00"),
+    })
+    // 1 moderate + 1 vigorous; the light and sedentary minutes don't count.
+    expect(moderatePlusMinutes(hours)).toBe(2)
+    expect(totalActiveMinutes(hours)).toBe(3)
+  })
+
+  it("is zero for an empty series", () => {
+    expect(moderatePlusMinutes([])).toBe(0)
+  })
+})
+
+describe("trailingIdleFromMet / sittingMinutes", () => {
+  it("counts the unbroken sub-1.5 MET run at the end", () => {
+    expect(
+      trailingIdleFromMet({
+        interval: 60,
+        items: [4.0, 1.1, 1.0, 1.2],
+        timestamp: at("09:00"),
+      })
+    ).toBe(3)
+  })
+
+  it("is zero when the day ends on movement", () => {
+    expect(
+      trailingIdleFromMet({
+        interval: 60,
+        items: [1.0, 1.0, 4.0],
+        timestamp: at("09:00"),
+      })
+    ).toBe(0)
+  })
+
+  it("stops at a non-wear sample rather than counting it as sitting", () => {
+    expect(
+      trailingIdleFromMet({
+        interval: 60,
+        items: [1.0, null, 1.0, 1.0],
+        timestamp: at("09:00"),
+      })
+    ).toBe(2)
+  })
+
+  it("handles unusable input", () => {
+    expect(trailingIdleFromMet(null)).toBe(0)
+    expect(
+      trailingIdleFromMet({ interval: 0, items: [1], timestamp: at("09:00") })
+    ).toBe(0)
+  })
+
+  it("prefers MET over classes, and falls back when it is absent", () => {
+    const met = { interval: 60, items: [1.0, 1.0], timestamp: at("09:00") }
+    expect(sittingMinutes({ met, class_5_min: "22222222" })).toBe(2)
+    expect(sittingMinutes({ met: null, class_5_min: "22222222" })).toBe(40)
+    expect(sittingMinutes(null)).toBe(0)
   })
 })
 
@@ -256,6 +441,44 @@ describe("activeMinutesFrom", () => {
 
   it("rounds to the nearest minute", () => {
     expect(activeMinutesFrom(activity(100, 0))).toBe(2) // 1m40s
+  })
+
+  it("counts from per-minute MET when it is available", () => {
+    // Oura's own totals say 20 minutes; MET says 3. MET wins — it is the
+    // finer measurement and the one the chart is drawn from.
+    expect(
+      activeMinutesFrom({
+        ...activity(1200, 0),
+        met: {
+          interval: 60,
+          items: [1.0, 2.0, 4.0, 4.0, 8.0],
+          timestamp: "2026-08-15T07:00:00-07:00",
+        },
+      })
+    ).toBe(3)
+  })
+
+  it("falls back to Oura's totals when MET is unusable", () => {
+    expect(
+      activeMinutesFrom({
+        ...activity(1200, 600),
+        met: { interval: 60, items: [], timestamp: "2026-08-15T07:00:00-07:00" },
+      })
+    ).toBe(30)
+  })
+
+  it("does not count light MET minutes toward the goal", () => {
+    // A whole hour of pottering at MET 2 — real movement, but not moderate.
+    expect(
+      activeMinutesFrom({
+        ...activity(0, 0),
+        met: {
+          interval: 60,
+          items: Array(60).fill(2.0),
+          timestamp: "2026-08-15T07:00:00-07:00",
+        },
+      })
+    ).toBe(0)
   })
 })
 
