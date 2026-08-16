@@ -320,6 +320,68 @@ describe("getOuraDailySummary — activity window", () => {
   })
 })
 
+describe("getOuraDailySummary — missing-activity diagnostics", () => {
+  /** Capture the structured line the summary logs when activity is absent. */
+  async function missingLog(
+    handlers: Record<string, Handler>,
+    tzOffset?: string
+  ): Promise<Record<string, unknown> | undefined> {
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {})
+    mockFetch(handlers)
+    await getOuraDailySummary("token", "2024-05-01", tzOffset)
+    const line = spy.mock.calls
+      .map((c) => String(c[0]))
+      .find((s) => s.includes("oura/activity-missing"))
+    spy.mockRestore()
+    return line ? JSON.parse(line) : undefined
+  }
+
+  it("says nothing when today's document is present", async () => {
+    const log = await missingLog({
+      daily_activity: () => ({ data: [{ id: "a", day: "2024-05-01" }] }),
+    })
+    expect(log).toBeUndefined()
+  })
+
+  // Distinguishes "Oura has nothing for this window" from the two below.
+  it("reports an empty window", async () => {
+    const log = await missingLog({ daily_activity: () => ({ data: [] }) })
+    expect(log).toMatchObject({
+      requestedDay: "2024-05-01",
+      fetchFailed: false,
+      returnedCount: 0,
+      returnedDays: [],
+    })
+  })
+
+  // Distinguishes "today isn't published yet" — the explanation that no
+  // client-side change can fix.
+  it("reports which days did come back", async () => {
+    const log = await missingLog({
+      daily_activity: () => ({ data: [{ id: "a", day: "2024-04-30" }] }),
+    })
+    expect(log).toMatchObject({
+      requestedDay: "2024-05-01",
+      returnedCount: 1,
+      returnedDays: ["2024-04-30"],
+    })
+  })
+
+  // Distinguishes a transport failure, which would look identical otherwise.
+  it("flags a failed request rather than an empty one", async () => {
+    const log = await missingLog({
+      daily_activity: () =>
+        new Response("nope", { status: 500 }) as unknown as Response,
+    })
+    expect(log).toMatchObject({ fetchFailed: true, returnedCount: 0 })
+  })
+
+  it("records the timezone offset the window was built from", async () => {
+    const log = await missingLog({ daily_activity: () => ({ data: [] }) }, "-04:00")
+    expect(log).toMatchObject({ tzOffset: "-04:00" })
+  })
+})
+
 describe("getOuraDailySummary — sleep period window", () => {
   it("queries the sleep endpoint with a padded ±1 day window", async () => {
     const fn = mockFetch({})

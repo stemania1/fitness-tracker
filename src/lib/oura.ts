@@ -342,6 +342,29 @@ export async function getOuraDailySummary(
   const todaysActivity =
     (activityData?.data ?? []).find((a) => a.day === today) ?? null
 
+  // Today's activity document is the one input the Daily Movement card cannot
+  // work without, and its absence is silent: daily_activity answers 200 with
+  // an empty array rather than an error, so `ouraFetch`'s failure logging
+  // never fires and a blank card leaves no trace anywhere.
+  //
+  // That silence cost two wrong diagnoses. This line makes the difference
+  // between the remaining explanations readable from the runtime log instead
+  // of guessed at: whether the request failed at all, whether Oura returned
+  // nothing for the window, or whether it returned documents whose `day`
+  // labels don't match the date the client asked for.
+  if (!todaysActivity) {
+    console.log(
+      JSON.stringify({
+        event: "oura/activity-missing",
+        requestedDay: today,
+        tzOffset: offset,
+        fetchFailed: activityData === null,
+        returnedCount: activityData?.data?.length ?? 0,
+        returnedDays: (activityData?.data ?? []).map((a) => a.day),
+      })
+    )
+  }
+
   // Use the primary (long_sleep) period for detailed sleep data. Only
   // consider periods whose wake-up day is `today` — the padded query
   // window can also return yesterday's sleep, which would be stale.
