@@ -266,24 +266,49 @@ describe("getOuraDailySummary — heart rate fallbacks", () => {
 })
 
 describe("getOuraDailySummary — activity window", () => {
-  it("queries daily_activity with a padded window back one day", async () => {
+  it("queries daily_activity with a padded window either side of today", async () => {
     const fn = mockFetch({})
     await getOuraDailySummary("token", "2024-05-01")
     const call = fn.mock.calls
       .map((c) => new URL(c[0] as string))
       .find((u) => u.pathname.endsWith("/daily_activity"))
     expect(call?.searchParams.get("start_date")).toBe("2024-04-30")
-    expect(call?.searchParams.get("end_date")).toBe("2024-05-01")
+    expect(call?.searchParams.get("end_date")).toBe("2024-05-02")
   })
 
   it("pads correctly across month boundaries", async () => {
     const fn = mockFetch({})
-    await getOuraDailySummary("token", "2024-06-01")
+    await getOuraDailySummary("token", "2024-05-31")
     const call = fn.mock.calls
       .map((c) => new URL(c[0] as string))
       .find((u) => u.pathname.endsWith("/daily_activity"))
-    expect(call?.searchParams.get("start_date")).toBe("2024-05-31")
+    expect(call?.searchParams.get("start_date")).toBe("2024-05-30")
     expect(call?.searchParams.get("end_date")).toBe("2024-06-01")
+  })
+
+  // The window now reaches past today, so the day match is what stops a
+  // future-dated document being shown as the current day's.
+  it("ignores a document dated after today", async () => {
+    mockFetch({
+      daily_activity: () => ({
+        data: [
+          { id: "tomorrow", day: "2024-05-02", steps: 99999 },
+          { id: "today", day: "2024-05-01", steps: 4200 },
+        ],
+      }),
+    })
+    const summary = await getOuraDailySummary("token", "2024-05-01")
+    expect(summary.activity?.id).toBe("today")
+  })
+
+  it("returns nothing rather than tomorrow's when today is absent", async () => {
+    mockFetch({
+      daily_activity: () => ({
+        data: [{ id: "tomorrow", day: "2024-05-02", steps: 99999 }],
+      }),
+    })
+    const summary = await getOuraDailySummary("token", "2024-05-01")
+    expect(summary.activity).toBeNull()
   })
 
   it("picks today's document out of the padded window", async () => {
