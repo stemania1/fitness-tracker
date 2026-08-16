@@ -61,10 +61,9 @@ export const queryKeys = {
   ouraVo2History: ["oura-vo2-history"] as const,
 
   // Movement. Keyed by window because the card and any future longer view
-  // read different spans of the same two tables.
+  // read different spans of the stored Oura history.
   movementHistory: (windowDays: number) =>
     ["movement-history", windowDays] as const,
-  manualActivity: (day: string) => ["manual-activity", day] as const,
 
   // Derived / analytical
   weeklyDigest: ["weekly-digest"] as const,

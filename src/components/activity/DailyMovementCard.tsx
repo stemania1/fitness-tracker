@@ -13,13 +13,10 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from "recharts"
-import { createClient } from "@/lib/supabase/client"
 import { InsightCard } from "@/components/ui/insight-card"
-import { useUserQuery } from "@/lib/supabase/user-query"
 import { useProfile } from "@/hooks/useProfile"
 import { ouraSummaryQuery } from "@/lib/queries/oura"
 import { localToday } from "@/lib/dates"
-import { queryKeys } from "@/lib/queries/keys"
 import {
   useMovementHistory,
   hasMovementData,
@@ -29,8 +26,7 @@ import {
   movementHours,
   totalActiveMinutes,
   sittingMinutes,
-  resolveDailyMovement,
-  mergeMovementHistory,
+  activeMinutesFrom,
   stepPace,
   activeMinutesPace,
   activeMinutesDetail,
@@ -45,8 +41,6 @@ import {
   type DailyPace,
   type HourlyMovement,
 } from "@/lib/daily-movement"
-
-const supabase = createClient()
 
 /** Days of stored history behind the "7-day average" line. */
 const TREND_DAYS = 7
@@ -94,60 +88,31 @@ export function DailyMovementCard() {
     profile?.daily_active_minutes_goal ?? DEFAULT_ACTIVE_MINUTES_GOAL
   const activity = ouraResult?.summary?.activity ?? null
 
-  // Stored history for the weekly averages, from both sources. Shared with
-  // the dashboard page under one key, so the section gate and the card agree.
-  // Today is fetched too and then excluded by `dailyTrend` — a partial total
-  // shouldn't drag the average.
+  // Stored history for the weekly averages. Shared with the dashboard page
+  // under one key, so the section gate and the card agree. Today is fetched
+  // too and then excluded by `dailyTrend` — a partial total shouldn't drag
+  // the average.
   const { data: history } = useMovementHistory(TREND_DAYS)
 
-  // Today's hand-entered figures, used only when the ring has nothing.
-  const { data: manualToday } = useUserQuery(
-    queryKeys.manualActivity(today),
-    async (userId: string) => {
-      const { data, error } = await supabase
-        .from("manual_activity_logs")
-        .select("steps, active_minutes")
-        .eq("user_id", userId)
-        .eq("day", today)
-        .maybeSingle()
-      if (error) throw error
-      return data
-    }
-  )
-
-  const resolved = useMemo(
-    () =>
-      resolveDailyMovement(
-        activity,
-        manualToday
-          ? {
-              steps: manualToday.steps,
-              activeMinutes: manualToday.active_minutes,
-            }
-          : null
-      ),
-    [activity, manualToday]
-  )
-
   const pace = useMemo(() => {
-    if (!resolved) return null
+    if (!activity) return null
     const now = new Date()
-    return stepPace(resolved.steps, goal, now.getHours(), now.getMinutes())
-  }, [resolved, goal])
+    return stepPace(activity.steps ?? 0, goal, now.getHours(), now.getMinutes())
+  }, [activity, goal])
 
   // Moderate + high only — see activeMinutesFrom. This is deliberately a
   // different number from the chart's "moving" total below, which includes
   // the low band.
   const minutesPace: DailyPace | null = useMemo(() => {
-    if (!resolved) return null
+    if (!activity) return null
     const now = new Date()
     return activeMinutesPace(
-      resolved.activeMinutes,
+      activeMinutesFrom(activity),
       minutesGoal,
       now.getHours(),
       now.getMinutes()
     )
-  }, [resolved, minutesGoal])
+  }, [activity, minutesGoal])
 
   // Per-minute MET where Oura sends it, five-minute classes otherwise.
   const hours: HourlyMovement[] = useMemo(
@@ -163,10 +128,7 @@ export function DailyMovementCard() {
   const trend = useMemo(
     () =>
       dailyTrend(
-        mergeMovementHistory(
-          (history?.ring ?? []).map((r) => ({ day: r.day, value: r.steps })),
-          (history?.manual ?? []).map((r) => ({ day: r.day, value: r.steps }))
-        ),
+        (history?.ring ?? []).map((r) => ({ day: r.day, value: r.steps })),
         goal,
         today
       ),
@@ -175,33 +137,26 @@ export function DailyMovementCard() {
   const minutesTrend = useMemo(
     () =>
       dailyTrend(
-        mergeMovementHistory(
-          (history?.ring ?? []).map((r) => ({
-            day: r.day,
-            value: r.active_minutes,
-          })),
-          (history?.manual ?? []).map((r) => ({
-            day: r.day,
-            value: r.active_minutes,
-          }))
-        ),
+        (history?.ring ?? []).map((r) => ({
+          day: r.day,
+          value: r.active_minutes,
+        })),
         minutesGoal,
         today
       ),
     [history, minutesGoal, today]
   )
 
-  // Hidden only for someone with no ring and no hand-entered day — for them
-  // there is nothing to show and nothing to fill in from.
+  // Hidden only for someone with no ring and no stored history at all.
   //
   // Notably NOT hidden when the ring is connected but today has no document
-  // yet. That was the old behavior and it was the wrong call: a day off the
-  // charger made the whole section disappear without a word, which reads as a
-  // bug rather than as missing data. Now it asks for the number instead.
+  // yet. That was the original behavior and it was the wrong call: a day the
+  // ring didn't report made the whole section disappear without a word, which
+  // reads as a bug rather than as missing data. Now it says so.
   if (
     !ouraLoading &&
     !ouraResult?.connected &&
-    !resolved &&
+    !activity &&
     !hasMovementData(history)
   ) {
     return null
@@ -213,7 +168,7 @@ export function DailyMovementCard() {
       title="Daily Movement"
       isLoading={ouraLoading}
       skeletonHeight="h-56"
-      isEmpty={!resolved}
+      isEmpty={!activity}
       empty={
         <div className="space-y-2">
           <p className="text-sm text-gray-500">
@@ -221,8 +176,8 @@ export function DailyMovementCard() {
           </p>
           <p className="text-xs text-gray-400">
             {ouraResult?.connected
-              ? "Your ring hasn't reported today. If it wasn't on, log the day by hand from Log Steps."
-              : "Log the day by hand from Log Steps, or connect your Oura ring in Profile."}
+              ? "Your ring hasn't reported today's activity. This fills in once it syncs."
+              : "Connect your Oura ring in Profile to track steps and activity."}
           </p>
         </div>
       }
@@ -265,12 +220,7 @@ export function DailyMovementCard() {
                 style={{ width: `${pace.percent}%` }}
               />
             </div>
-            <p className="mt-1.5 text-xs text-gray-500">
-              {paceDetail(pace)}
-              {resolved?.source === "manual" && (
-                <span className="text-gray-400"> · entered by hand</span>
-              )}
-            </p>
+            <p className="mt-1.5 text-xs text-gray-500">{paceDetail(pace)}</p>
           </div>
 
           {/* Moderate+ minutes — the intensity half of the picture. Steps say
