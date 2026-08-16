@@ -337,6 +337,25 @@ describe("DailyMovementCard", () => {
     expect(screen.getByText(/Sitting 2h — time to move/)).toBeInTheDocument()
   })
 
+  it("does not tell you to get up right after you got up", () => {
+    // Eight hours of sleep, checked at 07:30. Neither source can tell
+    // sleeping from sitting, so an unbounded trailing run reads the whole
+    // night as one long sit and nags the moment the app is opened.
+    vi.setSystemTime(new Date("2026-08-15T07:30:00"))
+    mockOura({
+      connected: true,
+      activity: activity(400, {
+        met: {
+          interval: 60,
+          items: Array(480).fill(0.9),
+          timestamp: "2026-08-15T04:00:00-07:00",
+        },
+      }),
+    })
+    render(<DailyMovementCard />, { wrapper })
+    expect(screen.queryByText(/time to move/)).toBeNull()
+  })
+
   it("stays quiet about a short sitting stretch", () => {
     mockOura({
       connected: true,

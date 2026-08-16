@@ -317,15 +317,37 @@ export function trailingIdleFromMet(
   return Math.round(minutes)
 }
 
-/** Trailing sitting run, from the best source available. */
+/**
+ * Trailing sitting run, from the best source available, bounded to the
+ * waking day.
+ *
+ * The bound is the whole point. Oura's activity day starts around 04:00, and
+ * neither source can tell sleeping from sitting still: class `1` is "rest",
+ * and sleeping MET sits below the 1.5 cut-point just as motionless sitting
+ * does. Unbounded, the trailing run walks straight back into the night, so
+ * opening the app at 07:00 after an ordinary eight hours produced
+ * "Sitting 3h — time to move" — a nudge to get up, delivered to someone who
+ * had just got up.
+ *
+ * Capping at minutes elapsed since the moving day began fixes it without
+ * needing to know when the user actually woke: before 07:00 nothing can
+ * accumulate, at 08:00 at most an hour can, and a genuine two-hour sit at
+ * 15:00 is unaffected.
+ */
 export function sittingMinutes(
-  activity: { met?: MetSamples | null; class_5_min?: string | null } | null
+  activity: { met?: MetSamples | null; class_5_min?: string | null } | null,
+  hour: number,
+  minute = 0
 ): number {
   if (!activity) return 0
-  if (parseMetSamples(activity.met).length > 0) {
-    return trailingIdleFromMet(activity.met)
-  }
-  return trailingIdleMinutes(activity.class_5_min)
+
+  const run = parseMetSamples(activity.met).length > 0
+    ? trailingIdleFromMet(activity.met)
+    : trailingIdleMinutes(activity.class_5_min)
+
+  const sinceMovingDayStart = hour * 60 + minute - ACTIVE_DAY_START_HOUR * 60
+  if (sinceMovingDayStart <= 0) return 0
+  return Math.min(run, sinceMovingDayStart)
 }
 
 /** Where a day's running total sits against its goal and against the clock. */
