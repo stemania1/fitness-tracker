@@ -66,16 +66,32 @@ export const DEFAULT_STEP_GOAL = 8000
  */
 export const DEFAULT_ACTIVE_MINUTES_GOAL = 30
 
-/** One hour of the activity day, in minutes at each intensity. */
+/**
+ * MET cut-points, from the standard physical-activity definitions: below 1.5
+ * is sedentary, 1.5-3 light, 3-6 moderate, 6+ vigorous. "Moderate or higher"
+ * — the thing the activity goal counts — is everything from 3 up.
+ */
+export const MET_LIGHT = 1.5
+export const MET_MODERATE = 3
+export const MET_VIGOROUS = 6
+
+/**
+ * One hour of the activity day, in minutes at each intensity.
+ *
+ * The three bands are light / moderate / vigorous. They come from per-minute
+ * MET where Oura provides it and from `class_5_min`'s low/medium/high classes
+ * otherwise — the two sources disagree at the margins, but they mean the same
+ * three things, so the card renders either without knowing which it got.
+ */
 export interface HourlyMovement {
   /** Local hour, 0-23. */
   hour: number
   lowMinutes: number
   mediumMinutes: number
   highMinutes: number
-  /** low + medium + high. */
+  /** light + moderate + vigorous — "moving", not the goal metric. */
   activeMinutes: number
-  /** Worn, but at rest or inactive. */
+  /** Worn, but sedentary. */
   idleMinutes: number
 }
 
@@ -114,21 +130,6 @@ export function parseMovementClasses(
   if (start == null) return []
 
   const byHour = new Map<number, HourlyMovement>()
-  const ensure = (hour: number): HourlyMovement => {
-    let h = byHour.get(hour)
-    if (!h) {
-      h = {
-        hour,
-        lowMinutes: 0,
-        mediumMinutes: 0,
-        highMinutes: 0,
-        activeMinutes: 0,
-        idleMinutes: 0,
-      }
-      byHour.set(hour, h)
-    }
-    return h
-  }
 
   for (let i = 0; i < classes.length; i++) {
     const level = CLASS_LEVELS[classes[i]]
@@ -137,8 +138,14 @@ export function parseMovementClasses(
     // The activity day can run past midnight into the next calendar day.
     // Those samples belong to tomorrow's chart, not this one.
     if (minuteOfDay >= 24 * 60) break
-    const bucket = ensure(Math.floor(minuteOfDay / 60))
+    const hour = Math.floor(minuteOfDay / 60)
+    let bucket = byHour.get(hour)
+    if (!bucket) {
+      bucket = emptyHour(hour)
+      byHour.set(hour, bucket)
+    }
 
+    // Oura's low/medium/high map onto light/moderate/vigorous.
     if (level === "low") bucket.lowMinutes += SAMPLE_MINUTES
     else if (level === "medium") bucket.mediumMinutes += SAMPLE_MINUTES
     else if (level === "high") bucket.highMinutes += SAMPLE_MINUTES
@@ -148,11 +155,35 @@ export function parseMovementClasses(
     // "nonwear" counts toward neither — the ring was off, so we know nothing.
   }
 
+  return seriesFrom(byHour)
+}
+
+/** Per-minute MET samples, as Oura's `daily_activity.met` sub-document. */
+export interface MetSamples {
+  interval: number
+  items: (number | null)[]
+  timestamp: string
+}
+
+/** An empty hour bucket. */
+function emptyHour(hour: number): HourlyMovement {
+  return {
+    hour,
+    lowMinutes: 0,
+    mediumMinutes: 0,
+    highMinutes: 0,
+    activeMinutes: 0,
+    idleMinutes: 0,
+  }
+}
+
+/** Fill `activeMinutes` and emit a contiguous, hour-sorted series. */
+function seriesFrom(byHour: Map<number, HourlyMovement>): HourlyMovement[] {
   if (byHour.size === 0) return []
   const hours = [...byHour.keys()]
   const out: HourlyMovement[] = []
   for (let h = Math.min(...hours); h <= Math.max(...hours); h++) {
-    const bucket = ensure(h)
+    const bucket = byHour.get(h) ?? emptyHour(h)
     bucket.activeMinutes =
       bucket.lowMinutes + bucket.mediumMinutes + bucket.highMinutes
     out.push(bucket)
@@ -160,9 +191,86 @@ export function parseMovementClasses(
   return out
 }
 
-/** Total minutes at low/medium/high across the day so far. */
+/**
+ * Bucket per-minute MET samples into per-hour minutes at each intensity.
+ *
+ * The finer of the two sources: a continuous MET value each minute, cut at
+ * the standard thresholds, rather than Oura's pre-binned five-minute classes.
+ * Null items are non-wear and count toward nothing — the ring was off, so we
+ * know neither that you moved nor that you sat.
+ *
+ * Returns `[]` for anything unusable (no samples, no timestamp, a
+ * non-positive interval), which is the caller's signal to fall back to
+ * `parseMovementClasses`.
+ */
+export function parseMetSamples(
+  met: MetSamples | null | undefined
+): HourlyMovement[] {
+  if (!met || !met.items?.length || !met.timestamp) return []
+  if (!(met.interval > 0)) return []
+  const start = localMinuteOfDay(met.timestamp)
+  if (start == null) return []
+
+  const minutesPerSample = met.interval / 60
+  const byHour = new Map<number, HourlyMovement>()
+
+  for (let i = 0; i < met.items.length; i++) {
+    const value = met.items[i]
+    // Non-wear, or a malformed entry. Either way it asserts nothing.
+    if (value == null || !Number.isFinite(value)) continue
+
+    const minuteOfDay = start + i * minutesPerSample
+    if (minuteOfDay >= 24 * 60) break
+    const hour = Math.floor(minuteOfDay / 60)
+    let bucket = byHour.get(hour)
+    if (!bucket) {
+      bucket = emptyHour(hour)
+      byHour.set(hour, bucket)
+    }
+
+    if (value >= MET_VIGOROUS) bucket.highMinutes += minutesPerSample
+    else if (value >= MET_MODERATE) bucket.mediumMinutes += minutesPerSample
+    else if (value >= MET_LIGHT) bucket.lowMinutes += minutesPerSample
+    else bucket.idleMinutes += minutesPerSample
+  }
+
+  return seriesFrom(byHour)
+}
+
+/**
+ * The day's hourly movement, from the best source available.
+ *
+ * Per-minute MET when Oura sends it, five-minute classes when it doesn't.
+ * The fallback matters: `met` is absent on days the ring didn't sync fully,
+ * and losing the whole chart for a coarser-but-present signal would be a
+ * poor trade.
+ */
+export function movementHours(
+  activity: {
+    met?: MetSamples | null
+    class_5_min?: string | null
+    timestamp?: string | null
+  } | null
+): HourlyMovement[] {
+  if (!activity) return []
+  const fromMet = parseMetSamples(activity.met)
+  if (fromMet.length > 0) return fromMet
+  return parseMovementClasses(activity.class_5_min, activity.timestamp)
+}
+
+/** Total minutes at any intensity across the day so far — "moving". */
 export function totalActiveMinutes(hours: HourlyMovement[]): number {
   return hours.reduce((sum, h) => sum + h.activeMinutes, 0)
+}
+
+/**
+ * Moderate-or-higher minutes — the goal metric — placed on the clock.
+ *
+ * The top two bands of the same series the chart draws, so the goal figure
+ * and the picture above it can never disagree.
+ */
+export function moderatePlusMinutes(hours: HourlyMovement[]): number {
+  return hours.reduce((sum, h) => sum + h.mediumMinutes + h.highMinutes, 0)
 }
 
 /**
@@ -184,6 +292,40 @@ export function trailingIdleMinutes(
     else break
   }
   return minutes
+}
+
+/**
+ * The same trailing-sitting run, measured from per-minute MET.
+ *
+ * Sustained sub-1.5 MET is a cleaner sedentary signal than the class digits:
+ * Oura bins a fidget and a nap into the same "inactive", where MET separates
+ * them. As with the class version, an unusable sample ends the run rather
+ * than extending it.
+ */
+export function trailingIdleFromMet(
+  met: MetSamples | null | undefined
+): number {
+  if (!met || !met.items?.length || !(met.interval > 0)) return 0
+  const minutesPerSample = met.interval / 60
+  let minutes = 0
+  for (let i = met.items.length - 1; i >= 0; i--) {
+    const value = met.items[i]
+    if (value == null || !Number.isFinite(value)) break
+    if (value >= MET_LIGHT) break
+    minutes += minutesPerSample
+  }
+  return Math.round(minutes)
+}
+
+/** Trailing sitting run, from the best source available. */
+export function sittingMinutes(
+  activity: { met?: MetSamples | null; class_5_min?: string | null } | null
+): number {
+  if (!activity) return 0
+  if (parseMetSamples(activity.met).length > 0) {
+    return trailingIdleFromMet(activity.met)
+  }
+  return trailingIdleMinutes(activity.class_5_min)
 }
 
 /** Where a day's running total sits against its goal and against the clock. */
@@ -298,17 +440,29 @@ export function activeMinutesPace(
 /**
  * Moderate-or-higher minutes from an Oura activity document.
  *
- * Deliberately excludes `low_activity_time`. Oura's "low" is standing and
+ * Deliberately excludes light activity. Oura's "low" band is standing and
  * ambling; counting it would routinely put a desk day over a 30-minute
  * health target, which is precisely the claim the target exists to make.
+ *
+ * Counted from per-minute MET at the standard cut-point where available, and
+ * from Oura's own medium+high totals otherwise. The two can differ by a few
+ * minutes at the margins — Oura's banding is not exactly MET 3.0 — so the
+ * source is chosen the same way everywhere (here, the sync, and the card)
+ * rather than per caller. Mixing them would put one definition in today's
+ * figure and another in the weekly average it is compared against.
  */
 export function activeMinutesFrom(
   activity: {
+    met?: MetSamples | null
     medium_activity_time?: number | null
     high_activity_time?: number | null
   } | null
 ): number {
   if (!activity) return 0
+
+  const hours = parseMetSamples(activity.met)
+  if (hours.length > 0) return Math.round(moderatePlusMinutes(hours))
+
   const seconds =
     (activity.medium_activity_time ?? 0) + (activity.high_activity_time ?? 0)
   return Math.round(seconds / 60)

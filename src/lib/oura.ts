@@ -56,6 +56,27 @@ export interface OuraDailyActivity {
   class_5_min?: string | null
   /** Local start of `class_5_min`, with the user's UTC offset attached. */
   timestamp?: string | null
+  /**
+   * Per-minute metabolic equivalent samples — the finest motion-derived
+   * signal Oura publishes, and strictly better than `class_5_min`: a
+   * continuous intensity value each minute rather than one of six bands
+   * every five. `interval` is seconds per sample (60 in practice), `items`
+   * runs from `timestamp`, and a null item means the ring wasn't worn.
+   *
+   * Already present in every daily_activity response — the endpoint is
+   * fetched without field selection — so reading it costs no extra request.
+   */
+  met?: OuraMetSamples | null
+}
+
+/** The `met` sub-document of a daily activity record. */
+export interface OuraMetSamples {
+  /** Seconds covered by each item. */
+  interval: number
+  /** MET per interval; null where the ring wasn't worn. */
+  items: (number | null)[]
+  /** Local start of the series, with the user's UTC offset attached. */
+  timestamp: string
 }
 
 export interface OuraDailyReadiness {

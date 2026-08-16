@@ -21,9 +21,9 @@ import { ouraSummaryQuery } from "@/lib/queries/oura"
 import { daysAgoDateString, localToday } from "@/lib/dates"
 import { CHIP_TONES } from "@/lib/constants"
 import {
-  parseMovementClasses,
+  movementHours,
   totalActiveMinutes,
-  trailingIdleMinutes,
+  sittingMinutes,
   stepPace,
   activeMinutesPace,
   activeMinutesFrom,
@@ -48,10 +48,15 @@ const TREND_DAYS = 7
 /** A sitting run shorter than this isn't worth mentioning. */
 const SITTING_NUDGE_MINUTES = 90
 
+// The top two bands are what the activity goal counts, so the chart explains
+// the "N / 30 min moderate+" row above it rather than sitting beside it
+// unexplained. They agree to the minute on the MET path; on the class_5_min
+// fallback the row uses Oura's own daily totals, which can differ by a minute
+// or two from summing five-minute buckets.
 const INTENSITY_BARS = [
-  { key: "lowMinutes" as const, label: "Low", color: "#c4b5fd" },
-  { key: "mediumMinutes" as const, label: "Medium", color: "#8b5cf6" },
-  { key: "highMinutes" as const, label: "High", color: "#6d28d9" },
+  { key: "lowMinutes" as const, label: "Light", color: "#c4b5fd" },
+  { key: "mediumMinutes" as const, label: "Moderate", color: "#8b5cf6" },
+  { key: "highMinutes" as const, label: "Vigorous", color: "#6d28d9" },
 ]
 
 /**
@@ -61,10 +66,11 @@ const INTENSITY_BARS = [
  *
  * The two halves answer different questions from different data, and the card
  * is careful not to blur them. The step count is a running daily total —
- * Oura publishes no per-hour step series — so pacing compares it against the
- * clock rather than pretending to know when the steps happened. The chart
- * below is built from `class_5_min`, which is genuinely intraday, and is
- * labeled in *minutes of movement*, not steps.
+ * Oura publishes no per-hour step series, and no raw accelerometer either —
+ * so pacing compares it against the clock rather than pretending to know when
+ * the steps happened. The chart below is genuinely intraday, from per-minute
+ * MET (or five-minute activity classes as a fallback), and is labeled in
+ * *minutes of movement*, not steps.
  *
  * Self-fetching, and it shares the ["oura-summary"] key with the dashboard's
  * Oura card — so despite being a second Oura consumer it costs no second
@@ -121,16 +127,14 @@ export function DailyMovementCard() {
     )
   }, [activity, minutesGoal])
 
+  // Per-minute MET where Oura sends it, five-minute classes otherwise.
   const hours: HourlyMovement[] = useMemo(
-    () => parseMovementClasses(activity?.class_5_min, activity?.timestamp),
+    () => movementHours(activity),
     [activity]
   )
 
   const activeMinutes = useMemo(() => totalActiveMinutes(hours), [hours])
-  const sittingMinutes = useMemo(
-    () => trailingIdleMinutes(activity?.class_5_min),
-    [activity]
-  )
+  const sitting = useMemo(() => sittingMinutes(activity), [activity])
   const trend = useMemo(
     () =>
       dailyTrend(
@@ -343,9 +347,9 @@ export function DailyMovementCard() {
                   ` · ${minutesTrend.daysAtGoal}/${minutesTrend.days} at goal`}
               </span>
             )}
-            {sittingMinutes >= SITTING_NUDGE_MINUTES && (
+            {sitting >= SITTING_NUDGE_MINUTES && (
               <span className="text-amber-600">
-                Sitting {formatMinutes(sittingMinutes)} — time to move
+                Sitting {formatMinutes(sitting)} — time to move
               </span>
             )}
           </div>

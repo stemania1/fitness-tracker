@@ -241,6 +241,33 @@ describe("DailyMovementCard", () => {
     expect(screen.getByText("Met")).toBeInTheDocument()
   })
 
+  it("prefers per-minute MET over the five-minute classes", () => {
+    // Oura's own totals claim 20 moderate minutes; MET says 2. The card must
+    // report what the chart is actually drawn from.
+    mockOura({
+      connected: true,
+      activity: activity(4200, {
+        met: {
+          interval: 60,
+          items: [1.0, 2.0, 4.0, 8.0],
+          timestamp: "2026-08-15T07:00:00-07:00",
+        },
+      }),
+    })
+    render(<DailyMovementCard />, { wrapper })
+    expect(screen.getByText("/ 30 min moderate+")).toBeInTheDocument()
+    expect(screen.getByText("28 min to go · 2m so far")).toBeInTheDocument()
+    // Light + moderate + vigorous = 3 minutes of movement.
+    expect(screen.getByText("3m moving")).toBeInTheDocument()
+  })
+
+  it("falls back to the five-minute classes when MET is absent", () => {
+    mockOura({ connected: true, activity: activity(4200, { met: null }) })
+    render(<DailyMovementCard />, { wrapper })
+    expect(screen.getByText("2h moving")).toBeInTheDocument()
+    expect(screen.getByText("10 min to go · 20m so far")).toBeInTheDocument()
+  })
+
   it("shows the hourly movement chart with its intensity legend", () => {
     mockOura({ connected: true, activity: activity(4200) })
     render(<DailyMovementCard />, { wrapper })
@@ -248,15 +275,15 @@ describe("DailyMovementCard", () => {
     // 12 low + 12 medium samples = 120 minutes of movement. Labelled
     // "moving", not "active" — it includes the low band.
     expect(screen.getByText("2h moving")).toBeInTheDocument()
-    expect(screen.getByText("Low")).toBeInTheDocument()
-    expect(screen.getByText("Medium")).toBeInTheDocument()
-    expect(screen.getByText("High")).toBeInTheDocument()
+    expect(screen.getByText("Light")).toBeInTheDocument()
+    expect(screen.getByText("Moderate")).toBeInTheDocument()
+    expect(screen.getByText("Vigorous")).toBeInTheDocument()
   })
 
   it("explains the missing chart when the ring has no intraday data yet", () => {
     mockOura({
       connected: true,
-      activity: activity(4200, { class_5_min: null, timestamp: null }),
+      activity: activity(4200, { class_5_min: null, timestamp: null, met: null }),
     })
     render(<DailyMovementCard />, { wrapper })
     expect(screen.queryByText("Movement by hour")).toBeNull()
