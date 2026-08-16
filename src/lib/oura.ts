@@ -279,17 +279,29 @@ export async function getOuraDailySummary(
       start_date: shiftDate(today, -1),
       end_date: shiftDate(today, 1),
     }),
-    // Padded for the same reason as /sleep above: a single-day window
-    // (start_date === end_date) can come back empty even when the document
-    // exists. Observed in production — daily_sleep and daily_readiness
-    // returned today's documents while daily_activity returned 200 with an
-    // empty array all day, leaving the Daily Movement card with nothing to
-    // show at 14:00. Only the previous day is added, never the next: the
-    // point is to widen the window, not to reach for data that isn't there.
+    // Same ±1 day window as /sleep above, and for the same reason: this
+    // endpoint's date filtering does not behave like daily_sleep's.
+    //
+    // The narrowing happened in two steps, both recorded in the runtime log.
+    // With `start === end === today` it returned 200 and an empty array all
+    // day. Widened to [yesterday, today] it returned exactly one document —
+    // yesterday's — while today's was still missing at 19:00 local. A window
+    // whose end bound is the requested day yielding only the day before it is
+    // what an *exclusive* end bound looks like, which would also explain the
+    // original empty result: start === end is then an empty range.
+    //
+    // Hence end_date = tomorrow. If the bound is exclusive, today's document
+    // now falls inside the window; if instead Oura simply doesn't publish the
+    // current day until its activity day closes, nothing changes and the
+    // oura/activity-missing line below says so on the next load.
+    //
+    // Reaching past today is safe only because the pick below matches on
+    // `day`: a stray tomorrow or yesterday document is discarded rather than
+    // shown as today's.
     ouraFetch<{ data: OuraDailyActivity[] }>(
       "daily_activity",
       accessToken,
-      { start_date: shiftDate(today, -1), end_date: today }
+      { start_date: shiftDate(today, -1), end_date: shiftDate(today, 1) }
     ),
     ouraFetch<{ data: OuraDailyReadiness[] }>(
       "daily_readiness",
