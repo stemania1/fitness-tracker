@@ -50,7 +50,6 @@ import { ThisWeekCard } from "@/components/activity/ThisWeekCard"
 import { RemindersCard } from "@/components/activity/RemindersCard"
 import { QuickLogFood } from "@/components/activity/QuickLogFood"
 import { QuickLogCaffeine } from "@/components/activity/QuickLogCaffeine"
-import { QuickLogSteps } from "@/components/activity/QuickLogSteps"
 import { NutritionCard } from "@/components/activity/NutritionCard"
 import { CaffeineCard } from "@/components/activity/CaffeineCard"
 import { CreatineCard } from "@/components/activity/CreatineCard"
@@ -176,9 +175,8 @@ export default function DashboardPage() {
   const ouraSummary = ouraResult?.summary ?? null
   const ouraConnected = ouraResult?.connected ?? false
 
-  // Shared with DailyMovementCard under one key — this is only used to decide
-  // whether the Movement heading renders, so a hand-logged day on a ringless
-  // account still gets a section to live in.
+  // Shared with DailyMovementCard under one key — used only to decide whether
+  // the Movement heading renders at all.
   const { data: movementHistory } = useMovementHistory(7)
 
   // Missed-session catch-up suggestion for the Today's Plan card.
@@ -278,7 +276,6 @@ export default function DashboardPage() {
           <div className="flex gap-2">
             <QuickLogFood />
             <QuickLogCaffeine />
-            <QuickLogSteps />
           </div>
         </div>
 
@@ -297,11 +294,9 @@ export default function DashboardPage() {
           night's sleep is settled.
 
           Gated on the ring being connected rather than on today's document
-          existing. The card now handles a dataless day itself, by asking for
-          the number — and a day off the charger silently deleting the whole
-          section is what this gate used to cause. Someone with no ring at all
-          still sees nothing here until they log a day, at which point the
-          card's own history check brings the section back. */}
+          existing. The card now handles a dataless day itself, by saying so —
+          a day the ring didn't report silently deleting the whole section is
+          what this gate used to cause. */}
       {(ouraConnected || hasMovementData(movementHistory)) && (
         <Section title="Movement">
           <DailyMovementCard />
