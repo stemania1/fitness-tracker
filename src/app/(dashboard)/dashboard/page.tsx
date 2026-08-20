@@ -49,6 +49,7 @@ import { ExpressWorkoutCard } from "@/components/activity/ExpressWorkoutCard"
 import { ThisWeekCard } from "@/components/activity/ThisWeekCard"
 import { RemindersCard } from "@/components/activity/RemindersCard"
 import { QuickLogFood } from "@/components/activity/QuickLogFood"
+import { QuickLogHunger } from "@/components/activity/QuickLogHunger"
 import { QuickLogCaffeine } from "@/components/activity/QuickLogCaffeine"
 import { NutritionCard } from "@/components/activity/NutritionCard"
 import { CaffeineCard } from "@/components/activity/CaffeineCard"
@@ -276,6 +277,7 @@ export default function DashboardPage() {
           <div className="flex gap-2">
             <QuickLogFood />
             <QuickLogCaffeine />
+            <QuickLogHunger />
           </div>
         </div>
 
