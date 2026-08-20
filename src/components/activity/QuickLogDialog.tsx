@@ -69,13 +69,19 @@ export function QuickLogDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       {trigger && (
         <DialogTrigger
+          // min-w-0 matters: a flex/grid item defaults to min-width:auto, so
+          // without it a long label ("Quick Strength") refuses to shrink and
+          // pushes the whole row past the screen edge instead.
           className={cn(
             buttonVariants({ variant: "secondary" }),
-            "flex-1 gap-2",
+            "min-w-0 gap-2",
             triggerClassName
           )}
         >
-          <trigger.icon className={triggerIconClassName} aria-hidden="true" />
+          <trigger.icon
+            className={cn("shrink-0", triggerIconClassName)}
+            aria-hidden="true"
+          />
           {trigger.label}
         </DialogTrigger>
       )}

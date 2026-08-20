@@ -355,19 +355,23 @@ describe("energy scale vocabulary", () => {
     )
     expect(expectation.score).toBe(2.6)
     expect(readout?.verdict).toBe("matches")
-    // The logged level is named, and the expectation is not passed off as Okay.
-    expect(readout?.detail).toContain("2 (Low)")
-    expect(readout?.detail).not.toContain("3 (Okay)")
+    // The prose names no level at all now — the card renders both sides in a
+    // row above it. What it must never do is call this read "Okay".
+    expect(readout?.detail).not.toMatch(/Drained|Low|Okay|Good|Energized/)
     expect(energyExpectedLabel(expectation.score)).toBe("Low-Okay")
+    // Both sides stay available for the card to render.
+    expect(readout?.felt).toBe(2)
   })
 
-  // The readout and the badge have to speak one language, or the card
-  // contradicts itself the moment you answer it.
-  it("describes the expectation in scale words, not band words", () => {
-    const { readout } = assessEnergy(base({ sleepScore: 90, hour: 9 }), 2)
-    const detail = readout?.detail ?? ""
-    expect(detail).toContain(energyLevelText(readout!.expectation.score))
-    expect(detail).not.toMatch(/\b(moderate|high)-energy\b/)
+  // The prose explains; the card's comparison row does the naming. Mixing the
+  // two is how the copy ended up quoting a level the user had not picked.
+  it("keeps level names out of the readout prose entirely", () => {
+    for (const felt of [1, 3, 5] as const) {
+      const { readout } = assessEnergy(base({ sleepScore: 90, hour: 9 }), felt)
+      const detail = readout?.detail ?? ""
+      expect(detail).not.toMatch(/\d \(/)
+      expect(detail).not.toMatch(/\b(moderate|high)-energy\b/)
+    }
   })
 })
 

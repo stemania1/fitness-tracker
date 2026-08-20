@@ -151,6 +151,29 @@ export function useEnergyCheckin(day: string) {
 }
 
 /** When the user last weighed in, or null if they never have. */
+export interface HungerRow {
+  id: string
+  level: number
+  logged_at: string
+}
+
+/** Standalone hunger ratings logged on or after `dayStartIso`, oldest first. */
+export function useHungerLogs(dayStartIso: string) {
+  return useUserQuery<HungerRow[]>(
+    queryKeys.hungerToday(dayStartIso),
+    async (userId) => {
+      const { data, error } = await supabase
+        .from("hunger_logs")
+        .select("id, level, logged_at")
+        .eq("user_id", userId)
+        .gte("logged_at", dayStartIso)
+        .order("logged_at", { ascending: true })
+      if (error) throw error
+      return (data ?? []) as HungerRow[]
+    }
+  )
+}
+
 export function useLastWeighIn() {
   return useUserQuery<string | null>(queryKeys.lastWeighIn, async (userId) => {
     const { data, error } = await supabase

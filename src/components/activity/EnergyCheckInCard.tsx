@@ -10,6 +10,7 @@ import {
   checkinPrompt,
   partOfDay,
   energyExpectedLabel,
+  energyLevelText,
   ENERGY_LEVEL_LABELS,
   type EnergyLevel,
   type EnergyBand,
@@ -124,6 +125,8 @@ export function EnergyCheckInCard({
     },
     felt
   )
+  const showReadout = !isLoading && !showSelector && readout != null
+
   // Named on the same 1-5 scale as the buttons, so "expected" and "felt" are
   // directly comparable — which is the entire point of the card. A read that
   // lands between two words is badged with both rather than rounded to one.
@@ -133,13 +136,20 @@ export function EnergyCheckInCard({
     <InsightCard
       icon={BatteryCharging}
       title="Energy Check-In"
+      // Only until a check-in exists. Once the readout is up it carries its
+      // own "You vs Expected" row, and a header badge saying "Expected:
+      // Low-Okay" beside a row saying "Expected: 2-3 (Low to Okay)" is the
+      // same number in two formats — the exact split vocabulary this card has
+      // been bitten by twice.
       action={
-        <span
-          className={`rounded-full px-2 py-0.5 text-xs font-medium ${bandChip[expectation.band]}`}
-          title="Expected energy from today's signals, on the same 1-5 scale"
-        >
-          Expected: {expectedLabel}
-        </span>
+        showReadout ? undefined : (
+          <span
+            className={`rounded-full px-2 py-0.5 text-xs font-medium ${bandChip[expectation.band]}`}
+            title="Expected energy from today's signals, on the same 1-5 scale"
+          >
+            Expected: {expectedLabel}
+          </span>
+        )
       }
     >
         {isLoading ? (
@@ -177,7 +187,24 @@ export function EnergyCheckInCard({
             <Sparkles className="h-4 w-4 text-purple-600" />
             {readout.headline}
           </p>
-          <p className="mt-1 text-sm text-gray-700">{readout.detail}</p>
+
+          {/* Both sides of the comparison, side by side.
+              The card used to print only the expectation — "your signals
+              point to 3 (Okay) energy" — and never what you had actually
+              logged, so a card whose whole job is felt-vs-expected showed one
+              of the two. Reading it back is also the only way to see that a
+              check-in saved as the level you picked. */}
+          <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+            <span className="rounded-full bg-white/80 px-2 py-0.5 font-semibold text-gray-900">
+              You: {energyLevelText(readout.felt)}
+            </span>
+            <span className="text-gray-400">vs</span>
+            <span className="rounded-full bg-white/80 px-2 py-0.5 text-gray-600">
+              Expected: {energyLevelText(expectation.score)}
+            </span>
+          </p>
+
+          <p className="mt-2 text-sm text-gray-700">{readout.detail}</p>
         </div>
 
         {expectation.drivers.length > 0 && (

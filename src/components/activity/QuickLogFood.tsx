@@ -11,6 +11,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog"
+import { buttonVariants } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -427,11 +429,17 @@ export function QuickLogFood() {
         if (!v) reset()
       }}
     >
+      {/* Styled from buttonVariants rather than by hand. The hand-rolled copy
+          had drifted: it lacked `whitespace-nowrap`, so this was the one chip
+          in the row that wrapped to two lines, leaving its neighbours short. */}
       <button
         onClick={() => setOpen(true)}
-        className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-50"
+        className={cn(
+          buttonVariants({ variant: "secondary" }),
+          "min-w-0 gap-2"
+        )}
       >
-        <Camera className="h-4 w-4" />
+        <Camera className="h-4 w-4 shrink-0" aria-hidden="true" />
         Snap Meal
       </button>
       <DialogContent className="mx-4 max-w-sm">

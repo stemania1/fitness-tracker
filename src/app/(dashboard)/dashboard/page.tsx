@@ -43,13 +43,13 @@ import {
   hasMovementData,
 } from "@/hooks/useMovementHistory"
 import { EnergyCheckInCard } from "@/components/activity/EnergyCheckInCard"
+import { HungerCheckInCard } from "@/components/activity/HungerCheckInCard"
 import { BedtimeCard } from "@/components/activity/BedtimeCard"
 import { WeeklyDigestCard } from "@/components/activity/WeeklyDigestCard"
 import { ExpressWorkoutCard } from "@/components/activity/ExpressWorkoutCard"
 import { ThisWeekCard } from "@/components/activity/ThisWeekCard"
 import { RemindersCard } from "@/components/activity/RemindersCard"
 import { QuickLogFood } from "@/components/activity/QuickLogFood"
-import { QuickLogHunger } from "@/components/activity/QuickLogHunger"
 import { QuickLogCaffeine } from "@/components/activity/QuickLogCaffeine"
 import { NutritionCard } from "@/components/activity/NutritionCard"
 import { CaffeineCard } from "@/components/activity/CaffeineCard"
@@ -207,6 +207,7 @@ export default function DashboardPage() {
   // and six memos inline. See hooks/useTodaysSignals.
   const {
     fuel,
+    lastMeal,
     caffeineLevel,
     caffeineWarning,
     trainedToday,
@@ -269,15 +270,18 @@ export default function DashboardPage() {
             <Plus className="h-4 w-4" />
             Start Workout
           </Link>
-          <div className="flex gap-2">
+          {/* One grid, not hand-split rows. Three across cannot fit these
+              labels on a phone — "Quick Strength" alone needs about 154px
+              against roughly 119px of column — and flex items refuse to
+              shrink below their content, so the old rows ran off the right
+              edge and clipped the last chip. Two columns fit on one line at
+              360px; three only once there is room for them. */}
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             <QuickLogStrength />
             <QuickLogExercise />
             <QuickLogWeight />
-          </div>
-          <div className="flex gap-2">
             <QuickLogFood />
             <QuickLogCaffeine />
-            <QuickLogHunger />
           </div>
         </div>
 
@@ -315,6 +319,7 @@ export default function DashboardPage() {
           caffeine={caffeineLevel}
           caffeineWarning={caffeineWarning}
         />
+        <HungerCheckInCard lastMeal={lastMeal} />
         <OuraSummaryCard />
         <BedtimeCard />
         {ouraInsights.length > 0 && (
