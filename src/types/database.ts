@@ -462,6 +462,7 @@ export interface Database {
           fat_g: number
           sugar_g: number
           glycemic_load: number
+          pre_meal_hunger: number | null
           image_path: string | null
           confidence: "low" | "medium" | "high" | null
           edited: boolean
@@ -480,6 +481,7 @@ export interface Database {
           fat_g?: number
           sugar_g?: number
           glycemic_load?: number
+          pre_meal_hunger?: number | null
           image_path?: string | null
           confidence?: "low" | "medium" | "high" | null
           edited?: boolean
@@ -498,6 +500,7 @@ export interface Database {
           fat_g?: number
           sugar_g?: number
           glycemic_load?: number
+          pre_meal_hunger?: number | null
           image_path?: string | null
           confidence?: "low" | "medium" | "high" | null
           edited?: boolean

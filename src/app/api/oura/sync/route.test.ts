@@ -16,7 +16,12 @@ vi.mock("@/lib/supabase/server", () => ({
 vi.mock("@/lib/oura-token", () => ({
   resolveOuraAccessToken: mocks.resolveToken,
 }))
-vi.mock("@/lib/oura", () => ({ getOuraDailyHistory: mocks.getHistory }))
+// Partial mock: the route also reads OURA_HISTORY_DAYS, and hard-coding it
+// here would let the real constant drift without this test noticing.
+vi.mock("@/lib/oura", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/oura")>()),
+  getOuraDailyHistory: mocks.getHistory,
+}))
 
 import { POST } from "./route"
 

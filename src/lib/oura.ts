@@ -532,6 +532,17 @@ export function formatSleepDuration(seconds: number): string {
 }
 
 /**
+ * How many days of Oura history the app actually keeps.
+ *
+ * The sync backfills this window on every run and never reaches further, so
+ * it is also the hard limit on any analysis that joins workouts to stored
+ * readiness or sleep. Anything asking for a longer window silently gets
+ * nulls for the excess, which looks like missing data rather than a window
+ * that was never populated.
+ */
+export const OURA_HISTORY_DAYS = 90
+
+/**
  * One calendar day of stored Oura history — the durable slice we persist so
  * sleep/readiness/steps can join the energy correlations and long-term trends
  * (the rest of the summary is fetched live and not stored). `day` is the

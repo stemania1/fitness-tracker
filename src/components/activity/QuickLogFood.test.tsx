@@ -816,4 +816,94 @@ describe("QuickLogFood", () => {
       expect(mealTypeSelect().value).toBe("breakfast")
     })
   })
+
+  describe("hunger before eating", () => {
+    /** The food_logs insert row. */
+    function foodRow() {
+      return mocks.insert.mock.calls.find((c) => c[1] === "food_logs")?.[0]
+    }
+
+    it("saves the rating chosen before the meal", async () => {
+      renderWithClient(<QuickLogFood />)
+      await openAndEstimate()
+      fireEvent.click(screen.getByRole("button", { name: "Ravenous" }))
+      fireEvent.click(screen.getByRole("button", { name: /save meal/i }))
+
+      await waitFor(() => expect(mocks.insert).toHaveBeenCalled())
+      expect(foodRow().pre_meal_hunger).toBe(5)
+    })
+
+    it("stores a skipped rating as null, never as zero", async () => {
+      renderWithClient(<QuickLogFood />)
+      await openAndEstimate()
+      fireEvent.click(screen.getByRole("button", { name: /save meal/i }))
+
+      await waitFor(() => expect(mocks.insert).toHaveBeenCalled())
+      // null reads downstream as "not asked". A 0 would be a sixth level
+      // below "still full", and satietyIntervals would score it as one.
+      expect(foodRow().pre_meal_hunger).toBeNull()
+    })
+
+    it("clears the rating when the chosen level is tapped again", async () => {
+      renderWithClient(<QuickLogFood />)
+      await openAndEstimate()
+      const hungry = screen.getByRole("button", { name: "Hungry" })
+      fireEvent.click(hungry)
+      expect(hungry).toHaveAttribute("aria-pressed", "true")
+      fireEvent.click(hungry)
+      expect(hungry).toHaveAttribute("aria-pressed", "false")
+
+      fireEvent.click(screen.getByRole("button", { name: /save meal/i }))
+      await waitFor(() => expect(mocks.insert).toHaveBeenCalled())
+      expect(foodRow().pre_meal_hunger).toBeNull()
+    })
+
+    it("keeps one level selected at a time", async () => {
+      renderWithClient(<QuickLogFood />)
+      await openAndEstimate()
+      fireEvent.click(screen.getByRole("button", { name: "Still full" }))
+      fireEvent.click(screen.getByRole("button", { name: "Ready" }))
+
+      expect(screen.getByRole("button", { name: "Still full" })).toHaveAttribute(
+        "aria-pressed",
+        "false"
+      )
+      fireEvent.click(screen.getByRole("button", { name: /save meal/i }))
+      await waitFor(() => expect(mocks.insert).toHaveBeenCalled())
+      expect(foodRow().pre_meal_hunger).toBe(3)
+    })
+
+    it("does not count rating your hunger as editing the estimate", async () => {
+      renderWithClient(<QuickLogFood />)
+      await openAndEstimate()
+      fireEvent.click(screen.getByRole("button", { name: "Satisfied" }))
+      fireEvent.click(screen.getByRole("button", { name: /save meal/i }))
+
+      await waitFor(() => expect(mocks.insert).toHaveBeenCalled())
+      // edited tracks the model's numbers, not this. Flipping it here would
+      // poison the estimator-accuracy read.
+      expect(foodRow().edited).toBe(false)
+      expect(foodRow().pre_meal_hunger).toBe(2)
+    })
+
+    it("starts unrated again for the next meal", async () => {
+      renderWithClient(<QuickLogFood />)
+      await openAndEstimate()
+      fireEvent.click(screen.getByRole("button", { name: "Ravenous" }))
+      fireEvent.click(screen.getByRole("button", { name: /save meal/i }))
+      await waitFor(() => expect(mocks.insert).toHaveBeenCalled())
+
+      // Reopen: a stale rating carried over from the last meal would be
+      // recorded as a real answer for this one.
+      mocks.insert.mockClear()
+      await openAndEstimate()
+      expect(screen.getByRole("button", { name: "Ravenous" })).toHaveAttribute(
+        "aria-pressed",
+        "false"
+      )
+      fireEvent.click(screen.getByRole("button", { name: /save meal/i }))
+      await waitFor(() => expect(mocks.insert).toHaveBeenCalled())
+      expect(foodRow().pre_meal_hunger).toBeNull()
+    })
+  })
 })
