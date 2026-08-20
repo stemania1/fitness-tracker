@@ -8,6 +8,7 @@ import { MuscleBalanceCard } from "@/components/activity/MuscleBalanceCard"
 import { EnergyBalanceCard } from "@/components/activity/EnergyBalanceCard"
 import { EnergyDriversCard } from "@/components/activity/EnergyDriversCard"
 import { RecoveryWatchCard } from "@/components/activity/RecoveryWatchCard"
+import { ReadinessPerformanceCard } from "@/components/activity/ReadinessPerformanceCard"
 import { WeeklyTrainingCard } from "@/components/activity/WeeklyTrainingCard"
 import { RecentPRsCard } from "@/components/activity/RecentPRsCard"
 import { RecentWorkoutsCard } from "@/components/activity/RecentWorkoutsCard"
@@ -83,6 +84,7 @@ export default function InsightsPage() {
         <SleepTrendCard />
         <RemInsightsCard />
         <RecoveryWatchCard />
+        <ReadinessPerformanceCard />
       </Section>
 
       <Section
