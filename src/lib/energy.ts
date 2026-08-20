@@ -159,13 +159,51 @@ export function energyLevelLabel(score: number): string {
 }
 
 /**
- * How the expectation is named in prose: "4 (Good)". The number carries the
- * comparison — the buttons lead with numbers — and the word keeps it readable
- * without inventing a second vocabulary.
+ * How far a fractional expectation can sit from a whole level before naming it
+ * by that level's word alone becomes a lie.
+ *
+ * An expectation of 2.6 is not "Okay". Rounding it to one and then telling
+ * someone who logged 2 (Low) that their feeling "lines up with the 3 (Okay)
+ * read" contradicts itself on the page — the words Low and Okay are the whole
+ * vocabulary of the card, and it just used one to mean the other. Inside the
+ * tolerance the nearer word is honest shorthand; outside it, say both.
+ */
+const LEVEL_NAMING_TOLERANCE = 0.25
+
+/** The one or two scale levels a score is fairly named by. */
+function levelSpan(score: number): { lo: EnergyLevel; hi: EnergyLevel } {
+  const clamped = clamp(score, 1, 5)
+  const nearest = clamp(Math.round(clamped), 1, 5) as EnergyLevel
+  if (Math.abs(clamped - nearest) <= LEVEL_NAMING_TOLERANCE) {
+    return { lo: nearest, hi: nearest }
+  }
+  return {
+    lo: clamp(Math.floor(clamped), 1, 5) as EnergyLevel,
+    hi: clamp(Math.ceil(clamped), 1, 5) as EnergyLevel,
+  }
+}
+
+/**
+ * How the expectation is named in prose: "4 (Good)", or "2-3 (Low to Okay)"
+ * when it genuinely falls between two words. The number carries the comparison
+ * — the buttons lead with numbers — and the word keeps it readable without
+ * inventing a second vocabulary.
  */
 export function energyLevelText(score: number): string {
-  const level = clamp(Math.round(score), 1, 5)
-  return `${level} (${energyLevelLabel(score)})`
+  const { lo, hi } = levelSpan(score)
+  if (lo === hi) return `${lo} (${ENERGY_LEVEL_LABELS[lo]})`
+  return `${lo}-${hi} (${ENERGY_LEVEL_LABELS[lo]} to ${ENERGY_LEVEL_LABELS[hi]})`
+}
+
+/**
+ * The badge's short form — the same honesty rule without the numbers, since
+ * a badge reading "Expected: Okay" beside prose reading "2-3 (Low to Okay)"
+ * puts the card back to speaking two languages about one number.
+ */
+export function energyExpectedLabel(score: number): string {
+  const { lo, hi } = levelSpan(score)
+  if (lo === hi) return ENERGY_LEVEL_LABELS[lo]
+  return `${ENERGY_LEVEL_LABELS[lo]}-${ENERGY_LEVEL_LABELS[hi]}`
 }
 
 /**
@@ -326,7 +364,12 @@ export function reconcileEnergy(
         : part === "evening"
           ? "Evenings run lower by design — let the wind-down do its job."
           : "Nothing here looks off — trust it and act accordingly."
-    detail = `What you're feeling lines up with the ${expectedLabel} read your signals point to${softHedge}. ${tail}`
+    // Names the logged level explicitly. Saying only "lines up with the X
+    // read" let the card answer a 2 (Low) check-in with someone else's word
+    // for it, which reads as the card ignoring what you told it.
+    detail =
+      `You logged ${energyLevelText(felt)}, and your signals point to ${expectedLabel}` +
+      `${softHedge} — those line up. ${tail}`
   } else if (diff < 0) {
     verdict = "below"
     if (part === "morning") {
