@@ -60,6 +60,26 @@ export interface PerfSession {
   exercises: PerfExercise[]
 }
 
+/**
+ * Where sessions went.
+ *
+ * "Not enough sessions" is an unhelpful thing to be told when you know you
+ * have logged plenty — it looks like the feature is broken rather than like
+ * the data is missing something specific. This says which stage lost them,
+ * which is the difference between "keep training" and "your ring history
+ * doesn't reach back that far".
+ */
+export interface PerformanceFunnel {
+  /** Sessions handed in. */
+  sessions: number
+  /** Dropped: no lift with prior history to compare against yet. */
+  noComparableLift: number
+  /** Dropped: no readiness score stored for that day. */
+  noReadiness: number
+  /** Scored. */
+  scored: number
+}
+
 /** A session scored against its own lifts' recent norms. */
 export interface SessionPerformance {
   day: string
@@ -155,10 +175,16 @@ export function bestE1RM(sets: PerfSet[]): number | null {
 export function sessionPerformances(
   sessions: PerfSession[],
   baselineSessions = BASELINE_SESSIONS
-): SessionPerformance[] {
+): { performances: SessionPerformance[]; funnel: PerformanceFunnel } {
   const ordered = [...sessions].sort((a, b) => a.day.localeCompare(b.day))
   const history = new Map<string, number[]>()
   const out: SessionPerformance[] = []
+  const funnel: PerformanceFunnel = {
+    sessions: ordered.length,
+    noComparableLift: 0,
+    noReadiness: 0,
+    scored: 0,
+  }
 
   for (const session of ordered) {
     const ratios: number[] = []
@@ -177,7 +203,19 @@ export function sessionPerformances(
       history.set(exercise.exerciseKey, [...prior, today])
     }
 
-    if (session.readiness == null || ratios.length === 0) continue
+    // Checked in this order so the reason reported is the specific one: a
+    // cardio-only or first-time-lift session is unscoreable whatever the
+    // readiness score was.
+    if (ratios.length === 0) {
+      funnel.noComparableLift++
+      continue
+    }
+    if (session.readiness == null) {
+      funnel.noReadiness++
+      continue
+    }
+
+    funnel.scored++
     out.push({
       day: session.day,
       readiness: session.readiness,
@@ -186,7 +224,7 @@ export function sessionPerformances(
     })
   }
 
-  return out
+  return { performances: out, funnel }
 }
 
 function describe(

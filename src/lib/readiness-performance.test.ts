@@ -59,7 +59,7 @@ describe("sessionPerformances", () => {
     // Three sessions at 100, then one at 110 → 10% above the norm. The
     // second and third also score (each has the ones before it), so the
     // session under test is the last.
-    const out = sessionPerformances([...baseline(3), session("2026-01-04", 90, 110)])
+    const { performances: out } = sessionPerformances([...baseline(3), session("2026-01-04", 90, 110)])
     const today = out[out.length - 1]
     expect(today.relative).toBeCloseTo(1.1, 3)
     expect(today.readiness).toBe(90)
@@ -70,13 +70,13 @@ describe("sessionPerformances", () => {
   // The mistake that would quietly destroy the finding: including today in
   // its own baseline pulls every score toward 1.
   it("never lets a session inform its own baseline", () => {
-    const out = sessionPerformances([...baseline(1), session("2026-01-02", 90, 200)])
+    const { performances: out } = sessionPerformances([...baseline(1), session("2026-01-02", 90, 200)])
     // Baseline is the single prior session (100), not a median including 200.
     expect(out[0].relative).toBeCloseTo(200 / 100, 3)
   })
 
   it("drops the first session of a lift, which has no baseline", () => {
-    expect(sessionPerformances([session("2026-01-01", 80, 100)])).toEqual([])
+    expect(sessionPerformances([session("2026-01-01", 80, 100)]).performances).toEqual([])
   })
 
   it("averages across the lifts in a session", () => {
@@ -98,7 +98,7 @@ describe("sessionPerformances", () => {
         { exerciseKey: "row", sets: [{ weight: 100, reps: 5 }] }, // +0%
       ],
     }
-    const out = sessionPerformances([...prior, today])
+    const { performances: out } = sessionPerformances([...prior, today])
     expect(out[0].relative).toBeCloseTo(1.1, 3)
     expect(out[0].lifts).toBe(2)
   })
@@ -118,17 +118,17 @@ describe("sessionPerformances", () => {
       readiness: 90,
       exercises: [{ exerciseKey: "assisted-pull-up", assisted: true, sets: [{ weight: 40, reps: 5 }] }],
     }
-    expect(sessionPerformances([...prior, today])).toEqual([])
+    expect(sessionPerformances([...prior, today]).performances).toEqual([])
   })
 
   it("skips sessions with no readiness score", () => {
-    const out = sessionPerformances([...baseline(2), session("2026-01-03", null, 110)])
+    const { performances: out } = sessionPerformances([...baseline(2), session("2026-01-03", null, 110)])
     // The scoreable baseline day survives; the unscored day is absent.
     expect(out.map((p) => p.day)).toEqual(["2026-01-02"])
   })
 
   it("orders by day regardless of input order, so baselines stay causal", () => {
-    const out = sessionPerformances([
+    const { performances: out } = sessionPerformances([
       session("2026-01-03", 90, 110),
       session("2026-01-01", 80, 100),
       session("2026-01-02", 80, 100),
@@ -146,11 +146,59 @@ describe("sessionPerformances", () => {
     const recent = Array.from({ length: 5 }, (_, i) =>
       session(`2026-01-${String(i + 7).padStart(2, "0")}`, 80, 200)
     )
-    const out = sessionPerformances(
+    const { performances: out } = sessionPerformances(
       [...old, ...recent, session("2026-01-12", 90, 200)],
       5
     )
     expect(out[out.length - 1].relative).toBeCloseTo(1, 3)
+  })
+})
+
+describe("sessionPerformances — funnel", () => {
+  it("counts every session and where it went", () => {
+    const { funnel } = sessionPerformances([...baseline(3), session("2026-01-04", 90, 110)])
+    expect(funnel.sessions).toBe(4)
+    // The first session of a lift has no baseline to compare against.
+    expect(funnel.noComparableLift).toBe(1)
+    expect(funnel.scored).toBe(3)
+    expect(
+      funnel.noComparableLift + funnel.noReadiness + funnel.scored
+    ).toBe(funnel.sessions)
+  })
+
+  // The case that made a real account report "2 scored" out of a full log:
+  // workouts older than the stored Oura window have no readiness at all.
+  it("attributes sessions lost to a missing readiness score", () => {
+    const noScores = [
+      session("2026-01-01", null, 100),
+      session("2026-01-02", null, 100),
+      session("2026-01-03", null, 100),
+    ]
+    const { performances, funnel } = sessionPerformances(noScores)
+    expect(performances).toEqual([])
+    expect(funnel.noReadiness).toBe(2)
+    expect(funnel.noComparableLift).toBe(1)
+    expect(funnel.scored).toBe(0)
+  })
+
+  it("attributes a cardio-only session to having no comparable lift", () => {
+    const cardio: PerfSession = {
+      day: "2026-01-04",
+      readiness: 90,
+      exercises: [{ exerciseKey: "treadmill", sets: [{ weight: null, reps: null }] }],
+    }
+    const { funnel } = sessionPerformances([...baseline(2), cardio])
+    expect(funnel.noComparableLift).toBe(2)
+    expect(funnel.noReadiness).toBe(0)
+  })
+
+  it("reports an empty funnel for no sessions at all", () => {
+    expect(sessionPerformances([]).funnel).toEqual({
+      sessions: 0,
+      noComparableLift: 0,
+      noReadiness: 0,
+      scored: 0,
+    })
   })
 })
 

@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
-import { getOuraDailyHistory } from "@/lib/oura"
+import { getOuraDailyHistory, OURA_HISTORY_DAYS } from "@/lib/oura"
 import { resolveOuraAccessToken } from "@/lib/oura-token"
 import { localDateString as ymd } from "@/lib/dates"
 
 export const runtime = "nodejs"
 
-/** How far back to backfill on each sync. */
-const BACKFILL_DAYS = 90
+/** How far back to backfill on each sync. Shared, so no consumer can ask
+ *  for a longer window than actually gets written. */
+const BACKFILL_DAYS = OURA_HISTORY_DAYS
 
 /**
  * POST /api/oura/sync — backfill/refresh the caller's stored Oura daily

@@ -4,6 +4,7 @@ import { useMemo } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Gauge } from "lucide-react"
 import { exercises as staticExercises } from "@/data/exercises"
+import { OURA_HISTORY_DAYS } from "@/lib/oura"
 import { useUserQuery } from "@/lib/supabase/user-query"
 import { InsightCard } from "@/components/ui/insight-card"
 import { CHIP_TONES } from "@/lib/constants"
@@ -18,8 +19,14 @@ import {
 
 const supabase = createClient()
 
-/** Long window: this needs sessions across a range of readiness scores. */
-const WINDOW_DAYS = 180
+/**
+ * Capped at the stored Oura history, not at what we'd like.
+ *
+ * This asked for 180 days while the sync only ever writes 90, so every
+ * workout older than that came back with a null readiness score and was
+ * dropped — indistinguishable, from the card, from never having trained.
+ */
+const WINDOW_DAYS = OURA_HISTORY_DAYS
 
 const VERDICT_TONE: Record<ReadinessVerdict, keyof typeof CHIP_TONES> = {
   "not-enough-data": "neutral",
@@ -110,9 +117,13 @@ export function ReadinessPerformanceCard() {
     }
   )
 
-  const result = useMemo(() => {
-    if (!sessions) return null
-    return readinessPerformance(sessionPerformances(sessions))
+  const { result, funnel } = useMemo(() => {
+    if (!sessions) return { result: null, funnel: null }
+    const scored = sessionPerformances(sessions)
+    return {
+      result: readinessPerformance(scored.performances),
+      funnel: scored.funnel,
+    }
   }, [sessions])
 
   return (
@@ -142,6 +153,32 @@ export function ReadinessPerformanceCard() {
           <p className="text-sm leading-relaxed text-gray-600">
             {result.detail}
           </p>
+
+          {/* Where the sessions went. "Not enough" reads as a broken feature
+              when you know you've logged plenty; naming the stage that lost
+              them is the difference between "keep training" and "your ring
+              history doesn't reach back that far". */}
+          {result.verdict === "not-enough-data" && funnel && funnel.sessions > 0 && (
+            <dl className="space-y-1 rounded-lg bg-gray-50 p-3 text-xs">
+              {[
+                ["Workouts in range", funnel.sessions],
+                ["No comparable lift yet", funnel.noComparableLift],
+                ["No readiness stored for that day", funnel.noReadiness],
+                ["Scored", funnel.scored],
+              ].map(([label, value]) => (
+                <div key={String(label)} className="flex justify-between gap-3">
+                  <dt className="text-gray-500">{label}</dt>
+                  <dd className="font-medium text-gray-700">{value}</dd>
+                </div>
+              ))}
+              {funnel.noReadiness > funnel.scored && (
+                <p className="pt-1 text-gray-400">
+                  Stored Oura history only reaches back {WINDOW_DAYS} days, so
+                  older workouts can never be scored.
+                </p>
+              )}
+            </dl>
+          )}
 
           {result.low && result.high && (
             <div className="grid grid-cols-2 gap-3 border-t border-gray-100 pt-3">
