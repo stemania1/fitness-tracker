@@ -270,12 +270,16 @@ export default function DashboardPage() {
             <Plus className="h-4 w-4" />
             Start Workout
           </Link>
-          <div className="flex gap-2">
+          {/* One grid, not hand-split rows. Three across cannot fit these
+              labels on a phone — "Quick Strength" alone needs about 154px
+              against roughly 119px of column — and flex items refuse to
+              shrink below their content, so the old rows ran off the right
+              edge and clipped the last chip. Two columns fit on one line at
+              360px; three only once there is room for them. */}
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             <QuickLogStrength />
             <QuickLogExercise />
             <QuickLogWeight />
-          </div>
-          <div className="flex gap-2">
             <QuickLogFood />
             <QuickLogCaffeine />
           </div>

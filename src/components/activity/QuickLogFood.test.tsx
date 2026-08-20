@@ -108,6 +108,18 @@ describe("QuickLogFood", () => {
     expect(screen.queryByRole("dialog")).toBeNull()
   })
 
+  // The trigger used to be styled by hand and had drifted from
+  // buttonVariants: no whitespace-nowrap, so "Snap Meal" was the one chip in
+  // the quick-log row that wrapped to two lines while its neighbours stayed
+  // short, and the row came out ragged.
+  it("styles its trigger like every other quick-log chip", () => {
+    renderWithClient(<QuickLogFood />)
+    const trigger = screen.getByRole("button", { name: /snap meal/i })
+    expect(trigger.className).toContain("whitespace-nowrap")
+    // And it can shrink rather than pushing the row past the screen edge.
+    expect(trigger.className).toContain("min-w-0")
+  })
+
   it("estimates from a photo and shows the editable review", async () => {
     renderWithClient(<QuickLogFood />)
     await openAndEstimate()
