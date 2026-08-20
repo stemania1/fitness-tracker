@@ -120,6 +120,19 @@ describe("EnergyCheckInCard", () => {
     expect(await screen.findByText(/how are you starting the day|how's your energy (holding up|this evening)/i)).toBeInTheDocument()
   })
 
+  // Reported: "It shows expected but not actual — that's the confusing part."
+  // The readout named the expectation and never the logged level, so a card
+  // whose whole job is comparing the two only ever showed one of them.
+  it("shows both sides of the comparison, not just the expectation", async () => {
+    mocks.limit.mockResolvedValue({ data: [{ level: 1 }], error: null })
+    renderWithClient(<EnergyCheckInCard sleepScore={90} readinessScore={90} />)
+
+    expect(await screen.findByText("You: 1 (Drained)")).toBeInTheDocument()
+    expect(screen.getByText(/^Expected: \d/)).toBeInTheDocument()
+    // And the prose stops repeating either number.
+    expect(screen.queryByText(/signals point to \d \(/)).toBeNull()
+  })
+
   // Reported: "I update and it says Okay even if I said otherwise." The
   // selector reopening is not the same as the new answer reaching the readout,
   // which is what the old test stopped short of.
@@ -127,8 +140,8 @@ describe("EnergyCheckInCard", () => {
     mocks.limit.mockResolvedValue({ data: [{ level: 4 }], error: null })
     renderWithClient(<EnergyCheckInCard sleepScore={90} readinessScore={90} />)
 
-    // Signals are strong, so a felt 4 reads as a match and the detail names it.
-    expect(await screen.findByText(/4 \(Good\)/)).toBeInTheDocument()
+    // The row names what you logged, not just what was expected.
+    expect(await screen.findByText("You: 4 (Good)")).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole("button", { name: /update how i feel/i }))
     // The next read returns what the insert just wrote.
@@ -138,14 +151,13 @@ describe("EnergyCheckInCard", () => {
     await waitFor(() => expect(mocks.insert).toHaveBeenCalledTimes(1))
     expect(mocks.insert.mock.calls[0][0].level).toBe(1)
 
-    // Drained against strong signals is a mismatch. A card still reading the
-    // old 4 would stay on "This tracks", so the verdict flipping is the proof
-    // the new level reached the readout — and it doesn't depend on the clock,
-    // which the expectation's own label does.
+    // The row reads back the level just logged, and the verdict flips: a card
+    // still holding the old 4 would show "You: 4 (Good)" and stay on
+    // "This tracks".
     await waitFor(() =>
-      expect(screen.getByText(/heavier than that|emptier than that|more drained than that/i))
-        .toBeInTheDocument()
+      expect(screen.getByText("You: 1 (Drained)")).toBeInTheDocument()
     )
+    expect(screen.queryByText("You: 4 (Good)")).toBeNull()
     expect(screen.queryByText(/this tracks/i)).toBeNull()
   })
 
