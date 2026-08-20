@@ -8,6 +8,7 @@ import {
   deriveFuelState,
   energyLevelLabel,
   energyLevelText,
+  energyExpectedLabel,
   ENERGY_LEVEL_LABELS,
   type EnergyInputs,
 } from "./energy"
@@ -314,8 +315,24 @@ describe("energy scale vocabulary", () => {
   })
 
   it("pairs the number with the word in prose", () => {
-    expect(energyLevelText(3.6)).toBe("4 (Good)")
+    expect(energyLevelText(3.2)).toBe("3 (Okay)")
     expect(energyLevelText(1.2)).toBe("1 (Drained)")
+  })
+
+  // 2.6 is not "Okay". Rounding it to one and then telling someone who
+  // logged 2 (Low) that they line up with "3 (Okay)" is the card using one
+  // of its own five words to mean another.
+  it("names a read that falls between two words by both of them", () => {
+    expect(energyLevelText(2.6)).toBe("2-3 (Low to Okay)")
+    expect(energyLevelText(3.6)).toBe("3-4 (Okay to Good)")
+    expect(energyExpectedLabel(2.6)).toBe("Low-Okay")
+  })
+
+  it("uses the single nearest word when the read is close to one", () => {
+    expect(energyExpectedLabel(2.8)).toBe("Okay")
+    expect(energyExpectedLabel(3)).toBe("Okay")
+    expect(energyExpectedLabel(0.2)).toBe("Drained")
+    expect(energyExpectedLabel(9)).toBe("Energized")
   })
 
   it("covers every scale point with a label", () => {
@@ -323,6 +340,25 @@ describe("energy scale vocabulary", () => {
       expect(ENERGY_LEVEL_LABELS[level]).toBeTruthy()
       expect(energyLevelLabel(level)).toBe(ENERGY_LEVEL_LABELS[level])
     }
+  })
+
+  // Reported from the dashboard: logged Low, card answered "Okay".
+  //
+  // Low recovery + caffeine on board + the early-afternoon dip puts the
+  // expectation at 2.6, and a felt 2 is inside the +/-0.75 match band — the
+  // verdict was right. The sentence was not: it rounded 2.6 to "3 (Okay)"
+  // and told someone who had just pressed "Low" that this was what they felt.
+  it("never answers a check-in with a scale word the user did not pick", () => {
+    const { expectation, readout } = assessEnergy(
+      base({ hour: 14, sleepScore: 75, readinessScore: 60, caffeine: "active" }),
+      2
+    )
+    expect(expectation.score).toBe(2.6)
+    expect(readout?.verdict).toBe("matches")
+    // The logged level is named, and the expectation is not passed off as Okay.
+    expect(readout?.detail).toContain("2 (Low)")
+    expect(readout?.detail).not.toContain("3 (Okay)")
+    expect(energyExpectedLabel(expectation.score)).toBe("Low-Okay")
   })
 
   // The readout and the badge have to speak one language, or the card

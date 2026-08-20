@@ -28,6 +28,7 @@ import {
   standardDrinks,
   MAX_ALCOHOL_G,
 } from "@/lib/alcohol-drinks"
+import { HUNGER_LEVELS } from "@/lib/satiety"
 import { classifyMealGl, GL_WALK_TIP } from "@/lib/glycemic-load"
 import { MEAL_TYPES, defaultMealType, type MealType } from "@/lib/meal-type"
 import { BackdateChips, nowLocalDatetimeString } from "./BackdateChips"
@@ -45,19 +46,6 @@ function uuid(): string {
 function round1(n: number): number {
   return Math.round(n * 10) / 10
 }
-
-/**
- * Hunger before the meal, 1 (still full) to 5 (ravenous). Worded as states
- * rather than numbers so the answer needs no calibration — "ravenous" means
- * the same thing in March as it does in August, where "4 out of 5" drifts.
- */
-const HUNGER_LEVELS = [
-  { value: 1, label: "Still full" },
-  { value: 2, label: "Satisfied" },
-  { value: 3, label: "Ready" },
-  { value: 4, label: "Hungry" },
-  { value: 5, label: "Ravenous" },
-]
 
 export function QuickLogFood() {
   const [open, setOpen] = useState(false)

@@ -9,7 +9,7 @@ import {
   assessEnergy,
   checkinPrompt,
   partOfDay,
-  energyLevelLabel,
+  energyExpectedLabel,
   ENERGY_LEVEL_LABELS,
   type EnergyLevel,
   type EnergyBand,
@@ -125,8 +125,9 @@ export function EnergyCheckInCard({
     felt
   )
   // Named on the same 1-5 scale as the buttons, so "expected" and "felt" are
-  // directly comparable — which is the entire point of the card.
-  const expectedLabel = energyLevelLabel(expectation.score)
+  // directly comparable — which is the entire point of the card. A read that
+  // lands between two words is badged with both rather than rounded to one.
+  const expectedLabel = energyExpectedLabel(expectation.score)
 
   return (
     <InsightCard
