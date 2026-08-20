@@ -68,6 +68,8 @@ fitness-tracker/
 │   │   ├── vo2max.ts                # VO2 max classification
 │   │   ├── vo2max-percentile.ts     # Age/sex VO2 max percentiles
 │   │   ├── recovery.ts              # HRV overreaching / Recovery Watch
+│   │   ├── readiness-performance.ts # Does readiness predict your lifts?
+│   │   │                            #   (audits the readiness gate against outcomes)
 │   │   ├── sleep-insights.ts        # REM-sleep insights + correlations
 │   │   ├── heart-rate.ts            # HR zones from age
 │   │   ├── chart-ticks.ts           # Clock-aligned time ticks for chart axes
