@@ -34,6 +34,8 @@ import {
 
 export interface TodaysSignals {
   fuel: FuelState | null
+  /** The most recent meal logged today, or null if nothing has been. */
+  lastMeal: { description: string; loggedAt: string } | null
   caffeineLevel: ReturnType<typeof caffeineStatus>["level"] | null
   caffeineWarning: string | null
   trainedToday: boolean
@@ -182,8 +184,19 @@ export function useTodaysSignals(
     profile?.reminder_settings,
   ])
 
+  // The hunger check-in rates the gap since the last meal, so it needs to
+  // name it. Read off the food logs this hook already fetches rather than
+  // making the card query them a second time.
+  const lastMeal = useMemo(() => {
+    const meal = foodLogs?.[foodLogs.length - 1]
+    return meal
+      ? { description: meal.description, loggedAt: meal.logged_at }
+      : null
+  }, [foodLogs])
+
   return {
     fuel,
+    lastMeal,
     caffeineLevel,
     caffeineWarning,
     trainedToday,

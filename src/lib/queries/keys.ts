@@ -45,6 +45,7 @@ export const queryKeys = {
   creatineLogs: (day: string) => ["creatine-logs", day] as const,
   energyCheckins: (day: string) => ["energy-checkins", day] as const,
   hungerLogs: ["hunger-logs"] as const,
+  hungerToday: (dayStartIso: string) => ["hunger-today", dayStartIso] as const,
   weightLogs: ["weight-logs"] as const,
   weightLogsRecent: ["weight-logs-recent"] as const,
   lastWeighIn: ["last-weigh-in"] as const,

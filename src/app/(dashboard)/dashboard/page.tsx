@@ -43,13 +43,13 @@ import {
   hasMovementData,
 } from "@/hooks/useMovementHistory"
 import { EnergyCheckInCard } from "@/components/activity/EnergyCheckInCard"
+import { HungerCheckInCard } from "@/components/activity/HungerCheckInCard"
 import { BedtimeCard } from "@/components/activity/BedtimeCard"
 import { WeeklyDigestCard } from "@/components/activity/WeeklyDigestCard"
 import { ExpressWorkoutCard } from "@/components/activity/ExpressWorkoutCard"
 import { ThisWeekCard } from "@/components/activity/ThisWeekCard"
 import { RemindersCard } from "@/components/activity/RemindersCard"
 import { QuickLogFood } from "@/components/activity/QuickLogFood"
-import { QuickLogHunger } from "@/components/activity/QuickLogHunger"
 import { QuickLogCaffeine } from "@/components/activity/QuickLogCaffeine"
 import { NutritionCard } from "@/components/activity/NutritionCard"
 import { CaffeineCard } from "@/components/activity/CaffeineCard"
@@ -207,6 +207,7 @@ export default function DashboardPage() {
   // and six memos inline. See hooks/useTodaysSignals.
   const {
     fuel,
+    lastMeal,
     caffeineLevel,
     caffeineWarning,
     trainedToday,
@@ -277,7 +278,6 @@ export default function DashboardPage() {
           <div className="flex gap-2">
             <QuickLogFood />
             <QuickLogCaffeine />
-            <QuickLogHunger />
           </div>
         </div>
 
@@ -315,6 +315,7 @@ export default function DashboardPage() {
           caffeine={caffeineLevel}
           caffeineWarning={caffeineWarning}
         />
+        <HungerCheckInCard lastMeal={lastMeal} />
         <OuraSummaryCard />
         <BedtimeCard />
         {ouraInsights.length > 0 && (
