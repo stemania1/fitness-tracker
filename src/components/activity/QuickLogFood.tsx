@@ -46,6 +46,19 @@ function round1(n: number): number {
   return Math.round(n * 10) / 10
 }
 
+/**
+ * Hunger before the meal, 1 (still full) to 5 (ravenous). Worded as states
+ * rather than numbers so the answer needs no calibration — "ravenous" means
+ * the same thing in March as it does in August, where "4 out of 5" drifts.
+ */
+const HUNGER_LEVELS = [
+  { value: 1, label: "Still full" },
+  { value: 2, label: "Satisfied" },
+  { value: 3, label: "Ready" },
+  { value: 4, label: "Hungry" },
+  { value: 5, label: "Ravenous" },
+]
+
 export function QuickLogFood() {
   const [open, setOpen] = useState(false)
   const [phase, setPhase] = useState<"idle" | "estimating" | "review">("idle")
@@ -81,6 +94,11 @@ export function QuickLogFood() {
   const [alcoholBase, setAlcoholBase] = useState(0)
   const [alcoholG, setAlcoholG] = useState(0)
   const [alcoholLabel, setAlcoholLabel] = useState<string | null>(null)
+  // How hungry you were BEFORE this meal. Rates the gap since the previous
+  // one, so it measures that meal's staying power rather than this one's.
+  // Optional: a skipped rating must read as "not asked", never as "not
+  // hungry", so it stays null.
+  const [preMealHunger, setPreMealHunger] = useState<number | null>(null)
   const [logAlcohol, setLogAlcohol] = useState(false)
   const [alcoholEdited, setAlcoholEdited] = useState(false)
   const [reestimating, setReestimating] = useState(false)
@@ -107,6 +125,7 @@ export function QuickLogFood() {
     setAlcoholBase(0)
     setAlcoholG(0)
     setAlcoholLabel(null)
+    setPreMealHunger(null)
     setLogAlcohol(false)
     setAlcoholEdited(false)
     setReestimateError(null)
@@ -362,6 +381,7 @@ export function QuickLogFood() {
         image_path: imagePath,
         confidence: estimate.confidence,
         edited,
+        pre_meal_hunger: preMealHunger,
         logged_at: when.toISOString(),
       })
       if (insErr) throw insErr
@@ -659,6 +679,43 @@ export function QuickLogFood() {
                   onChange={(e) => patch("sugar_g", e.target.value)}
                 />
               </div>
+            </div>
+
+            {/* Hunger BEFORE this meal, which rates the gap since the last
+                one — so it measures the previous meal's staying power, not
+                this one's. Asked here because it costs no new ritual: at the
+                moment of logging you can still remember, whereas a prompt two
+                hours after eating is a habit that would go unanswered.
+
+                Optional by design. Skipping stays null, and a null must read
+                downstream as "not asked" rather than "not hungry". */}
+            <div className="space-y-1.5">
+              <Label>Hunger before eating</Label>
+              <div className="flex gap-1.5">
+                {HUNGER_LEVELS.map((level) => (
+                  <button
+                    key={level.value}
+                    type="button"
+                    aria-pressed={preMealHunger === level.value}
+                    onClick={() =>
+                      setPreMealHunger(
+                        preMealHunger === level.value ? null : level.value
+                      )
+                    }
+                    className={`min-h-11 flex-1 rounded-lg px-1 py-2 text-xs font-medium transition-colors ${
+                      preMealHunger === level.value
+                        ? "bg-purple-600 text-white"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
+                  >
+                    {level.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-gray-400">
+                Optional. Tells you which meals actually hold you — tap again
+                to clear.
+              </p>
             </div>
 
             {/* Glucose-impact guidance from glycemic load — a food
